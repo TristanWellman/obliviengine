@@ -19,6 +19,7 @@ endif
 ifeq ($(OS),Windows_NT)
 	#BACKEND = -DSOKOL_D3D11
 	BACKEND = -DSOKOL_GLCORE
+
     LDFLAGS += -Llib -lSDL2 -lgdi32 -lopengl32
 endif
 
@@ -43,7 +44,7 @@ debug:
 
 shaders_win:
 	sokol-tools-bin/bin/win32/sokol-shdc.exe --input shaders/cube.glsl --output shaders/cubes.glsl.h --format sokol --slang glsl410
-	sokol-tools-bin/bin/osx/sokol-shdc --input shaders/lighting.glsl --output shaders/lighting.glsl.h --format sokol --slang glsl410
+	sokol-tools-bin/bin/win32/sokol-shdc --input shaders/light.glsl --output shaders/light.glsl.h --format sokol --slang glsl410
 
 shaders_mac:
 	sokol-tools-bin/bin/osx/sokol-shdc --input shaders/cube.glsl --output shaders/cubes.glsl.h --format sokol --slang glsl410
