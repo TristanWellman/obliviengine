@@ -1,0 +1,660 @@
+#define SOKOL_IMPL
+#include "renderer.h"
+#include "cube.h"
+
+#include <cubes.glsl.h>
+
+Object *getObjectFromName(char *name) {
+	if(name==NULL) return NULL;
+	int i;
+	for(i=0;i<globalRenderer->objSize;i++) {
+		if(globalRenderer->objects[i].name==NULL) continue;
+		if(!strcmp(globalRenderer->objects[i].name, name))
+			return &globalRenderer->objects[i];
+	}
+	return NULL;
+}
+
+void createObject(Object obj) {
+	if(obj.name==NULL) return;
+	int i;
+	if(globalRenderer->objSize>=globalRenderer->objCap) {
+		globalRenderer->objCap*=2;
+		globalRenderer->objects =
+			(Object *)realloc(globalRenderer->objects, 
+					sizeof(Object)*globalRenderer->objCap);
+	}
+	for(i=0;i<globalRenderer->objSize&&globalRenderer->objects[i].name!=NULL;i++);
+	size_t pos = globalRenderer->objSize;
+	memcpy(&globalRenderer->objects[pos].pipe, &obj.pipe, sizeof(obj.pipe));
+	memcpy(&globalRenderer->objects[pos].vbuf, &obj.vbuf, sizeof(obj.vbuf));
+	memcpy(&globalRenderer->objects[pos].ibuf, &obj.ibuf, sizeof(obj.ibuf));
+	memcpy(&globalRenderer->objects[pos].defShader, &obj.defShader, sizeof(obj.defShader));
+	
+	globalRenderer->objects[pos].name = calloc(strlen(obj.name)+1, sizeof(char));
+	strcpy(globalRenderer->objects[pos].name, obj.name);
+	if(obj.ID!=NULL) {
+		globalRenderer->objects[pos].ID = calloc(strlen(obj.ID)+1, sizeof(char));
+		strcpy(globalRenderer->objects[pos].ID, obj.ID);
+	}
+
+	globalRenderer->objects[pos].numIndices = obj.numIndices;
+	mat4x4_dup(globalRenderer->objects[pos].model,  obj.model);
+	vec3_dup(globalRenderer->objects[pos].pos, obj.pos);
+
+	globalRenderer->objects[pos].numID = globalRenderer->objSize;
+	globalRenderer->objSize++;
+
+	char buf[strlen(globalRenderer->objects[pos].name)+256];
+	sprintf(buf, "OBJ[%zu]: %s Created", pos, globalRenderer->objects[pos].name);
+	WLOG(INFO, buf);
+
+}
+
+void createObjectEx(char *name, vec3 pos,
+		sg_buffer_desc vbuf, sg_buffer_desc ibuf, sg_shader defShader,
+		sg_pipeline_desc pipe) {
+	Object obj = {0};
+	obj.name = calloc(strlen(name)+1, sizeof(char));
+	strcpy(obj.name, name);
+
+	obj.numIndices = ibuf.data.size / sizeof(uint16_t);
+
+	obj.vbuf = sg_make_buffer(&vbuf);
+	obj.ibuf= sg_make_buffer(&ibuf);
+	memcpy(&obj.defShader, &defShader, sizeof(defShader));
+	obj.pipe = sg_make_pipeline(&pipe);
+
+	mat4x4_identity(obj.model);
+
+	obj.pos[0] = pos[0];
+	obj.pos[1] = pos[1];
+	obj.pos[2] = pos[2];
+	mat4x4_translate(obj.model, obj.pos[0], obj.pos[1], obj.pos[2]);
+
+	createObject(obj);
+	free(obj.name);
+}
+
+void createObjPipe() {
+
+}
+
+void setObjectPosition(char *ID, vec3 position) {
+	Object *obj = getObjectFromName(ID);
+	if(obj!=NULL) {
+		obj->pos[0] = position[0]; // x
+		obj->pos[1] = position[1]; // y
+		obj->pos[2] = position[2]; // z
+	
+		//translate obj to desired position
+		mat4x4_identity(obj->model);
+		mat4x4_translate(obj->model, obj->pos[0], obj->pos[1], obj->pos[2]);
+	}
+}
+
+void setObjectShader(char *name, sg_shader shd) {
+	Object *obj = getObjectFromName(name);
+	if(obj!=NULL) obj->defShader = shd;
+}
+
+void drawObject(Object *obj) {
+	if(obj==NULL) {
+		WLOG(ERROR, "NULL object passed to drawObject");
+		return;
+	}
+
+    sg_apply_pipeline(obj->pipe);
+    sg_apply_bindings(&(sg_bindings){
+        .vertex_buffers[0] = obj->vbuf,
+        .index_buffer = obj->ibuf,
+		.images[0] = globalRenderer->ssao.finalImage,
+        .samplers[0] = globalRenderer->ssao.sampler
+
+    });
+
+    mat4x4 mvp, mv;
+    mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
+    mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
+
+    vs_params_t vs_params;
+    memcpy(vs_params.mvp, mvp, sizeof(mvp));
+
+    sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+    sg_draw(0, obj->numIndices, 1);
+}
+
+void drawObjectTex(Object *obj, int assign, sg_image texture) {
+	if(obj==NULL) {
+		WLOG(ERROR, "NULL object passed to drawObject");
+		return;
+	}
+	const int a = 3;
+    sg_apply_pipeline(obj->pipe);
+    sg_apply_bindings(&(sg_bindings){
+        .vertex_buffers[0] = obj->vbuf,
+        .index_buffer = obj->ibuf,
+		.images[0] = globalRenderer->ssao.finalImage,
+		.images[a] = texture,
+        .samplers[a] = globalRenderer->ssao.sampler
+
+    });
+
+    mat4x4 mvp, mv;
+    mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
+    mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
+
+    vs_params_t vs_params;
+    memcpy(vs_params.mvp, mvp, sizeof(mvp));
+
+    sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+    sg_draw(0, obj->numIndices, 1);
+}
+
+void drawObjectEx(Object *obj, UNILOADER apply_uniforms) {
+	if(obj==NULL) {
+		WLOG(ERROR, "NULL object passed to drawObject");
+		return;
+	}
+	
+    sg_apply_pipeline(obj->pipe);
+    sg_apply_bindings(&(sg_bindings){
+        .vertex_buffers[0] = obj->vbuf,
+        .index_buffer = obj->ibuf,
+		.images[0] = globalRenderer->ssao.finalImage,
+        .samplers[0] = globalRenderer->ssao.sampler
+    });
+
+	apply_uniforms();
+
+    sg_draw(0, obj->numIndices, 1);
+}
+
+void drawObjectTexEx(Object *obj, int assign,
+		sg_image texture, UNILOADER apply_uniforms) {
+	if(obj==NULL) {
+		WLOG(ERROR, "NULL object passed to drawObject");
+		return;
+	}
+	const int a = 3;	
+    sg_apply_pipeline(obj->pipe);
+    sg_apply_bindings(&(sg_bindings){
+        .vertex_buffers[0] = obj->vbuf,
+        .index_buffer = obj->ibuf,
+		.images[0] = globalRenderer->ssao.finalImage,
+		.images[a] = texture,
+        .samplers[a] = globalRenderer->ssao.sampler
+    });
+
+	apply_uniforms();
+
+    sg_draw(0, obj->numIndices, 1);
+}
+
+int rendererIsRunning() {
+	return globalRenderer->window->running;
+}
+
+sg_buffer_desc getCubeVertDesc() {
+	return (sg_buffer_desc) {
+				.data = SG_RANGE(cubeVertices),
+				.label = "cube_verts"
+			};
+}
+
+sg_buffer_desc getCubeIndDesc() {
+	return (sg_buffer_desc){
+				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.data = SG_RANGE(cubeIndices),
+				.label = "cube_indices"
+			};
+}
+
+sg_environment getEnv(void) {
+	return (sg_environment) {
+		.defaults = {
+			.color_format = SG_PIXELFORMAT_RGBA8,
+			.depth_format = SG_PIXELFORMAT_DEPTH,
+			.sample_count = 1,
+		},
+	};
+}
+
+sg_swapchain getSwapChain(void) {
+	int w = globalRenderer->window->width;
+	int h = globalRenderer->window->height;
+	return (sg_swapchain) {
+		.sample_count = 1,
+		.color_format = SG_PIXELFORMAT_RGBA8,
+		.depth_format = SG_PIXELFORMAT_DEPTH,
+		.width = w,
+		.height = h,
+		.gl.framebuffer = 0,
+	};
+}
+
+sg_pipeline_desc getDefaultPipe(sg_shader shader, char *label) {
+	char *_label = calloc(strlen(label)+1, sizeof(char));
+	strcpy(_label, label);
+	return (sg_pipeline_desc){
+			.shader = shader,
+			.layout = {
+            	.attrs = {
+                	[ATTR_cube_position].format = SG_VERTEXFORMAT_FLOAT3,
+					[ATTR_cube_color0].format = SG_VERTEXFORMAT_FLOAT4,
+            	}
+        	},
+			.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
+			.index_type = SG_INDEXTYPE_UINT16,
+        	.cull_mode = SG_CULLMODE_BACK,
+        	.depth = {
+            	.compare = SG_COMPAREFUNC_LESS_EQUAL,
+            	.write_enabled = true,
+        	},
+			.label = _label
+		};
+}
+
+sg_shader getDefCubeShader() {
+	return globalRenderer->defCubeShader;
+}
+
+Object getDefaultCubeObj(char *name) {
+	Object obj = {0};
+	obj.name = calloc(strlen(name)+1, sizeof(char));
+	strcpy(obj.name, name);
+	obj.vbuf = sg_make_buffer(&(sg_buffer_desc) {
+				.data = SG_RANGE(cubeVertices),
+				.label = "cube_verts"
+			});
+	obj.ibuf = sg_make_buffer(&(sg_buffer_desc){
+				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.data = SG_RANGE(cubeIndices),
+				.label = "cube_indices"
+			});
+	obj.numIndices = ARRLEN(cubeIndices);
+	obj.defShader = globalRenderer->defCubeShader;
+	sg_pipeline_desc pipe = getDefaultPipe(obj.defShader, obj.name);
+	obj.pipe = sg_make_pipeline(&pipe);
+	mat4x4_identity(obj.model);
+	return obj;
+}
+
+void initBaseObjects() {
+	Object test = {0};
+	test.vbuf = sg_make_buffer(&(sg_buffer_desc) {
+				.data = SG_RANGE(cubeVertices),
+				.label = "cube_verts"
+			});
+	WASSERT(test.vbuf.id!=SG_INVALID_ID,
+			"ERROR:: Failed to init vbuf!");
+
+	test.ibuf = sg_make_buffer(&(sg_buffer_desc){
+				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.data = SG_RANGE(cubeIndices),
+				.label = "cube_indices"
+			});
+
+	test.numIndices = ARRLEN(cubeIndices);
+	mat4x4_identity(test.model);
+
+	test.defShader = globalRenderer->defCubeShader; 
+
+	test.name = "Cube";	
+
+	sg_pipeline_desc cube_pipe = getDefaultPipe(test.defShader, test.name);
+	test.pipe = sg_make_pipeline(&cube_pipe);
+
+
+	createObject(test);
+
+	Object plane = {0};
+
+	plane.vbuf = sg_make_buffer(&(sg_buffer_desc) {
+				.data = SG_RANGE(planeVertices),
+				.label = "plane_verts"
+			});
+	WASSERT(plane.vbuf.id!=SG_INVALID_ID,
+			"ERROR:: Failed to init vbuf!");
+
+	
+	plane.ibuf = sg_make_buffer(&(sg_buffer_desc){
+				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.data = SG_RANGE(planeIndices),
+				.label = "plane_indices"
+			});
+
+	plane.numIndices = ARRLEN(planeIndices);
+	mat4x4_identity(plane.model);
+
+	plane.name = "plane";
+	plane.defShader = globalRenderer->defCubeShader;
+	sg_pipeline_desc plane_pipe = getDefaultPipe(plane.defShader, plane.name);
+	plane.pipe = sg_make_pipeline(&plane_pipe);
+
+	createObject(plane);
+	
+}
+
+void enableDebugInfo() {
+	globalRenderer->debug = 1;
+}
+
+void computeCameraRay() {
+	Camera *cam = getCamera();
+	vec3 ray_origin, ray_dir;
+	vec3_dup(ray_origin, cam->position);
+	vec3_dup(ray_dir, cam->front);
+	float ground = -ray_origin[1]/ray_dir[1];
+	vec3_scale(cam->ray_hit, ray_dir, ground);
+	vec3_add(cam->ray_hit, cam->ray_hit, ray_origin);
+}
+
+void initRenderer(int width, int height, char *title) {
+
+/*
+ * GlobalRenderer & OpenGL/SDL setup
+ * */
+
+	globalRenderer = calloc(1, sizeof(struct renderer));
+	globalRenderer->window = calloc(1, sizeof(Window));
+	globalRenderer->window->width = width;
+	globalRenderer->window->height = height;
+	globalRenderer->window->title = calloc(strlen(title)+1, sizeof(char *));
+	strcpy(globalRenderer->window->title, title);
+	globalRenderer->window->running = 1;
+	globalRenderer->debug = 0;
+
+	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)>=0,
+			"ERROR:: Failed to init SDL!");
+
+	SDL_GL_LoadLibrary(NULL);
+#if defined __APPLE__
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); 
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); 
+#endif
+	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);	
+
+	globalRenderer->window->window = SDL_CreateWindow(
+			globalRenderer->window->title,
+			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+			globalRenderer->window->width, globalRenderer->window->height,
+			SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+
+	globalRenderer->window->gl_context = 
+		SDL_GL_CreateContext(globalRenderer->window->window);
+	WASSERT(globalRenderer->window->gl_context!=NULL,
+			"ERROR:: Failed to init gl context");
+
+	WASSERT(gladLoadGLLoader(SDL_GL_GetProcAddress),
+			"ERROR:: Failed to initialize GLAD!");
+
+	SDL_GL_SetSwapInterval(1);
+ 	glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK); 
+	glFrontFace(GL_CCW);
+
+	int w,h;
+	SDL_GetWindowSize(globalRenderer->window->window, &w, &h);
+	glViewport(0, 0, w, h);
+	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	WLOG(INFO_VENDOR, glGetString(GL_VENDOR));
+	WLOG(INFO_GPU, glGetString(GL_RENDERER));
+	WLOG(INFO_DRIVER_VERSION, glGetString(GL_VERSION));
+
+/*
+ * Sokol setup
+ * */
+
+
+	sg_setup(&(sg_desc){
+			.environment = getEnv(),
+			.logger.func = slog_func});
+
+    sdtx_setup(&(sdtx_desc_t){
+        .fonts = {[1]  = sdtx_font_oric()},
+        .logger.func = slog_func});
+
+/*
+ * setup Depth Buffer
+ * */
+
+	globalRenderer->ssao.w = globalRenderer->window->width;
+	globalRenderer->ssao.h = globalRenderer->window->height;
+	globalRenderer->ssao.depthBuffer = sg_make_image(&(sg_image_desc){
+				.render_target = true,
+    			.width = globalRenderer->ssao.w, 
+    			.height = globalRenderer->ssao.h, 
+    			.pixel_format = SG_PIXELFORMAT_DEPTH,
+				.sample_count = 4,
+				.label = "depth_image"
+			});
+	globalRenderer->ssao.ssaoBuffer = sg_make_image(&(sg_image_desc){
+			    .render_target = true,
+    			.width = globalRenderer->ssao.w, 
+    			.height = globalRenderer->ssao.h, 
+    			.pixel_format = SG_PIXELFORMAT_R8,
+				.sample_count = 4,
+				.label = "ssao_image"
+			});
+	globalRenderer->ssao.atts = sg_make_attachments(&(sg_attachments_desc){
+				.colors[0].image = globalRenderer->ssao.ssaoBuffer,
+				.depth_stencil.image = globalRenderer->ssao.depthBuffer,
+				.label = "ssao_atts"
+			});
+	globalRenderer->ssao.sampler = sg_make_sampler(&(sg_sampler_desc){
+        .min_filter = SG_FILTER_LINEAR,
+        .mag_filter = SG_FILTER_LINEAR,
+        .wrap_u = SG_WRAP_REPEAT,
+        .wrap_v = SG_WRAP_REPEAT,
+    });
+
+/*
+ * Init objects
+ * */
+	globalRenderer->objCap = MAXOBJS;
+	globalRenderer->objSize = 0;
+	globalRenderer->objects = calloc(globalRenderer->objCap, sizeof(Object));
+	
+	globalRenderer->defCubeShader = sg_make_shader(cube_shader_desc(sg_query_backend()));
+
+	initBaseObjects();
+
+	/*Setup Camera*/
+
+	float scale = 10.0f;
+
+	mat4x4_identity(globalRenderer->cam.model);
+	mat4x4_identity(globalRenderer->cam.view);
+	mat4x4_identity(globalRenderer->cam.proj);
+
+	vec3_dup(globalRenderer->cam.position, (vec3){-10.0f, 5.0f, -5.0f});
+	vec3_dup(globalRenderer->cam.up, (vec3){0.0f, 1.0f, 0.0f});
+
+	float angle_y = 45.0f * (M_PI / 180.0f);
+	float angle_x = -35.264f * (M_PI / 180.0f);
+	
+	globalRenderer->cam.front[0] = cos(angle_y) * cos(angle_x);
+	globalRenderer->cam.front[1] = sin(angle_x);
+	globalRenderer->cam.front[2] = sin(angle_y) * cos(angle_x);
+	vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
+
+	vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);
+	vec3_norm(globalRenderer->cam.right, globalRenderer->cam.right);
+	vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
+
+	vec3_add(globalRenderer->cam.target, globalRenderer->cam.position, globalRenderer->cam.front);
+	mat4x4_look_at(globalRenderer->cam.view,
+	               globalRenderer->cam.position,
+	               globalRenderer->cam.target,
+	               globalRenderer->cam.up);
+
+	// Set orthographic projection
+	float aspect = (float)globalRenderer->window->width / (float)globalRenderer->window->height;
+	globalRenderer->cam.aspect = aspect;
+	
+	mat4x4_ortho(globalRenderer->cam.proj, 
+	             -scale * aspect, scale * aspect, 
+	             -scale, scale, 
+	             0.1f, 60.0f);
+
+
+}
+
+void updateViewMat() {
+	Camera *cam = &globalRenderer->cam;
+	vec3_add(globalRenderer->cam.target, 
+			globalRenderer->cam.position, globalRenderer->cam.front);
+	mat4x4_look_at(cam->view, cam->position, cam->target, cam->up);
+	computeCameraRay();
+}
+
+void moveCam(enum face direction, float len) {
+	Camera *cam = &globalRenderer->cam;
+	vec3 tmp = {0.0f,0.0f,0.0f};
+	switch(direction) {
+        case FRONT: {
+            vec3 forward_dir = {cam->front[0], 0.0f, cam->front[2]};
+            vec3_norm(forward_dir, forward_dir);
+            vec3_scale(tmp, forward_dir, len);
+            vec3_add(cam->position, cam->position, tmp);
+            break;
+        }
+        case BACKWARD: {
+            vec3 backward_dir = {-cam->front[0], 0.0f, -cam->front[2]};
+            vec3_norm(backward_dir, backward_dir);
+            vec3_scale(tmp, backward_dir, len);
+            vec3_add(cam->position, cam->position, tmp);
+            break;
+        }
+		case LEFT: 
+			vec3_scale(tmp, cam->right, -len);
+        	vec3_add(cam->position, cam->position, tmp);
+			break;
+		case RIGHT: 
+			vec3_scale(tmp, cam->right, len);
+        	vec3_add(cam->position, cam->position, tmp);	
+			break;
+		case UP:
+			vec3_scale(tmp, cam->up, len);
+			vec3_add(cam->position, cam->position, tmp);
+			break;
+		case DOWN:
+			vec3_scale(tmp, cam->up, -len);
+			vec3_add(cam->position, cam->position, tmp);
+	};
+
+	updateViewMat();
+}
+
+void camSet(vec3 pos) {
+
+}
+
+Camera *getCamera() {
+	return &globalRenderer->cam;
+}
+
+Vec3 getCamPos() {
+	return (Vec3){globalRenderer->cam.position[0],
+				globalRenderer->cam.position[1],
+				globalRenderer->cam.position[2]};
+}
+
+SDL_Event getEvent() {
+	return globalRenderer->event;
+}
+
+int isKeyPressed() {
+	return globalRenderer->keyPressed;
+}
+
+int getKeySym() {
+	return globalRenderer->lastKey;
+}
+
+void pollEvents(EVENTFUNC event) {
+	while(SDL_PollEvent(&globalRenderer->event)!=0) {
+		if(globalRenderer->event.type==SDL_QUIT) {
+			globalRenderer->window->running = 0;
+		}
+		if(globalRenderer->event.type==SDL_KEYDOWN) {
+			globalRenderer->keyPressed = 1;
+			globalRenderer->lastKey = globalRenderer->event.key.keysym.sym;
+		} else if(globalRenderer->event.type==SDL_KEYUP) globalRenderer->keyPressed = 0;
+
+	}
+	event();
+}
+
+int getFPS() {
+	return (int)globalRenderer->fps;
+}
+
+float getFrameTime() {
+	return globalRenderer->frameTime;
+}
+
+float getTick() {
+	return globalRenderer->tick;
+}
+
+void renderFrame(RENDFUNC drawCall) {
+	globalRenderer->frame_start = SDL_GetPerformanceCounter();
+	SDL_GetWindowSize(globalRenderer->window->window,
+			&globalRenderer->window->width,
+			&globalRenderer->window->height);
+	//globalRenderer->frameTime = sapp_frame_duration() * 1000.0;
+	sg_pass_action pass_action = (sg_pass_action) {
+       	.colors[0] = {
+           	.load_action = SG_LOADACTION_CLEAR,
+       		.clear_value = { 0.0f, 0.3f, 0.5f, 1.0f }
+        }
+    };
+	float g = pass_action.colors[0].clear_value.g + 0.01f;
+    pass_action.colors[0].clear_value.g = (g > 1.0f) ? 0.0f : g;
+    sg_begin_pass(&(sg_pass){ .action = pass_action, 
+							  .swapchain = getSwapChain()});
+	
+	drawCall();
+	
+	if(globalRenderer->debug) {
+		sdtx_canvas(globalRenderer->window->width * 0.5f, 
+				globalRenderer->window->height * 0.5f);
+    	sdtx_origin(1.0f, 1.0f);
+		sdtx_font(1);
+		sdtx_color3b(0xf4, 0x43, 0x36);
+		Camera *cam = &globalRenderer->cam;
+		sdtx_printf("FPS: %d\nFrameTime: %f\nCamPos: %f, %f, %f", 
+				(int)globalRenderer->fps, globalRenderer->frameTime,
+				cam->position[0], cam->position[1], cam->position[2]);
+		sdtx_draw();
+	}
+
+	sg_end_pass();
+	sg_commit();
+
+	/*glClear(GL_COLOR_BUFFER_BIT);*/
+	SDL_GL_SwapWindow(globalRenderer->window->window);
+
+	updateViewMat();
+
+	globalRenderer->frame_end = SDL_GetPerformanceCounter();
+	globalRenderer->fps =
+		1.0f/((globalRenderer->frame_end - globalRenderer->frame_start) / 
+		(float)SDL_GetPerformanceFrequency());
+	globalRenderer->frameTime = 1.0f/globalRenderer->fps;
+	globalRenderer->tick+=globalRenderer->frameTime;
+}
+
+void cleanup(void) {
+	sg_shutdown();
+	SDL_DestroyWindow(globalRenderer->window->window);
+	SDL_Quit();
+}
