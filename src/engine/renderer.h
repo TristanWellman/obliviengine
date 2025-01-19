@@ -31,21 +31,17 @@ enum face {
 	DOWN
 };
 
+enum CamType {
+	PERSPECTIVE,
+	ISOMETRIC
+};
+
 typedef void (*RENDFUNC)();
 typedef void (*EVENTFUNC)();
 typedef void (*UNILOADER)();
 
-/*This is for cases where you cannot use a float[3] (vec3)*/
 typedef struct {
-	float x, y, z;
-} Vec3;
-
-typedef struct {
-	float r,g,b,a;
-} Color;
-
-typedef struct {
-	float aspect;
+	float aspect, fov;
 	mat4x4 model;
 	mat4x4 view, proj;
 	mat4x4 iso;
@@ -144,7 +140,7 @@ sg_environment getEnv(void);
 sg_swapchain getSwapChain(void); 
 void updateViewMat();
 void enableDebugInfo();
-void initRenderer(int width, int height, char *title);
+void initRenderer(int width, int height, char *title, enum CamType camType);
 void moveCam(enum face direction, float len);
 void camSet(vec3 pos);
 Camera *getCamera();

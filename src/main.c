@@ -1,12 +1,8 @@
-#include <stdio.h>
-#include <time.h>
-#include "engine/util.h"
+/*Copyright (c) 2025 Tristan Wellman*/
 #include "engine/renderer.h"
-#include "graphics.h"
-#include "world.h"
 
 void draw() {
-	drawWorld();
+	drawObject(getObjectFromName("Cube"));
 }
 
 void event() {
@@ -26,14 +22,22 @@ void event() {
 	}	
 }
 
+void colorTest() {
+	/*This is so you can convert a 255 color value to 1*/
+	Color test = {100.0f, 181.0f, 72.0f, 255.0f};
+	Color res = RGBA255TORGBA1(test);
+	printf("(%f, %f, %f, %f)\n", res.r, res.g, res.b, res.a);
+}
 
 int main(int argc, char **argv) {
-	initRenderer(1280, 720, "game");
+	
+	initRenderer(1280, 720, "game", PERSPECTIVE);
 	enableDebugInfo();
-	initScreenQ();
-	initWorld();
+	
 	while(rendererIsRunning()) {
 		pollEvents((EVENTFUNC)event);
 		renderFrame((RENDFUNC)draw);
 	}
+	
+	return 0;
 }

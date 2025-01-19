@@ -1,3 +1,4 @@
+/*Copyright (c) 2025 Tristan Wellman*/
 #define SOKOL_IMPL
 #include "renderer.h"
 #include "cube.h"
@@ -350,7 +351,7 @@ void computeCameraRay() {
 	vec3_add(cam->ray_hit, cam->ray_hit, ray_origin);
 }
 
-void initRenderer(int width, int height, char *title) {
+void initRenderer(int width, int height, char *title, enum CamType camType) {
 
 /*
  * GlobalRenderer & OpenGL/SDL setup
@@ -474,37 +475,66 @@ void initRenderer(int width, int height, char *title) {
 	mat4x4_identity(globalRenderer->cam.view);
 	mat4x4_identity(globalRenderer->cam.proj);
 
-	vec3_dup(globalRenderer->cam.position, (vec3){-10.0f, 5.0f, -5.0f});
 	vec3_dup(globalRenderer->cam.up, (vec3){0.0f, 1.0f, 0.0f});
+	globalRenderer->cam.fov = DEG2RAD(90.0f);
 
-	float angle_y = 45.0f * (M_PI / 180.0f);
-	float angle_x = -35.264f * (M_PI / 180.0f);
-	
-	globalRenderer->cam.front[0] = cos(angle_y) * cos(angle_x);
-	globalRenderer->cam.front[1] = sin(angle_x);
-	globalRenderer->cam.front[2] = sin(angle_y) * cos(angle_x);
-	vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
-
-	vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);
-	vec3_norm(globalRenderer->cam.right, globalRenderer->cam.right);
-	vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
-
-	vec3_add(globalRenderer->cam.target, globalRenderer->cam.position, globalRenderer->cam.front);
-	mat4x4_look_at(globalRenderer->cam.view,
-	               globalRenderer->cam.position,
-	               globalRenderer->cam.target,
-	               globalRenderer->cam.up);
-
-	// Set orthographic projection
 	float aspect = (float)globalRenderer->window->width / (float)globalRenderer->window->height;
 	globalRenderer->cam.aspect = aspect;
 	
-	mat4x4_ortho(globalRenderer->cam.proj, 
-	             -scale * aspect, scale * aspect, 
-	             -scale, scale, 
-	             0.1f, 60.0f);
+	switch(camType) {
+		case ISOMETRIC:
+			globalRenderer->cam.fov = 60.0f;
+			vec3_dup(globalRenderer->cam.position, (vec3){-10.0f, 5.0f, -5.0f});
 
+			float angle_y = DEG2RAD(45.0f);
+			float angle_x = DEG2RAD(-35.264f);
+	
+			globalRenderer->cam.front[0] = cos(angle_y) * cos(angle_x);
+			globalRenderer->cam.front[1] = sin(angle_x);
+			globalRenderer->cam.front[2] = sin(angle_y) * cos(angle_x);
+			vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
 
+			vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);
+			vec3_norm(globalRenderer->cam.right, globalRenderer->cam.right);
+			vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
+
+			vec3_add(globalRenderer->cam.target, globalRenderer->cam.position, globalRenderer->cam.front);
+			mat4x4_look_at(globalRenderer->cam.view,
+			               globalRenderer->cam.position,
+			               globalRenderer->cam.target,
+			               globalRenderer->cam.up);
+
+			mat4x4_ortho(globalRenderer->cam.proj, 
+			             -scale * aspect, scale * aspect, 
+			             -scale, scale, 
+			             0.1f, globalRenderer->cam.fov);
+			break;
+		case PERSPECTIVE: 
+			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, -5.0f});
+			vec3_dup(globalRenderer->cam.target, (vec3){0.0f, 0.0f, 0.0f});
+			vec3_dup(globalRenderer->cam.front, (vec3){0.0f, 0.0f, 1.0f});
+			vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
+			
+			vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);
+			vec3_norm(globalRenderer->cam.right, globalRenderer->cam.right);
+			vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
+			vec3_norm(globalRenderer->cam.up, globalRenderer->cam.up);
+
+			mat4x4_look_at(globalRenderer->cam.view,
+			               globalRenderer->cam.position,
+			               globalRenderer->cam.target,
+			               globalRenderer->cam.up);
+
+			mat4x4_perspective(globalRenderer->cam.proj,
+							   globalRenderer->cam.fov,
+							   globalRenderer->cam.aspect,
+							   0.1f, 100.0f);
+			mat4x4 tmp;
+			mat4x4_mul(tmp, globalRenderer->cam.proj, globalRenderer->cam.view);
+			mat4x4_mul(globalRenderer->cam.mvp, tmp, globalRenderer->cam.model);
+
+			break;
+	};
 }
 
 void updateViewMat() {

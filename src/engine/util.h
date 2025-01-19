@@ -28,10 +28,25 @@
 #define ARRLEN(x) \
 		(sizeof(x)/sizeof(x[0]))
 
+#ifndef PI
+#define PI 3.14159f
+#endif
 #define DEG2RAD(_d) ((_d) * (PI / 180.0f))
 #define RAD2DEG(_d) ((_d) * (180.0f / PI))
 
-//#define RGB255TORGB1()
+/*This is for cases where you cannot use a float[3] (vec3)*/
+typedef struct {
+	float x, y, z;
+} Vec3;
+
+typedef struct {
+	float r,g,b,a;
+} Color;
+
+/*This is expecting a Color*/
+#define RGBA255TORGBA1(src) \
+	((__typeof(src)){(src.r)/255.0f, (src.g)/255.0f, \
+	 (src.b)/255.0f, (src.a)/255.0f})
 
 /*
  *  keep in mind this is pretty sketchy since we declare a variable in a macro
