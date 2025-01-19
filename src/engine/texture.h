@@ -1,3 +1,5 @@
+/*Copyright (c) 2025, Tristan Wellman*/
+
 #ifndef TEXTURE_H
 #define TEXTURE_H
 

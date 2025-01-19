@@ -1,4 +1,8 @@
-/*Copyright (c) 2025 Tristan Wellman*/
+/*Copyright (c) 2025 Tristan Wellman
+ *
+ * This is a super simple example/testing program
+ *
+ * */
 #include "engine/renderer.h"
 
 void draw() {
