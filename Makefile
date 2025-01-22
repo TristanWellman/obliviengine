@@ -1,9 +1,4 @@
-
-ifeq ($(UNAME_S),Windows_NT)
-CC= C:/mingw64/bin/gcc
-else
 CC= gcc
-endif
 CFLAGS= -O2 -Iinclude -Ishaders 
 CFLAGS_DEB= -g -O2 -Iinclude -Ishaders 
 LDFLAGS = -lm -ldl -lpthread 
@@ -28,11 +23,19 @@ COMMON_C= src/*.c \
 
 COMMON_O= *.o
 
-
+# Check for OpenXR (Windows)
+OPENXRINC= C:/msys64/mingw64/include/openxr
+OPENXRLIB= C:/msys64/mingw64/lib
+ifneq ($(wildcard C:/msys64/mingw64/include/openxr*),)
+	CFLAGS += -I$(OPENXRINC) #-DSDL_VIDEO_DRIVER_WINDOWS
+	CFLAGS_DEB += -I$(OPENXRINC) #-DSDL_VIDEO_DRIVER_WINDOWS
+	LDFLAGS += -L$(OPENXRLIB) -lopenxr_loader.dll
+	COMMON_C +=  src/engine/openxr/*.c
+endif
 
 BIN= game
 
-all: shaders_clean shaders_mac debug
+all: shaders_clean shaders_win debug
 
 release:
 	$(CC) $(CFLAGS) $(BACKEND) -c $(COMMON_C)

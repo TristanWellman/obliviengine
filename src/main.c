@@ -4,6 +4,7 @@
  *
  * */
 #include "engine/renderer.h"
+#include "engine/openxr/renderer_openxr.h"
 
 void draw() {
 	drawObject(getObjectFromName("Cube"));
@@ -36,11 +37,13 @@ void colorTest() {
 int main(int argc, char **argv) {
 	
 	initRenderer(1280, 720, "game", PERSPECTIVE);
+	initOpenXR();
 	enableDebugInfo();
 	
 	while(rendererIsRunning()) {
 		pollEvents((EVENTFUNC)event);
-		renderFrame((RENDFUNC)draw);
+		pollXREvents();
+		renderXRFrame((RENDFUNC)draw);
 	}
 	
 	return 0;

@@ -125,6 +125,27 @@ void drawObject(Object *obj) {
     sg_draw(0, obj->numIndices, 1);
 }
 
+void drawObjectBind(Object *obj, sg_bindings binding) {
+	if(obj==NULL) {
+		WLOG(ERROR, "NULL object passed to drawObject");
+		return;
+	}
+
+    sg_apply_pipeline(obj->pipe);
+    sg_apply_bindings(&binding);
+
+    mat4x4 mvp, mv;
+    mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
+    mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
+
+    vs_params_t vs_params;
+    memcpy(vs_params.mvp, mvp, sizeof(mvp));
+
+    sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+    sg_draw(0, obj->numIndices, 1);
+}
+
+
 void drawObjectTex(Object *obj, int assign, sg_image texture) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
@@ -250,6 +271,7 @@ sg_pipeline_desc getDefaultPipe(sg_shader shader, char *label) {
         	.cull_mode = SG_CULLMODE_BACK,
         	.depth = {
             	.compare = SG_COMPAREFUNC_LESS_EQUAL,
+				.pixel_format = SG_PIXELFORMAT_DEPTH,
             	.write_enabled = true,
         	},
 			.label = _label
@@ -349,6 +371,20 @@ void computeCameraRay() {
 	float ground = -ray_origin[1]/ray_dir[1];
 	vec3_scale(cam->ray_hit, ray_dir, ground);
 	vec3_add(cam->ray_hit, cam->ray_hit, ray_origin);
+}
+
+void computeRotationMatrix(mat4x4 out, vec3 front, vec3 up) {
+	vec3 f,u,s;
+    vec3_norm(f, front);
+    vec3_norm(u, up);
+    vec3_mul_cross(s, f, u);
+
+    vec3_mul_cross(u, s, f);
+
+    out[0][0] = s[0]; out[0][1] = s[1]; out[0][2] = s[2]; out[0][3] = 0.0f;
+    out[1][0] = u[0]; out[1][1] = u[1]; out[1][2] = u[2]; out[1][3] = 0.0f;
+    out[2][0] = -f[0]; out[2][1] = -f[1]; out[2][2] = -f[2]; out[2][3] = 0.0f;
+    out[3][0] = 0.0f; out[3][1] = 0.0f; out[3][2] = 0.0f; out[3][3] = 1.0f;
 }
 
 void initRenderer(int width, int height, char *title, enum CamType camType) {
@@ -510,7 +546,7 @@ void initRenderer(int width, int height, char *title, enum CamType camType) {
 			             0.1f, globalRenderer->cam.fov);
 			break;
 		case PERSPECTIVE: 
-			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, -5.0f});
+			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, 5.0f});
 			vec3_dup(globalRenderer->cam.target, (vec3){0.0f, 0.0f, 0.0f});
 			vec3_dup(globalRenderer->cam.front, (vec3){0.0f, 0.0f, 1.0f});
 			vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
@@ -533,6 +569,10 @@ void initRenderer(int width, int height, char *title, enum CamType camType) {
 			mat4x4_mul(tmp, globalRenderer->cam.proj, globalRenderer->cam.view);
 			mat4x4_mul(globalRenderer->cam.mvp, tmp, globalRenderer->cam.model);
 
+			computeRotationMatrix(globalRenderer->cam.rotation,
+				globalRenderer->cam.front, 
+				globalRenderer->cam.up);
+
 			break;
 	};
 }
@@ -543,6 +583,9 @@ void updateViewMat() {
 			globalRenderer->cam.position, globalRenderer->cam.front);
 	mat4x4_look_at(cam->view, cam->position, cam->target, cam->up);
 	computeCameraRay();
+	computeRotationMatrix(globalRenderer->cam.rotation,
+			globalRenderer->cam.front, 
+			globalRenderer->cam.up);
 }
 
 void moveCam(enum face direction, float len) {
@@ -609,6 +652,14 @@ int getKeySym() {
 	return globalRenderer->lastKey;
 }
 
+void getMousePos(int *x, int *y) {
+	SDL_GetMouseState(x,y);
+}
+
+Mouse getMouse() {
+	return globalRenderer->mouse;
+}
+
 void pollEvents(EVENTFUNC event) {
 	while(SDL_PollEvent(&globalRenderer->event)!=0) {
 		if(globalRenderer->event.type==SDL_QUIT) {
@@ -635,11 +686,16 @@ float getTick() {
 	return globalRenderer->tick;
 }
 
+SDL_Window *getWindow() {
+	return globalRenderer->window->window;
+}
+
 void renderFrame(RENDFUNC drawCall) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
 	SDL_GetWindowSize(globalRenderer->window->window,
 			&globalRenderer->window->width,
 			&globalRenderer->window->height);
+	getMousePos(&globalRenderer->mouse.posx, &globalRenderer->mouse.posy);
 	//globalRenderer->frameTime = sapp_frame_duration() * 1000.0;
 	sg_pass_action pass_action = (sg_pass_action) {
        	.colors[0] = {
@@ -681,6 +737,24 @@ void renderFrame(RENDFUNC drawCall) {
 		(float)SDL_GetPerformanceFrequency());
 	globalRenderer->frameTime = 1.0f/globalRenderer->fps;
 	globalRenderer->tick+=globalRenderer->frameTime;
+}
+
+void rendererTimerStart() {
+	globalRenderer->frame_start = SDL_GetPerformanceCounter();
+	SDL_GetWindowSize(globalRenderer->window->window,
+			&globalRenderer->window->width,
+			&globalRenderer->window->height);
+	getMousePos(&globalRenderer->mouse.posx, &globalRenderer->mouse.posy);
+}
+
+void rendererTimerEnd() {
+	globalRenderer->frame_end = SDL_GetPerformanceCounter();
+	globalRenderer->fps =
+		1.0f/((globalRenderer->frame_end - globalRenderer->frame_start) / 
+		(float)SDL_GetPerformanceFrequency());
+	globalRenderer->frameTime = 1.0f/globalRenderer->fps;
+	globalRenderer->tick+=globalRenderer->frameTime;
+
 }
 
 void cleanup(void) {

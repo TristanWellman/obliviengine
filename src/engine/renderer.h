@@ -16,6 +16,7 @@
 #endif
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+#include <SDL2/SDL_syswm.h>
 
 #include "linmath.h"
 #include "util.h"
@@ -44,7 +45,7 @@ typedef void (*UNILOADER)();
 typedef struct {
 	float aspect, fov;
 	mat4x4 model;
-	mat4x4 view, proj;
+	mat4x4 view, proj, rotation;
 	mat4x4 iso;
 	mat4x4 mvp;
 	vec3 position, target, up;
@@ -91,6 +92,11 @@ typedef struct {
 	int running;
 } Window;
 
+typedef struct {
+	int posx, posy;
+	vec3 ray_hit;
+} Mouse;
+
 struct renderer {
 
 	Window *window;
@@ -99,6 +105,7 @@ struct renderer {
 	int lastKey;
 
 	Camera cam;
+	Mouse mouse;
 
 	sg_bindings bindings;
 	Object *objects;
@@ -124,11 +131,13 @@ void createObjectEx(char *name, vec3 pos,
 		sg_buffer_desc vbuf, sg_buffer_desc ibuf, sg_shader defShader,
 		sg_pipeline_desc pipe);
 void setObjectPosition(char *ID, vec3 position); 
+
 void drawObject(Object *obj);
 void drawObjectTex(Object *obj, int assign, sg_image texture);
 void drawObjectEx(Object *obj, UNILOADER apply_uniforms);
 void drawObjectTexEx(Object *obj, int assign,
 		sg_image texture, UNILOADER apply_uniforms); 
+
 sg_buffer_desc getCubeVertDesc();
 sg_buffer_desc getCubeIndDesc();
 sg_shader getDefCubeShader();
@@ -139,21 +148,30 @@ int rendererIsRunning();
 sg_pipeline_desc getDefaultPipe(sg_shader shader, char *label);
 sg_environment getEnv(void);
 sg_swapchain getSwapChain(void); 
+
 void updateViewMat();
 void enableDebugInfo();
+void computeRotationMatrix(mat4x4 out, vec3 front, vec3 up);
 void initRenderer(int width, int height, char *title, enum CamType camType);
 void moveCam(enum face direction, float len);
 void camSet(vec3 pos);
+
 Camera *getCamera();
 Vec3 getCamPos(); 
 SDL_Event getEvent();
 int isKeyPressed();
-int getKeySym(); 
+int getKeySym();
+void getMousePos(int *x, int *y);
+Mouse getMouse();
 void pollEvents(EVENTFUNC event);
 int getFPS();
 float getFrameTime();
 float getTick();
+SDL_Window *getWindow(); 
+
 void renderFrame(RENDFUNC drawCall);
+void rendererTimerStart();
+void rendererTimerEnd();
 void cleanup(void);
 
 #endif
