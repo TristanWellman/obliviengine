@@ -51,6 +51,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MKY_ARRLEN(x) \
 		(sizeof(x)/sizeof(x[0]))
 
+#define MAX_ARR_SIZE 1024
+
+/**
+ * @typedef MKY_ARR
+ * @brief void pointer to hold array data
+ * */
+typedef void (*MKY_ARR)();
+
+#if !defined __STDBOOL_H
 /**
  * @typedef MKY_BOOL
  * @brief bool definition for systems without stdbool
@@ -58,6 +67,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef int (MKY_BOOL);
 #define MKY_TRUE 1
 #define MKY_FALSE 0
+#endif
+
+/**
+ * @typedef mky_array
+ * @brief Struct for holding array data. User must cast void ptr to valid array
+ * */
+typedef struct mky_array {
+	void *array;
+	int array_length;
+} mky_array;
 
 /**
  * @typedef mky_data
@@ -75,6 +94,15 @@ typedef struct maky_data {
  * @param filename The name of the configuration file
  * */
 mky_data *mky_init(char *filename);
+
+
+/**
+ * @brief retrieves and parses int array from section in macky config file
+ *
+ * @param section The section at which the item resides in the macky file
+ * @param itemName Name of ARRAY in macky file
+ * */
+mky_array mky_getIntArrayAt(char *section, char *itemName);
 
 /**
  * @brief retrieves and parses int from section in macky config file
@@ -100,6 +128,7 @@ float mky_getFloatAt(char *section, char *itemName);
  * */
 char *mky_getStrAt(char *section, char *itemName);
 
+#if !defined __STDBOOL_H
 /**
  * @brief retrieves and parses bool from section in macky config file
  *
@@ -107,5 +136,15 @@ char *mky_getStrAt(char *section, char *itemName);
  * @param itemName Name of VALUE in macky file
  * */
 MKY_BOOL mky_getBoolAt(char *section, char *itemName);
+#else
+/**
+ * @brief retrieves and parses bool from section in macky config file
+ *
+ * @param section The section at which the item resides in the macky file
+ * @param itemName Name of VALUE in macky file
+ * */
+
+bool mky_getBoolAt(char *section, char *itemName);
+#endif
 
 #endif

@@ -375,16 +375,16 @@ void computeCameraRay() {
 
 void computeRotationMatrix(mat4x4 out, vec3 front, vec3 up) {
 	vec3 f,u,s;
-    vec3_norm(f, front);
-    vec3_norm(u, up);
-    vec3_mul_cross(s, f, u);
+	vec3_norm(f, front);
+	vec3_norm(u, up);
+	vec3_mul_cross(s, f, u);
 
-    vec3_mul_cross(u, s, f);
+	vec3_mul_cross(u, s, f);
 
-    out[0][0] = s[0]; out[0][1] = s[1]; out[0][2] = s[2]; out[0][3] = 0.0f;
-    out[1][0] = u[0]; out[1][1] = u[1]; out[1][2] = u[2]; out[1][3] = 0.0f;
-    out[2][0] = -f[0]; out[2][1] = -f[1]; out[2][2] = -f[2]; out[2][3] = 0.0f;
-    out[3][0] = 0.0f; out[3][1] = 0.0f; out[3][2] = 0.0f; out[3][3] = 1.0f;
+	out[0][0] = s[0]; out[0][1] = s[1]; out[0][2] = s[2]; out[0][3] = 0.0f;
+	out[1][0] = u[0]; out[1][1] = u[1]; out[1][2] = u[2]; out[1][3] = 0.0f;
+	out[2][0] = -f[0]; out[2][1] = -f[1]; out[2][2] = -f[2]; out[2][3] = 0.0f;
+	out[3][0] = 0.0f; out[3][1] = 0.0f; out[3][2] = 0.0f; out[3][3] = 1.0f;
 }
 
 void initRenderer(int width, int height, char *title, enum CamType camType) {
@@ -546,7 +546,7 @@ void initRenderer(int width, int height, char *title, enum CamType camType) {
 			             0.1f, globalRenderer->cam.fov);
 			break;
 		case PERSPECTIVE: 
-			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, 5.0f});
+			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, -5.0f});
 			vec3_dup(globalRenderer->cam.target, (vec3){0.0f, 0.0f, 0.0f});
 			vec3_dup(globalRenderer->cam.front, (vec3){0.0f, 0.0f, 1.0f});
 			vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
