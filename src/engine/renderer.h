@@ -26,6 +26,10 @@
 
 #define MAXOBJS 1000000
 
+/*This is here because SG_RANGE does not work with ptr sizes.*/
+#define PTRRANGE(ptr_, size_) \
+	(sg_range){ .ptr = (ptr_), .size = sizeof(*(ptr_)) * (size_) }
+
 enum face {
 	FRONT,
 	BACKWARD,

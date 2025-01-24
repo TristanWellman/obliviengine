@@ -8,7 +8,7 @@
 
 #include "util.h"
 
-#define MAXDATA 1000
+#define MAXDATA 10000
 
 #define VSIZE 3 /*x,y,z*/
 #define TEXSIZE 2 /*u,v*/

@@ -91,9 +91,11 @@ int getObjLabel(char *line, OEMesh *mesh) {
 	if(line[0]=='o') {
 		char *name = strchr(line, 'o')+1;
 		if(name!=NULL) {
+			if(mesh->label!=NULL) return 2;
 			while(name[0]==' ') name++;
-			while(name[strlen(name)-1]=='\n') name[strlen(name)-1] = '\0';
-			mesh->label = calloc(strlen(name)+1, sizeof(char));
+			int len = strlen(name);
+			while(name[len-1]=='\n') name[len-1] = '\0';
+			mesh->label = calloc(len+1, sizeof(char));
 			strcpy(mesh->label, name);
 		}
 		return 1;
@@ -129,7 +131,9 @@ void OEParseObj(char *file, OEMesh *mesh) {
 
 	char line[2048];
 	while(fgets(line, sizeof(line), mesh->f)!=NULL) {
-		if(getObjLabel(line, mesh)) continue;
+		int n = getObjLabel(line, mesh);
+		if(n) continue;
+		if(n==2) break;
 		if(checkObjVerts(line, mesh)) continue;
 		if(checkObjTex(line, mesh)) continue;
 		if(checkObjNorm(line, mesh)) continue;

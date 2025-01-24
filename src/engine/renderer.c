@@ -98,8 +98,8 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
 	/*Expand mesh verts and indices*/
 	int vertSize = mesh->verts.total+(mesh->verts.size*4);
 	int indSize = mesh->indices.size*6;
-	float finalVerts[vertSize];
-	uint16_t finalInds[indSize];
+	float *finalVerts = calloc(vertSize, sizeof(float));
+	uint16_t *finalInds = calloc(indSize, sizeof(uint16_t));
 	/*This REQUIRES 3 points per vert, 
 	 * if there isn't you've done something wrong and it'll crash*/
 	int i,j=0;
@@ -121,19 +121,19 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
     	finalInds[i]   = mesh->indices.data[j][0] - 1;
     	finalInds[i+1] = mesh->indices.data[j][1] - 1;
 		finalInds[i+2] = mesh->indices.data[j][2] - 1;
-	    finalInds[i+3] = mesh->indices.data[j][0] - 1;
-	    finalInds[i+4] = mesh->indices.data[j][2] - 1;
-	    finalInds[i+5] = mesh->indices.data[j][3] - 1;
+	    finalInds[i+3] = mesh->indices.data[j][2] - 1;
+	    finalInds[i+4] = mesh->indices.data[j][3] - 1;
+	    finalInds[i+5] = mesh->indices.data[j][0] - 1;
 	}
 	
 
 	obj.vbuf = sg_make_buffer(&(sg_buffer_desc) {
-				.data = SG_RANGE(finalVerts),
+				.data = PTRRANGE(finalVerts, vertSize),
 				.label = "objv"
 			});
 	obj.ibuf = sg_make_buffer(&(sg_buffer_desc){
 				.type = SG_BUFFERTYPE_INDEXBUFFER,
-				.data = SG_RANGE(finalInds),
+				.data = PTRRANGE(finalInds, indSize),
 				.label = "obji"
 			});
 
