@@ -7,7 +7,8 @@
 //#include "engine/openxr/renderer_openxr.h"
 
 void draw() {
-	drawObject(getObjectFromName("Cube"));
+	drawObject(getObjectFromName("Sphere"));
+	drawObject(getObjectFromName("OEPlane"));
 }
 
 void event() {
@@ -34,13 +35,23 @@ void colorTest() {
 	printf("(%f, %f, %f, %f)\n", res.r, res.g, res.b, res.a);
 }
 
+void meshTest() {
+	OEMesh mesh;
+	OEParseObj("assets/models/sphere.obj", &mesh);
+	sg_shader defShader = getDefCubeShader();
+	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f},
+			defShader, getDefaultPipe(defShader, "mesh"));
+}
+
 int main(int argc, char **argv) {
 	
 	initRenderer(1280, 720, "game", PERSPECTIVE);
 	//initOpenXR();
-
 	enableDebugInfo();
-	
+	meshTest();
+
+	setObjectPosition("OEPlane", (vec3){0.0f, -1.0f, 0.0f});
+
 	while(rendererIsRunning()) {
 		pollEvents((EVENTFUNC)event);
 		//pollXREvents();

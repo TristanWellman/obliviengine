@@ -19,6 +19,15 @@ Object *getObjectFromName(char *name) {
 void createObject(Object obj) {
 	if(obj.name==NULL) return;
 	int i;
+	/*Check for dups*/
+	for(i=0;i<globalRenderer->objSize;i++) {
+		if(!strcmp(obj.name, globalRenderer->objects[i].name)) {
+			char buf[strlen(obj.name)+128];
+			sprintf(buf, "Duplicate object names: %s. Not adding.", obj.name);
+			WLOG(WARN, buf);
+			return;
+		}
+	}
 	if(globalRenderer->objSize>=globalRenderer->objCap) {
 		globalRenderer->objCap*=2;
 		globalRenderer->objects =
@@ -71,10 +80,73 @@ void createObjectEx(char *name, vec3 pos,
 	obj.pos[0] = pos[0];
 	obj.pos[1] = pos[1];
 	obj.pos[2] = pos[2];
+	mat4x4_identity(obj.model);
 	mat4x4_translate(obj.model, obj.pos[0], obj.pos[1], obj.pos[2]);
 
 	createObject(obj);
-	free(obj.name);
+}
+
+void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
+		sg_shader defShader, sg_pipeline_desc pipe) {
+	if(mesh==NULL) return;
+	Object obj = {0};
+	obj.name = calloc(strlen(mesh->label)+1, sizeof(char));
+	strcpy(obj.name, mesh->label);
+
+	obj.numIndices = mesh->indices.size*6;
+
+	/*Expand mesh verts and indices*/
+	int vertSize = mesh->verts.total+(mesh->verts.size*4);
+	int indSize = mesh->indices.size*6;
+	float finalVerts[vertSize];
+	uint16_t finalInds[indSize];
+	/*This REQUIRES 3 points per vert, 
+	 * if there isn't you've done something wrong and it'll crash*/
+	int i,j=0;
+	for(i=0;i<vertSize;i+=(VSIZE+4),j++) {
+		/*verts*/
+		finalVerts[i] = mesh->verts.data[j][0];
+		finalVerts[i+1] = mesh->verts.data[j][1];
+		finalVerts[i+2] = mesh->verts.data[j][2];
+
+		/*color*/
+		finalVerts[i+3] = 1.0f;
+		finalVerts[i+4] = 1.0f;
+		finalVerts[i+5] = 1.0f;
+		finalVerts[i+6] = 1.0f; 
+	}
+	/*This REQUIRES 4 points per face,and atleast 6 faces.
+	 * If there isn't you've done something wrong and it'll crash*/
+	for(i=0,j=0;i<indSize;i+=6,j++) {
+    	finalInds[i]   = mesh->indices.data[j][0] - 1;
+    	finalInds[i+1] = mesh->indices.data[j][1] - 1;
+		finalInds[i+2] = mesh->indices.data[j][2] - 1;
+	    finalInds[i+3] = mesh->indices.data[j][0] - 1;
+	    finalInds[i+4] = mesh->indices.data[j][2] - 1;
+	    finalInds[i+5] = mesh->indices.data[j][3] - 1;
+	}
+	
+
+	obj.vbuf = sg_make_buffer(&(sg_buffer_desc) {
+				.data = SG_RANGE(finalVerts),
+				.label = "objv"
+			});
+	obj.ibuf = sg_make_buffer(&(sg_buffer_desc){
+				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.data = SG_RANGE(finalInds),
+				.label = "obji"
+			});
+
+	memcpy(&obj.defShader, &defShader, sizeof(defShader));
+	obj.pipe = sg_make_pipeline(&pipe);
+
+	obj.pos[0] = pos[0];
+	obj.pos[1] = pos[1];
+	obj.pos[2] = pos[2];
+	mat4x4_identity(obj.model);
+	mat4x4_translate(obj.model, obj.pos[0], obj.pos[1], obj.pos[2]);
+
+	createObject(obj);
 }
 
 void createObjPipe() {
@@ -84,11 +156,10 @@ void createObjPipe() {
 void setObjectPosition(char *ID, vec3 position) {
 	Object *obj = getObjectFromName(ID);
 	if(obj!=NULL) {
-		obj->pos[0] = position[0]; // x
-		obj->pos[1] = position[1]; // y
-		obj->pos[2] = position[2]; // z
+		obj->pos[0] = position[0];
+		obj->pos[1] = position[1]; 
+		obj->pos[2] = position[2]; 
 	
-		//translate obj to desired position
 		mat4x4_identity(obj->model);
 		mat4x4_translate(obj->model, obj->pos[0], obj->pos[1], obj->pos[2]);
 	}
@@ -323,7 +394,7 @@ void initBaseObjects() {
 
 	test.defShader = globalRenderer->defCubeShader; 
 
-	test.name = "Cube";	
+	test.name = "OECube";	
 
 	sg_pipeline_desc cube_pipe = getDefaultPipe(test.defShader, test.name);
 	test.pipe = sg_make_pipeline(&cube_pipe);
@@ -350,7 +421,7 @@ void initBaseObjects() {
 	plane.numIndices = ARRLEN(planeIndices);
 	mat4x4_identity(plane.model);
 
-	plane.name = "plane";
+	plane.name = "OEPlane";
 	plane.defShader = globalRenderer->defCubeShader;
 	sg_pipeline_desc plane_pipe = getDefaultPipe(plane.defShader, plane.name);
 	plane.pipe = sg_make_pipeline(&plane_pipe);

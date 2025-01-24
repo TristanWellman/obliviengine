@@ -21,6 +21,8 @@
 #include "linmath.h"
 #include "util.h"
 #include "texture.h"
+#include "meshParse.h"
+#include "macky.h"
 
 #define MAXOBJS 1000000
 
@@ -130,6 +132,8 @@ void createObject(Object obj);
 void createObjectEx(char *name, vec3 pos,
 		sg_buffer_desc vbuf, sg_buffer_desc ibuf, sg_shader defShader,
 		sg_pipeline_desc pipe);
+void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
+		sg_shader defShader, sg_pipeline_desc pipe);
 void setObjectPosition(char *ID, vec3 position); 
 
 void drawObject(Object *obj);
