@@ -49,6 +49,10 @@ typedef struct {
 	((__typeof(src)){(src.r)/255.0f, (src.g)/255.0f, \
 	 (src.b)/255.0f, (src.a)/255.0f})
 
+#define RGBA1TORGBA255(src) \
+	((__typeof(src)){(src.r)*255.0f, (src.g)*255.0f, \
+	 (src.b)*255.0f, (src.a)*255.0f})
+
 /*
  *  keep in mind this is pretty sketchy since we declare a variable in a macro
  *  don't use it more than once per function bud.

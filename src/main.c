@@ -8,6 +8,7 @@
 
 void draw() {
 	drawObject(getObjectFromName("Sphere"));
+	//drawObject(getObjectFromName("OECube"));
 	drawObject(getObjectFromName("OEPlane"));
 }
 
@@ -39,8 +40,7 @@ void meshTest() {
 	OEMesh mesh;
 	OEParseObj("assets/models/sphere.obj", &mesh);
 	sg_shader defShader = getDefCubeShader();
-	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f},
-			defShader, getDefaultPipe(defShader, "mesh"));
+	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
 }
 
 int main(int argc, char **argv) {
@@ -51,6 +51,9 @@ int main(int argc, char **argv) {
 	meshTest();
 
 	setObjectPosition("OEPlane", (vec3){0.0f, -1.0f, 0.0f});
+
+	Color c = (Color){77.0f, 106.0f, 148.0f, 255.0f};
+	OEAddLight("Test", (vec3){2.0f, 2.0f, 2.0f}, RGBA255TORGBA1(c));
 
 	while(rendererIsRunning()) {
 		pollEvents((EVENTFUNC)event);

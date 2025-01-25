@@ -7,8 +7,32 @@
 #include "meshParse.h"
 
 int checkObjNorm(char *line, OEMesh *mesh) {
-	char *tmp = strstr(line, "vn");
-	if(tmp!=NULL) {
+	if(line==NULL) return 0;
+
+	if(strstr(line, "vn ")) {
+		if(mesh->vertNorms.size>=mesh->vertNorms.cap) {
+			mesh->vertNorms.cap+=MAXDATA;
+			mesh->vertNorms.data = (float **)realloc(mesh->vertNorms.data, 
+					sizeof(float *)*mesh->vertNorms.cap);
+		}
+		char *vs = strstr(line, "vn") + 2;
+		if(vs!=NULL) {
+			mesh->vertNorms.data[mesh->vertNorms.size] = calloc(VSIZE, sizeof(float));
+			int i;
+			for(i=0;i<VSIZE;i++) {
+				while(vs[0]==' ')vs++;
+				char buf[128];
+				int j = 0;
+				for(;vs[0]!=' '&&vs[0]!='\n';vs++,j++) buf[j]=vs[0];
+				buf[j] = '\0';
+				mesh->vertNorms.data[mesh->vertNorms.size][i] = atof(buf);
+				mesh->vertNorms.total++;
+			}
+			/*printf("(%f, %f, %f)\n", mesh->vertNorms.data[mesh->vertNorms.size][0],
+					mesh->vertNorms.data[mesh->vertNorms.size][1],
+					mesh->vertNorms.data[mesh->vertNorms.size][2]);*/
+			mesh->vertNorms.size++;
+		}
 		return 1;
 	}
 	return 0;

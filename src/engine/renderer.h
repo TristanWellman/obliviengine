@@ -23,6 +23,7 @@
 #include "texture.h"
 #include "meshParse.h"
 #include "macky.h"
+#include "OELights.h"
 
 #define MAXOBJS 1000000
 
@@ -136,8 +137,10 @@ void createObject(Object obj);
 void createObjectEx(char *name, vec3 pos,
 		sg_buffer_desc vbuf, sg_buffer_desc ibuf, sg_shader defShader,
 		sg_pipeline_desc pipe);
-void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
-		sg_shader defShader, sg_pipeline_desc pipe);
+/*For now mesh objects require the default shader.
+ * Hopefully I change this in the future for customization but idk :| */
+void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
+		/*sg_shader defShader, sg_pipeline_desc pipe*/);
 void setObjectPosition(char *ID, vec3 position); 
 
 void drawObject(Object *obj);

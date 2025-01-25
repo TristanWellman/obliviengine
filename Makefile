@@ -46,11 +46,11 @@ debug:
 	$(CC) $(CFLAGS_DEB) $(BACKEND) $(COMMON_O) -o $(BIN) $(LDFLAGS)
 
 shaders_win:
-	sokol-tools-bin/bin/win32/sokol-shdc.exe --input shaders/cube.glsl --output shaders/cubes.glsl.h --format sokol --slang glsl410
+	sokol-tools-bin/bin/win32/sokol-shdc.exe --input shaders/simple.glsl --output shaders/simple.glsl.h --format sokol --slang glsl410
 	sokol-tools-bin/bin/win32/sokol-shdc --input shaders/light.glsl --output shaders/light.glsl.h --format sokol --slang glsl410
 
 shaders_mac:
-	sokol-tools-bin/bin/osx/sokol-shdc --input shaders/cube.glsl --output shaders/cubes.glsl.h --format sokol --slang glsl410
+	sokol-tools-bin/bin/osx/sokol-shdc --input shaders/simple.glsl --output shaders/simple.glsl.h --format sokol --slang glsl410
 	sokol-tools-bin/bin/osx/sokol-shdc --input shaders/light.glsl --output shaders/light.glsl.h --format sokol --slang glsl410
 
 shaders_clean:

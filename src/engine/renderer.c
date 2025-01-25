@@ -3,7 +3,7 @@
 #include "renderer.h"
 #include "cube.h"
 
-#include <cubes.glsl.h>
+#include <simple.glsl.h>
 
 Object *getObjectFromName(char *name) {
 	if(name==NULL) return NULL;
@@ -86,8 +86,8 @@ void createObjectEx(char *name, vec3 pos,
 	createObject(obj);
 }
 
-void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
-		sg_shader defShader, sg_pipeline_desc pipe) {
+void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
+		/*sg_shader defShader, sg_pipeline_desc pipe*/) {
 	if(mesh==NULL) return;
 	Object obj = {0};
 	obj.name = calloc(strlen(mesh->label)+1, sizeof(char));
@@ -96,14 +96,15 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
 	obj.numIndices = mesh->indices.size*6;
 
 	/*Expand mesh verts and indices*/
-	int vertSize = mesh->verts.total+(mesh->verts.size*4);
+	/*4+VSIZE cuz 4 color values 3 normal values*/
+	int vertSize = mesh->verts.total+(mesh->verts.size*(4+VSIZE));
 	int indSize = mesh->indices.size*6;
 	float *finalVerts = calloc(vertSize, sizeof(float));
 	uint16_t *finalInds = calloc(indSize, sizeof(uint16_t));
 	/*This REQUIRES 3 points per vert, 
 	 * if there isn't you've done something wrong and it'll crash*/
 	int i,j=0;
-	for(i=0;i<vertSize;i+=(VSIZE+4),j++) {
+	for(i=0;i<vertSize;i+=(VSIZE+(4+VSIZE)),j++) {
 		/*verts*/
 		finalVerts[i] = mesh->verts.data[j][0];
 		finalVerts[i+1] = mesh->verts.data[j][1];
@@ -113,17 +114,22 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
 		finalVerts[i+3] = 1.0f;
 		finalVerts[i+4] = 1.0f;
 		finalVerts[i+5] = 1.0f;
-		finalVerts[i+6] = 1.0f; 
+		finalVerts[i+6] = 1.0f;
+
+		/*Normals*/
+		finalVerts[i+7] = mesh->vertNorms.data[j][0];
+		finalVerts[i+8] = mesh->vertNorms.data[j][1];
+		finalVerts[i+9] = mesh->vertNorms.data[j][2];
 	}
 	/*This REQUIRES 4 points per face,and atleast 6 faces.
 	 * If there isn't you've done something wrong and it'll crash*/
 	for(i=0,j=0;i<indSize;i+=6,j++) {
     	finalInds[i]   = mesh->indices.data[j][0] - 1;
-    	finalInds[i+1] = mesh->indices.data[j][1] - 1;
-		finalInds[i+2] = mesh->indices.data[j][2] - 1;
-	    finalInds[i+3] = mesh->indices.data[j][2] - 1;
+    	finalInds[i+1] = mesh->indices.data[j][2] - 1;
+		finalInds[i+2] = mesh->indices.data[j][1] - 1;
+	    finalInds[i+3] = mesh->indices.data[j][0] - 1;
 	    finalInds[i+4] = mesh->indices.data[j][3] - 1;
-	    finalInds[i+5] = mesh->indices.data[j][0] - 1;
+	    finalInds[i+5] = mesh->indices.data[j][2] - 1;
 	}
 	
 
@@ -137,7 +143,9 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos,
 				.label = "obji"
 			});
 
+	sg_shader defShader = getDefCubeShader();
 	memcpy(&obj.defShader, &defShader, sizeof(defShader));
+	sg_pipeline_desc pipe = getDefaultPipe(defShader, "mesh");
 	obj.pipe = sg_make_pipeline(&pipe);
 
 	obj.pos[0] = pos[0];
@@ -170,6 +178,25 @@ void setObjectShader(char *name, sg_shader shd) {
 	if(obj!=NULL) obj->defShader = shd;
 }
 
+/*This is specifically for the default shader*/
+void OEApplyCurrentUniforms(Object *obj) {
+    mat4x4 mvp, mv;
+    mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
+    mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
+
+	vs_params_t vs_params;
+	fs_params_t fs_params;
+	light_params_t light_params = getLightUniform();
+	Camera *cam = getCamera();
+    memcpy(vs_params.mvp, mvp, sizeof(mvp));
+	memcpy(vs_params.model, obj->model, sizeof(obj->model));
+	memcpy(fs_params.camPos, cam->position, sizeof(cam->position));
+
+    sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+	sg_apply_uniforms(UB_fs_params, &SG_RANGE(fs_params));
+	sg_apply_uniforms(UB_light_params, &SG_RANGE(light_params));
+}
+
 void drawObject(Object *obj) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
@@ -185,14 +212,7 @@ void drawObject(Object *obj) {
 
     });
 
-    mat4x4 mvp, mv;
-    mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
-    mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
-
-    vs_params_t vs_params;
-    memcpy(vs_params.mvp, mvp, sizeof(mvp));
-
-    sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+	OEApplyCurrentUniforms(obj);
     sg_draw(0, obj->numIndices, 1);
 }
 
@@ -205,14 +225,7 @@ void drawObjectBind(Object *obj, sg_bindings binding) {
     sg_apply_pipeline(obj->pipe);
     sg_apply_bindings(&binding);
 
-    mat4x4 mvp, mv;
-    mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
-    mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
-
-    vs_params_t vs_params;
-    memcpy(vs_params.mvp, mvp, sizeof(mvp));
-
-    sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+	OEApplyCurrentUniforms(obj);
     sg_draw(0, obj->numIndices, 1);
 }
 
@@ -233,14 +246,7 @@ void drawObjectTex(Object *obj, int assign, sg_image texture) {
 
     });
 
-    mat4x4 mvp, mv;
-    mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
-    mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
-
-    vs_params_t vs_params;
-    memcpy(vs_params.mvp, mvp, sizeof(mvp));
-
-    sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+	OEApplyCurrentUniforms(obj);
     sg_draw(0, obj->numIndices, 1);
 }
 
@@ -333,8 +339,9 @@ sg_pipeline_desc getDefaultPipe(sg_shader shader, char *label) {
 			.shader = shader,
 			.layout = {
             	.attrs = {
-                	[ATTR_cube_position].format = SG_VERTEXFORMAT_FLOAT3,
-					[ATTR_cube_color0].format = SG_VERTEXFORMAT_FLOAT4,
+                	[ATTR_simple_position].format = SG_VERTEXFORMAT_FLOAT3,
+					[ATTR_simple_color0].format = SG_VERTEXFORMAT_FLOAT4,
+					[ATTR_simple_normal0].format = SG_VERTEXFORMAT_FLOAT3
             	}
         	},
 			.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
@@ -375,6 +382,12 @@ Object getDefaultCubeObj(char *name) {
 }
 
 void initBaseObjects() {
+
+	/*Create a test light*/
+	Color c = (Color){255.0f, 135.0f, 102.0f, 255.0f};
+	OEAddLight("Light1", (vec3){-5.0f, 5.0f, -5.0f},
+			RGBA255TORGBA1(c));
+
 	Object test = {0};
 	test.vbuf = sg_make_buffer(&(sg_buffer_desc) {
 				.data = SG_RANGE(cubeVertices),
@@ -570,7 +583,7 @@ void initRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->objSize = 0;
 	globalRenderer->objects = calloc(globalRenderer->objCap, sizeof(Object));
 	
-	globalRenderer->defCubeShader = sg_make_shader(cube_shader_desc(sg_query_backend()));
+	globalRenderer->defCubeShader = sg_make_shader(simple_shader_desc(sg_query_backend()));
 
 	initBaseObjects();
 
