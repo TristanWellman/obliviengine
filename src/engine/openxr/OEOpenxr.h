@@ -3,17 +3,17 @@
  * Obliviengine OpenXR currently only works for windows
  *
  * */
-#ifndef RENDERER_OPENXR_H
-#define RENDERER_OPENXR_H
+#ifndef OEOPENXR_H
+#define OEOPENXR_H
 
-#include "../renderer.h"
+#include "../OE.h"
 
 #define MAX_SWAPCHAIN_IMAGES 4
 #define NUM_EYES 2
 
 /*You are meant to run this after runing initRenderer()*/
-void initOpenXR();
-bool pollXREvents();
-void renderXRFrame(RENDFUNC drawCall);
+void OEInitOpenXR();
+bool OEPollXREvents();
+void OERenderXRFrame(RENDFUNC drawCall);
 
 #endif

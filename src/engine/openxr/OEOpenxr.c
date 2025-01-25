@@ -1,6 +1,6 @@
 /*Copyright (c) 2025 Tristan Wellman*/
 #define SDL_VIDEO_DRIVER_WINDOWS
-#include "renderer_openxr.h"
+#include "OEOpenxr.h"
 
 /*This is not in the header for possible header recomp time savings.*/
 #define XR_USE_GRAPHICS_API_OPENGL
@@ -129,7 +129,7 @@ void initOpenXR() {
 	WLOG(INFO, SDL_GetCurrentVideoDriver());
 	SDL_SysWMinfo info_;
 	SDL_VERSION(&info_.version);
-	WASSERT(SDL_GetWindowWMInfo(getWindow(), &info_),
+	WASSERT(SDL_GetWindowWMInfo(OEGetWindow(), &info_),
     	"SDL_GetWindowWMInfo failed: %s", SDL_GetError());
 
     XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {
@@ -148,7 +148,7 @@ void initOpenXR() {
 
     XrReferenceSpaceCreateInfo spaceCreateInfo = { XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
     spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
-    spaceCreateInfo.poseInReferenceSpace.orientation.w = 1.0f; // Identity quaternion
+    spaceCreateInfo.poseInReferenceSpace.orientation.w = 1.0f;
 
     WASSERT(!XR_FAILED(xrCreateReferenceSpace(xrSession, &spaceCreateInfo, &xrSpace)),
         "Failed to create reference space\n");
@@ -223,7 +223,7 @@ void xrFovToProjectionMatrix(const XrFovf* fov, float nearZ, float farZ, mat4x4 
     matrix[3][3] = 0.0f;
 }
 
-bool pollXREvents() {
+bool OEPollXREvents() {
     XrEventDataBuffer eventData = { XR_TYPE_EVENT_DATA_BUFFER };
     XrResult result = xrPollEvent(xrInstance, &eventData);
     while (result == XR_SUCCESS) {
@@ -262,7 +262,7 @@ bool pollXREvents() {
 
 /*This currently does not allow for moving the position, but you can look around*/
 void updateCamera(XrView view) {
-	Camera *cam = getCamera();
+	Camera *cam = OEGetCamera();
 	mat4x4 xrView;
     xrPoseToMatrix(&view.pose, xrView);
 
@@ -277,8 +277,8 @@ void updateCamera(XrView view) {
 
 }
 
-void renderXRFrame(RENDFUNC drawCall) {
-	rendererTimerStart();
+void OERenderXRFrame(RENDFUNC drawCall) {
+	OERendererTimerStart();
 
 	XrFrameWaitInfo frameWaitInfo = { XR_TYPE_FRAME_WAIT_INFO };
     XrFrameState frameState = { XR_TYPE_FRAME_STATE };
@@ -365,5 +365,5 @@ void renderXRFrame(RENDFUNC drawCall) {
     WASSERT(!XR_FAILED(xrEndFrame(xrSession, &frameEndInfo)),
         "Failed to end frame\n");
 
-    rendererTimerEnd();
+    OERendererTimerEnd();
 }

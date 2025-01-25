@@ -3,7 +3,7 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
 
-#include "renderer.h"
+#include "OE.h"
 
 #define MAX_TEX 10000
 

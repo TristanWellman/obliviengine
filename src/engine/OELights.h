@@ -3,7 +3,7 @@
 #ifndef OELIGHTS_H
 #define OELIGHTS_H
 
-#include "renderer.h"
+#include "OE.h"
 #include <simple.glsl.h> 
 
 /*This needs to be the same in the shader*/

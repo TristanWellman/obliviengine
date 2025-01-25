@@ -3,28 +3,28 @@
  * This is a super simple example/testing program
  *
  * */
-#include "engine/renderer.h"
-//#include "engine/openxr/renderer_openxr.h"
+#include "engine/OE.h"
+//#include "engine/openxr/OEOpenxr.h"
 
 void draw() {
-	drawObject(getObjectFromName("Sphere"));
+	OEDrawObject(OEGetObjectFromName("Sphere"));
 	//drawObject(getObjectFromName("OECube"));
-	drawObject(getObjectFromName("OEPlane"));
+	OEDrawObject(OEGetObjectFromName("OEPlane"));
 }
 
 void event() {
-	SDL_Event event = getEvent();
-	float camSpeed = 5.0f*getFrameTime();
-	if(isKeyPressed()) {
-		Vec3 pos = getCamPos();
-		switch(getKeySym()) {
-			case SDLK_w: moveCam(FRONT, camSpeed); break;
-			case SDLK_s: moveCam(BACKWARD, camSpeed); break;
-			case SDLK_a: moveCam(LEFT, camSpeed); break;
-			case SDLK_d: moveCam(RIGHT, camSpeed); break;
-			case SDLK_SPACE: moveCam(UP, camSpeed); break;
+	SDL_Event event = OEGetEvent();
+	float camSpeed = 5.0f*OEGetFrameTime();
+	if(OEIsKeyPressed()) {
+		Vec3 pos = OEGetCamPos();
+		switch(OEGetKeySym()) {
+			case SDLK_w: OEMoveCam(FRONT, camSpeed); break;
+			case SDLK_s: OEMoveCam(BACKWARD, camSpeed); break;
+			case SDLK_a: OEMoveCam(LEFT, camSpeed); break;
+			case SDLK_d: OEMoveCam(RIGHT, camSpeed); break;
+			case SDLK_SPACE: OEMoveCam(UP, camSpeed); break;
 			case SDLK_RSHIFT:
-			case SDLK_LSHIFT: moveCam(DOWN, camSpeed); break;
+			case SDLK_LSHIFT: OEMoveCam(DOWN, camSpeed); break;
 		};
 	}	
 }
@@ -39,27 +39,27 @@ void colorTest() {
 void meshTest() {
 	OEMesh mesh;
 	OEParseObj("assets/models/sphere.obj", &mesh);
-	sg_shader defShader = getDefCubeShader();
+	sg_shader defShader = OEGetDefCubeShader();
 	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
 }
 
 int main(int argc, char **argv) {
 	
-	initRenderer(1280, 720, "game", PERSPECTIVE);
+	OEInitRenderer(1280, 720, "game", PERSPECTIVE);
 	//initOpenXR();
-	enableDebugInfo();
+	OEEnableDebugInfo();
 	meshTest();
 
-	setObjectPosition("OEPlane", (vec3){0.0f, -1.0f, 0.0f});
+	OESetObjectPosition("OEPlane", (vec3){0.0f, -1.0f, 0.0f});
 
 	Color c = (Color){77.0f, 106.0f, 148.0f, 255.0f};
 	OEAddLight("Test", (vec3){2.0f, 2.0f, 2.0f}, RGBA255TORGBA1(c));
 
-	while(rendererIsRunning()) {
-		pollEvents((EVENTFUNC)event);
-		//pollXREvents();
-		//renderXRFrame((RENDFUNC)draw);
-		renderFrame((RENDFUNC)draw);
+	while(OERendererIsRunning()) {
+		OEPollEvents((EVENTFUNC)event);
+		//OEPollXREvents();
+		//OERenderXRFrame((RENDFUNC)draw);
+		OERenderFrame((RENDFUNC)draw);
 	}
 	
 	return 0;
