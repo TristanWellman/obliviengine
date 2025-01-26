@@ -119,16 +119,24 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 
 		/*Normals*/
 		/*TODO Use faster lookup method!*/
+    	vec3 normal = {0.0f, 0.0f, 0.0f};
+
 		for(normI=0;normI<mesh->normInds.size;normI++) {
 			for(normJ=0;normJ<ISIZE;normJ++) {
 				if(mesh->indices.data[normI][normJ]-1==j) {
-					int pos = mesh->normInds.data[normI][normJ]-1;
-					finalVerts[i+7] = mesh->vertNorms.data[pos][0];
-					finalVerts[i+8] = mesh->vertNorms.data[pos][1];
-					finalVerts[i+9] = mesh->vertNorms.data[pos][2];
+					int pos = mesh->normInds.data[normI][normJ] - 1;
+					normal[0] += mesh->vertNorms.data[pos][0];
+					normal[1] += mesh->vertNorms.data[pos][1];
+					normal[2] += mesh->vertNorms.data[pos][2];	
 				}
 			}
 		}
+
+		vec3_norm(normal, normal);
+
+		finalVerts[i + 7] = normal[0];
+		finalVerts[i + 8] = normal[1];
+		finalVerts[i + 9] = normal[2];
 
 	}
 	/*This REQUIRES 4 points per face,and atleast 6 faces.

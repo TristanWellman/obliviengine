@@ -7,8 +7,8 @@
 //#include "engine/openxr/OEOpenxr.h"
 
 void draw() {
-	OEDrawObject(OEGetObjectFromName("Cube"));
-	//drawObject(getObjectFromName("OECube"));
+	OEDrawObject(OEGetObjectFromName("Sphere"));
+	//OEDrawObject(OEGetObjectFromName("OECube"));
 	OEDrawObject(OEGetObjectFromName("OEPlane"));
 }
 
@@ -38,7 +38,7 @@ void colorTest() {
 
 void meshTest() {
 	OEMesh mesh;
-	OEParseObj("assets/models/cube.obj", &mesh);
+	OEParseObj("assets/models/sphere.obj", &mesh);
 	sg_shader defShader = OEGetDefCubeShader();
 	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
 }
