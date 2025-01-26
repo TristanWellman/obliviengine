@@ -104,7 +104,7 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 	uint16_t *finalInds = calloc(indSize, sizeof(uint16_t));
 	/*This REQUIRES 3 points per vert, 
 	 * if there isn't you've done something wrong and it'll crash*/
-	int i,j=0;
+	int i,j=0, normI,normJ;
 	for(i=0;i<vertSize;i+=(VSIZE+(4+VSIZE)),j++) {
 		/*verts*/
 		finalVerts[i] = mesh->verts.data[j][0];
@@ -118,9 +118,18 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 		finalVerts[i+6] = 1.0f;
 
 		/*Normals*/
-		finalVerts[i+7] = mesh->vertNorms.data[j][0];
-		finalVerts[i+8] = mesh->vertNorms.data[j][1];
-		finalVerts[i+9] = mesh->vertNorms.data[j][2];
+		/*TODO Use faster lookup method!*/
+		for(normI=0;normI<mesh->normInds.size;normI++) {
+			for(normJ=0;normJ<ISIZE;normJ++) {
+				if(mesh->indices.data[normI][normJ]-1==j) {
+					int pos = mesh->normInds.data[normI][normJ]-1;
+					finalVerts[i+7] = mesh->vertNorms.data[pos][0];
+					finalVerts[i+8] = mesh->vertNorms.data[pos][1];
+					finalVerts[i+9] = mesh->vertNorms.data[pos][2];
+				}
+			}
+		}
+
 	}
 	/*This REQUIRES 4 points per face,and atleast 6 faces.
 	 * If there isn't you've done something wrong and it'll crash*/

@@ -55,24 +55,42 @@ int checkObjIndices(char *line, OEMesh *mesh) {
 			mesh->indices.data = (uint16_t **)realloc(mesh->indices.data,
 					sizeof(uint16_t *)*mesh->indices.cap);
 		}
+		if(mesh->normInds.size>=mesh->normInds.cap) {
+			mesh->normInds.cap+=MAXDATA;
+			mesh->normInds.data = (uint16_t **)realloc(mesh->normInds.data,
+					sizeof(uint16_t *)*mesh->normInds.cap);
+		}
 		char *is = strchr(line, 'f')+1;
 		if(is!=NULL) {
 			mesh->indices.data[mesh->indices.size] = calloc(ISIZE, sizeof(uint16_t));
+			mesh->normInds.data[mesh->normInds.size] = calloc(ISIZE, sizeof(uint16_t));
 			int j;
 			for(j=0;j<ISIZE;j++) {
 				while(is[0]==' ')is++;
-				char buf[128];
+				char *buf = calloc(256, sizeof(char));
 				int i = 0;
 				for(;is[0]!=' '&&is[0]!='\n';is++,i++) buf[i]=is[0];
-				char *tmp = strtok(buf, "/");
+				if(buf==NULL||buf[0]=='\0') continue;
+				char *cpy = strdup(buf);
+				char *tmp = strtok(cpy, "/");
 				mesh->indices.data[mesh->indices.size][j] = atoi(tmp);
+				/*get the texture coord indexes*/
+				while(buf[0]!='/') buf++;
+				buf++;
+				/*TODO get texture indexes HERE*/
+				/*get normal indexes*/
+				while(buf[0]!='/') buf++;
+				buf++;
+				mesh->normInds.data[mesh->normInds.size][j] = atoi(buf);
+				mesh->normInds.total++;
 				mesh->indices.total++;
 			}
-			/*printf("(%d, %d, %d, %d)\n", mesh->indices.data[mesh->indices.size][0],
-					mesh->indices.data[mesh->indices.size][1],
-					mesh->indices.data[mesh->indices.size][2],
-					mesh->indices.data[mesh->indices.size][3]);*/
+			/*printf("(%d, %d, %d, %d)\n", mesh->normInds.data[mesh->normInds.size][0],
+					mesh->normInds.data[mesh->normInds.size][1],
+					mesh->normInds.data[mesh->normInds.size][2],
+					mesh->normInds.data[mesh->normInds.size][3]);*/
 			mesh->indices.size++;
+			mesh->normInds.size++;
 		}
 		return 1;
 	}
@@ -152,6 +170,10 @@ void OEParseObj(char *file, OEMesh *mesh) {
 	mesh->indices.size = 0;
 	mesh->indices.total = 0;
 	mesh->indices.data = calloc(mesh->verts.cap, sizeof(uint16_t*));
+	mesh->normInds.size = 0;
+	mesh->normInds.total = 0;
+	mesh->normInds.data = calloc(mesh->verts.cap, sizeof(uint16_t*));
+
 
 	char line[2048];
 	while(fgets(line, sizeof(line), mesh->f)!=NULL) {
