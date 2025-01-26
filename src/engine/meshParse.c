@@ -173,7 +173,8 @@ void OEParseObj(char *file, OEMesh *mesh) {
 	mesh->normInds.size = 0;
 	mesh->normInds.total = 0;
 	mesh->normInds.data = calloc(mesh->verts.cap, sizeof(uint16_t*));
-
+	
+	mesh->label = NULL;
 
 	char line[2048];
 	while(fgets(line, sizeof(line), mesh->f)!=NULL) {
