@@ -25,7 +25,13 @@
 #include "macky.h"
 #include "OELights.h"
 
+#include <simple.glsl.h>
+
 #define MAXOBJS 1000000
+
+#define OE_TEXPOS (IMG__texture)
+
+#define OE_WHITEP (0xFFFFFFFF)
 
 /*This is here because SG_RANGE does not work with ptr sizes.*/
 #define PTRRANGE(ptr_, size_) \
@@ -120,6 +126,9 @@ struct renderer {
 	int objSize;
 	sg_shader defCubeShader;
 
+	/*This is for if you call a draw function and do not pass a texture*/
+	sg_image defTexture;
+
 	SSAO ssao;
 
 	int debug;
@@ -153,6 +162,7 @@ sg_buffer_desc OEGetCubeVertDesc();
 sg_buffer_desc OEGetCubeIndDesc();
 sg_shader OEGetDefCubeShader();
 Object OEGetDefaultCubeObj(char *name);
+sg_image OEGetDefaultTexture(); 
 
 //renderer
 int OERendererIsRunning();

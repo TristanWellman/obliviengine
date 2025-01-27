@@ -35,6 +35,7 @@ typedef struct {
 	DynArrD vertNorms;
 	DynArrI indices;
 	DynArrI normInds;
+	DynArrI texInds;
 	FILE *f;
 	char *label;
 } OEMesh;

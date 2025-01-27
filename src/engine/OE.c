@@ -3,7 +3,7 @@
 #include "OE.h"
 #include "cube.h"
 
-#include <simple.glsl.h>
+//#include <simple.glsl.h>
 
 Object *OEGetObjectFromName(char *name) {
 	if(name==NULL) return NULL;
@@ -97,15 +97,15 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 	obj.numIndices = mesh->indices.size*6;
 
 	/*Expand mesh verts and indices*/
-	/*4+VSIZE cuz 4 color values 3 normal values*/
-	int vertSize = mesh->verts.total+(mesh->verts.size*(4+VSIZE));
+	/*4+VSIZE cuz 4 color values, 3 normal values, 2 tex coords*/
+	int vertSize = mesh->verts.total+(mesh->verts.size*(6+VSIZE));
 	int indSize = mesh->indices.size*6;
 	float *finalVerts = calloc(vertSize, sizeof(float));
 	uint16_t *finalInds = calloc(indSize, sizeof(uint16_t));
 	/*This REQUIRES 3 points per vert, 
 	 * if there isn't you've done something wrong and it'll crash*/
-	int i,j=0, normI,normJ;
-	for(i=0;i<vertSize;i+=(VSIZE+(4+VSIZE)),j++) {
+	int i,j=0, l,k;
+	for(i=0;i<vertSize;i+=(VSIZE+(6+VSIZE)),j++) {
 		/*verts*/
 		finalVerts[i] = mesh->verts.data[j][0];
 		finalVerts[i+1] = mesh->verts.data[j][1];
@@ -121,10 +121,10 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 		/*TODO Use faster lookup method!*/
     	vec3 normal = {0.0f, 0.0f, 0.0f};
 
-		for(normI=0;normI<mesh->normInds.size;normI++) {
-			for(normJ=0;normJ<ISIZE;normJ++) {
-				if(mesh->indices.data[normI][normJ]-1==j) {
-					int pos = mesh->normInds.data[normI][normJ] - 1;
+		for(l=0;l<mesh->normInds.size;l++) {
+			for(k=0;k<ISIZE;k++) {
+				if(mesh->indices.data[l][k]-1==j) {
+					int pos = mesh->normInds.data[l][k] - 1;
 					normal[0] += mesh->vertNorms.data[pos][0];
 					normal[1] += mesh->vertNorms.data[pos][1];
 					normal[2] += mesh->vertNorms.data[pos][2];	
@@ -134,9 +134,25 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 
 		vec3_norm(normal, normal);
 
-		finalVerts[i + 7] = normal[0];
-		finalVerts[i + 8] = normal[1];
-		finalVerts[i + 9] = normal[2];
+		finalVerts[i+7] = normal[0];
+		finalVerts[i+8] = normal[1];
+		finalVerts[i+9] = normal[2];
+
+		/*Tex Coords*/
+		vec2 texCoords = {0.0f, 0.0f};
+
+		for(l=0;l<mesh->texInds.size;l++) {
+			for(k=0;k<ISIZE;k++) {
+				if(mesh->indices.data[l][k]-1==j) {
+					int pos = mesh->texInds.data[l][k] - 1;
+					texCoords[0] += mesh->vertTex.data[pos][0];
+					texCoords[1] += mesh->vertTex.data[pos][1];
+				}
+			}
+		}
+
+		finalVerts[i+10] = texCoords[0];
+		finalVerts[i+11] = texCoords[1];
 
 	}
 	/*This REQUIRES 4 points per face,and atleast 6 faces.
@@ -229,7 +245,8 @@ void OEDrawObject(Object *obj) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
 		.images[0] = globalRenderer->ssao.finalImage,
-        .samplers[0] = globalRenderer->ssao.sampler
+		.images[OE_TEXPOS] = OEGetDefaultTexture(),
+        .samplers[OE_TEXPOS] = globalRenderer->ssao.sampler
 
     });
 
@@ -282,7 +299,8 @@ void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
 		.images[0] = globalRenderer->ssao.finalImage,
-        .samplers[0] = globalRenderer->ssao.sampler
+		.images[OE_TEXPOS] = OEGetDefaultTexture(),
+        .samplers[OE_TEXPOS] = globalRenderer->ssao.sampler
     });
 
 	apply_uniforms();
@@ -362,7 +380,8 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
             	.attrs = {
                 	[ATTR_simple_position].format = SG_VERTEXFORMAT_FLOAT3,
 					[ATTR_simple_color0].format = SG_VERTEXFORMAT_FLOAT4,
-					[ATTR_simple_normal0].format = SG_VERTEXFORMAT_FLOAT3
+					[ATTR_simple_normal0].format = SG_VERTEXFORMAT_FLOAT3,
+					[ATTR_simple_texcoord0].format = SG_VERTEXFORMAT_FLOAT2
             	}
         	},
 			.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
@@ -400,6 +419,10 @@ Object OEGetDefaultCubeObj(char *name) {
 	obj.pipe = sg_make_pipeline(&pipe);
 	mat4x4_identity(obj.model);
 	return obj;
+}
+
+sg_image OEGetDefaultTexture() {
+	return globalRenderer->defTexture;
 }
 
 void initBaseObjects() {
@@ -608,6 +631,20 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 	initBaseObjects();
 
+	static const uint32_t white = OE_WHITEP;
+	sg_image_desc img_desc = {
+		.width = 1,
+		.height = 1,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.data.subimage[0][0] = {
+			.ptr = &white,
+			.size = sizeof(white)
+		},
+    	.label = "defTexture"
+	};
+
+	globalRenderer->defTexture = sg_make_image(&img_desc);
+
 	/*Setup Camera*/
 
 	float scale = 10.0f;
@@ -651,9 +688,9 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			             0.1f, globalRenderer->cam.fov);
 			break;
 		case PERSPECTIVE: 
-			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, -5.0f});
+			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, 5.0f});
 			vec3_dup(globalRenderer->cam.target, (vec3){0.0f, 0.0f, 0.0f});
-			vec3_dup(globalRenderer->cam.front, (vec3){0.0f, 0.0f, 1.0f});
+			vec3_dup(globalRenderer->cam.front, (vec3){0.0f, 0.0f, -1.0f});
 			vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
 			
 			vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);

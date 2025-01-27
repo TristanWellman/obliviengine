@@ -16,10 +16,12 @@ layout(binding=0) uniform vs_params {
 in vec4 position;
 in vec4 color0;
 in vec3 normal0;
+in vec2 texcoord0;
 
 out vec4 color;
 out vec3 normal;
 out vec3 fragPos;
+out vec2 texcoord;
 
 void main() {
     gl_Position = mvp * position;
@@ -29,6 +31,7 @@ void main() {
     normal = normalize(normalMatrix * normal0);
 
     fragPos = vec3(model * position);
+	texcoord = texcoord0;
 }
 
 @end
@@ -46,9 +49,13 @@ layout(binding=3) uniform fs_params {
     vec3 camPos;
 };
 
+layout(binding=3) uniform texture2D _texture;
+layout(binding=3) uniform sampler smp;
+
 in vec4 color;
 in vec3 normal; 
 in vec3 fragPos;
+in vec2 texcoord;
 
 out vec4 frag_color;
 
@@ -65,6 +72,8 @@ void main() {
     vec3 materialAmbient = vec3(0.1);
     vec3 materialDiffuse = vec3(0.7);
     vec3 materialSpecular = vec3(0.5);
+
+	vec3 texcolor = texture(sampler2D(_texture, smp), texcoord).rgb;
 
     for (int i = 0; i < MAXLIGHTS; i++) {
 		if(colors[i]==vec4(0.0)) break;
@@ -83,7 +92,7 @@ void main() {
     }
 
     vec3 result = ambient + diffuse + specular;
-    frag_color = vec4(result * vec3(color), color.a);
+    frag_color = vec4(result*vec3(color)*vec3(texcolor), color.a);
 
 }
 
