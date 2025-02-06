@@ -1,7 +1,7 @@
 /*Copyright (c) 2025 Tristan Wellman*/
 #define SOKOL_IMPL
-#include "OE.h"
-#include "cube.h"
+#include <OE/OE.h>
+#include <OE/cube.h>
 
 //#include <simple.glsl.h>
 
@@ -593,31 +593,32 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->ssao.w = globalRenderer->window->width;
 	globalRenderer->ssao.h = globalRenderer->window->height;
 	globalRenderer->ssao.depthBuffer = sg_make_image(&(sg_image_desc){
-				.render_target = true,
-    			.width = globalRenderer->ssao.w, 
-    			.height = globalRenderer->ssao.h, 
-    			.pixel_format = SG_PIXELFORMAT_DEPTH,
-				.sample_count = 4,
-				.label = "depth_image"
-			});
+		.render_target = true,
+    	.width = globalRenderer->ssao.w, 
+    	.height = globalRenderer->ssao.h, 
+    	.pixel_format = SG_PIXELFORMAT_DEPTH,
+		.sample_count = 4,
+		.label = "depth_image"
+	});
 	globalRenderer->ssao.ssaoBuffer = sg_make_image(&(sg_image_desc){
-			    .render_target = true,
-    			.width = globalRenderer->ssao.w, 
-    			.height = globalRenderer->ssao.h, 
-    			.pixel_format = SG_PIXELFORMAT_R8,
-				.sample_count = 4,
-				.label = "ssao_image"
-			});
+		.render_target = true,
+    	.width = globalRenderer->ssao.w, 
+    	.height = globalRenderer->ssao.h, 
+    	.pixel_format = SG_PIXELFORMAT_R8,
+		.sample_count = 4,
+		.label = "ssao_image"
+	});
 	globalRenderer->ssao.atts = sg_make_attachments(&(sg_attachments_desc){
-				.colors[0].image = globalRenderer->ssao.ssaoBuffer,
-				.depth_stencil.image = globalRenderer->ssao.depthBuffer,
-				.label = "ssao_atts"
-			});
+		.colors[0].image = globalRenderer->ssao.ssaoBuffer,
+		.depth_stencil.image = globalRenderer->ssao.depthBuffer,
+		.label = "ssao_atts"
+	});
 	globalRenderer->ssao.sampler = sg_make_sampler(&(sg_sampler_desc){
-        .min_filter = SG_FILTER_LINEAR,
-        .mag_filter = SG_FILTER_LINEAR,
-        .wrap_u = SG_WRAP_REPEAT,
-        .wrap_v = SG_WRAP_REPEAT,
+		.min_filter = SG_FILTER_NEAREST,
+		.mag_filter = SG_FILTER_NEAREST,
+		.wrap_u = SG_WRAP_REPEAT,           
+		.wrap_v = SG_WRAP_REPEAT,
+		.wrap_w = SG_WRAP_REPEAT,
     });
 
 /*
@@ -661,11 +662,11 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	
 	switch(camType) {
 		case ISOMETRIC:
-			globalRenderer->cam.fov = 60.0f;
-			vec3_dup(globalRenderer->cam.position, (vec3){-10.0f, 5.0f, -5.0f});
+			//globalRenderer->cam.fov = 80.0f;
+			vec3_dup(globalRenderer->cam.position, (vec3){-1.0f, 15.0f, -1.0f});
 
 			float angle_y = DEG2RAD(45.0f);
-			float angle_x = DEG2RAD(-35.264f);
+			float angle_x = DEG2RAD(-30.0f);
 	
 			globalRenderer->cam.front[0] = cos(angle_y) * cos(angle_x);
 			globalRenderer->cam.front[1] = sin(angle_x);
@@ -685,7 +686,12 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			mat4x4_ortho(globalRenderer->cam.proj, 
 			             -scale * aspect, scale * aspect, 
 			             -scale, scale, 
-			             0.1f, globalRenderer->cam.fov);
+			             0.1f, 100.0f);
+
+			mat4x4 tmp_;
+			mat4x4_mul(tmp_, globalRenderer->cam.proj, globalRenderer->cam.view);
+			mat4x4_mul(globalRenderer->cam.mvp, tmp_, globalRenderer->cam.model);
+
 			break;
 		case PERSPECTIVE: 
 			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, 5.0f});

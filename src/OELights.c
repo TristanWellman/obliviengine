@@ -1,6 +1,6 @@
 /*Copyright (c) 2025 Tristan Wellman*/
 
-#include "OELights.h"
+#include <OE/OELights.h>
 
 struct LightData *globalData;
 

@@ -4,7 +4,8 @@
  *
  * */
 
-#include "meshParse.h"
+#include <OE/meshParse.h>
+#include <OE/bridethread.h>
 
 int checkObjNorm(char *line, OEMesh *mesh) {
 	if(line==NULL) return 0;
@@ -180,15 +181,7 @@ int getObjLabel(char *line, OEMesh *mesh) {
 	return 0;
 }
 
-void OEParseObj(char *file, OEMesh *mesh) {
-	if(mesh==NULL) mesh = calloc(1, sizeof(OEMesh));
-	
-	mesh->f = fopen(file, "r");
-	/*check for .obj & OpenFOAM file types*/
-	WASSERT(mesh->f!=NULL&&(strstr(file, ".obj")||
-					strstr(file, "points")||strstr(file, "faces")), 
-			"Failed to open .obj file!");
-
+void initMeshData(OEMesh *mesh) {
 	mesh->verts.cap = MAXDATA;
 	mesh->verts.size = 0;
 	mesh->verts.total = 0;
@@ -212,8 +205,123 @@ void OEParseObj(char *file, OEMesh *mesh) {
 	mesh->texInds.total = 0;
 	mesh->texInds.data = calloc(mesh->texInds.cap, sizeof(uint16_t*));
 
-	
 	mesh->label = NULL;
+}
+
+void *parseFoamFaces(void *args) {
+	/*EXPECTS AN ALREADY OPENED FILE*/
+	OEThreadArg *args_ = (OEThreadArg *)args;
+	FILE *f = (FILE *)args_->file;
+	if(f==NULL) return NULL;
+	OEFOAMMesh *mesh = (OEFOAMMesh *)args_->meshptr;
+
+	if(mesh->indices.data==NULL) {
+		mesh->indices.cap = MAXDATA;
+		mesh->indices.size = 0;
+		mesh->indices.total = 0;
+		mesh->indices.data = calloc(mesh->indices.cap, sizeof(uint16_t*));
+	}
+
+	char line[2048];
+	while(fgets(line, sizeof(line), f)!=NULL) {
+		
+	}
+
+	return NULL;
+}
+
+
+void *parseFoamPoints(void *args) {
+	/*EXPECTS AN ALREADY OPENED FILE*/
+	OEThreadArg *args_ = (OEThreadArg *)args;
+	FILE *f = (FILE *)args_->file;
+	if(f==NULL) return NULL;
+	OEFOAMMesh *mesh = (OEFOAMMesh *)args_->meshptr;
+
+	if(mesh->verts.data==NULL) {
+		mesh->verts.cap = MAXDATA;
+		mesh->verts.size = 0;
+		mesh->verts.total = 0;
+		mesh->verts.data = calloc(mesh->verts.cap, sizeof(float*));
+	}
+
+	char line[2048];
+	char *prevLine = calloc(2048, sizeof(char));
+	int i, cpyPrev=1, j, l=0;
+	/*We are using i for line numbers so at some point we can
+	 * multithread parsing for larger files.
+	 * OpenFOAM point files can have hundreds of thousands of poitns.*/
+	for(i=0;fgets(line, sizeof(line), f)!=NULL;i++) {
+		/*Look for point count*/
+		if(i>0&&(!strcmp(line, "(\n")||!strcmp(line, "(\r\n"))&&prevLine!=NULL) {
+			/*TODO make the parser multithreaded with the total point size
+			 * This can be calculated by just the i offset + 1 and then fseek to a chunk*/
+			mesh->verts.cap = atoi(prevLine)+1;
+			mesh->verts.data = (float **)realloc(mesh->verts.data, 
+					sizeof(float *)*mesh->verts.cap);
+			cpyPrev=0;
+			continue;			
+		}
+
+		if(line[0]=='('&&line[1]!='\n') {
+			char *lcpy = calloc(strlen(line)+1, sizeof(char));
+			strcpy(lcpy, line);
+			lcpy++;
+			for(j=0;j<VSIZE;j++) {
+				while(lcpy[0]==' ') lcpy++;	
+				char buf[strlen(lcpy)];
+					
+				mesh->verts.total++;
+			}
+			mesh->verts.size++;
+			free(lcpy);
+			continue;
+		}
+
+		/*check for end of file
+		 * All these compares are probably pretty slow*/
+		if(!strcmp(line, ")\n")||!strcmp(line, ")")||!strcmp(line, ")\r\n")) break;
+		if(cpyPrev) strcpy(prevLine, line);
+	}
+
+	free(prevLine);
+
+	return NULL;
+}
+
+void OEParseFOAMObj(char *path, OEFOAMMesh *mesh) {
+	if(mesh==NULL) mesh = calloc(1, sizeof(OEFOAMMesh));
+
+	char *points = calloc(strlen(path)+128, sizeof(char));
+	char *faces = calloc(strlen(path)+128, sizeof(char));
+	sprintf(points, "%s/points", path);
+	sprintf(faces, "%s/faces", path);
+
+	FILE *fpoints = fopen(points, "r");
+	FILE *ffaces = fopen(faces, "r");
+	OEThreadArg pargs = {(void *)fpoints, (void *)mesh};
+	OEThreadArg fargs = {(void *)ffaces, (void *)mesh};
+	
+	startThreadArg("FOAMPoints", parseFoamPoints, (void *)&pargs);
+	startThreadArg("FOAMFaces", parseFoamFaces, (void *)&fargs);
+
+	free(points);
+	free(faces);
+}
+
+void OEParseObj(char *file, OEMesh *mesh) {
+	if(mesh==NULL) mesh = calloc(1, sizeof(OEMesh));
+	
+	mesh->f = fopen(file, "r");
+	/*check for .obj & OpenFOAM file types*/
+	char buf[256];
+	sprintf(buf, "Failed to open .obj file: %s", file);
+	WASSERT(mesh->f!=NULL&&(strstr(file, ".obj")||
+					strstr(file, "points")||strstr(file, "faces")), buf);
+
+
+	initMeshData(mesh);	
+
 
 	char line[2048];
 	while(fgets(line, sizeof(line), mesh->f)!=NULL) {

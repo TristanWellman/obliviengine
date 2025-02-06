@@ -24,6 +24,7 @@
 #include "meshParse.h"
 #include "macky.h"
 #include "OELights.h"
+#include "log.h"
 
 #include <simple.glsl.h>
 

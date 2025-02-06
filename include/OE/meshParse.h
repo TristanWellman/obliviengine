@@ -40,6 +40,18 @@ typedef struct {
 	char *label;
 } OEMesh;
 
+typedef struct {
+	DynArrD verts;
+	/*The faces need to be converted to indices!*/
+	DynArrI indices;
+} OEFOAMMesh;
+
+/*This sketchy void ptr expects a FILE ptr*/
+typedef struct {
+	void *file;
+	void *meshptr;
+} OEThreadArg;
+
 void OEParseObj(char *file, OEMesh *mesh);
 void scaleMesh(OEMesh *mesh, float s); 
 

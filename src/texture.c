@@ -2,11 +2,11 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-#include "texture.h"
+#include <OE/texture.h>
 
 struct textureHandle handle;
 
-void addTexture(char *path, char *ID) {
+void addTexture(char *ID, char *path) {
 	if(handle.textures==NULL) {
 		handle.cap = MAX_TEX;
 		handle.total = 0;
@@ -41,10 +41,10 @@ void addTexture(char *path, char *ID) {
 			stbi_image_free(data);
 			handle.total++;
 			char buf[1024];
-			sprintf(buf, "Successfully loaded texture: %s", path);
+			sprintf(buf, "Successfully loaded texture[%s]: %s", ID, path);
 			WLOG(INFO, buf);
 			break;
-		} else if(strcmp(handle.textures[i].ID, ID)) {
+		} else if(!strcmp(handle.textures[i].ID, ID)) {
 			WLOG(WARN, "Duplicate texture ID, skipping...");
 		}
 	}
@@ -56,6 +56,9 @@ sg_image getTexture(char *ID) {
 		if(handle.textures[i].ID!=NULL&&!strcmp(handle.textures[i].ID,ID)) 
 			return handle.textures[i].tex;
 	}
+	char buf[strlen(ID)+128];
+	sprintf(buf, "Failed to find image %s", ID);
+	WLOG(WARN, buf);
 	return (sg_image){0};
 }
 

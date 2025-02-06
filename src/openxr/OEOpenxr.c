@@ -1,6 +1,6 @@
 /*Copyright (c) 2025 Tristan Wellman*/
 #define SDL_VIDEO_DRIVER_WINDOWS
-#include "OEOpenxr.h"
+#include <OE/openxr/OEOpenxr.h>
 
 /*This is not in the header for possible header recomp time savings.*/
 #define XR_USE_GRAPHICS_API_OPENGL
