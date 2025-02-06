@@ -14,6 +14,15 @@ My dumb little renderer.
 
 --- 
 
+## Compile OE
+
+```
+$ make
+```
+
+Copy the lib (and dlls), shaders, and include folders to your project
+
+
 You need to put these files into ``include``
 
 * stb_image.h
@@ -24,8 +33,9 @@ You need to put these files into ``include``
 
 ---
 
+sample.c
 ```c
-#include "engine/OE.h"
+#include <OE/OE.h>
 
 void draw() {
 	OEDrawObject(OEGetObjectFromName("OECube"));
@@ -62,6 +72,12 @@ int main(int argc, char **argv) {
 }
 ```
 
+### Compile
+
+```
+gcc -g -Iinclude sample.c -o sample -Llib -lOE -lSDL2 -lgdi32 -lopengl32 -lm -ldl -lpthread
+```
+
 ## OpenXR-SDK
 
 ---
@@ -75,8 +91,8 @@ $ pacman -S mingw-w64-x86_64-openxr-sdk
 Program setup:
 
 ```c
-#include "engine/renderer.h"
-#include "engine/openxr/renderer_openxr.h"
+#include <OE/OE.h>
+#include <OE/openxr/OEOpenxr.h>
 
 void draw() {
 	OEDrawObject(OEGetObjectFromName("OECube"));
