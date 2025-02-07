@@ -17,8 +17,12 @@ My dumb little renderer.
 ## Compile OE
 
 ```
+$ git clone --recursive https://github.com/TristanWellman/obliviengine
+$ cd obliviengine
 $ make
 ```
+
+This should build the library that you can include in your project.
 
 Copy the lib (and dlls), shaders, and include folders to your project
 
@@ -67,6 +71,8 @@ int main(int argc, char **argv) {
 ```
 
 ### Compile
+
+``-Iinclude`` and ``-Llib`` can be replaced with whatever folders you are using.
 
 ```
 gcc -g -Iinclude sample.c -o sample -Llib -lOE -lSDL2 -lgdi32 -lopengl32 -lm -ldl -lpthread
