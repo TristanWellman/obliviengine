@@ -1,7 +1,7 @@
 /*Copyright (c) 2025, Tristan Wellman*/
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <stb/stb_image.h>
 #include <OE/texture.h>
 
 struct textureHandle handle;

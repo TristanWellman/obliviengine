@@ -14,9 +14,9 @@
 #if defined __WIN32__ || __WIN64__
 #define SDL_MAIN_HANDLED
 #endif
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
-#include <SDL2/SDL_syswm.h>
+#include <SDL.h>
+#include <SDL_opengl.h>
+#include <SDL_syswm.h>
 
 #include "linmath.h"
 #include "util.h"
