@@ -198,9 +198,11 @@ void initMeshData(OEMesh *mesh) {
 	mesh->indices.size = 0;
 	mesh->indices.total = 0;
 	mesh->indices.data = calloc(mesh->indices.cap, sizeof(uint16_t*));
+	mesh->normInds.cap = MAXDATA;
 	mesh->normInds.size = 0;
 	mesh->normInds.total = 0;
 	mesh->normInds.data = calloc(mesh->normInds.cap, sizeof(uint16_t*));
+	mesh->texInds.cap = MAXDATA;
 	mesh->texInds.size = 0;
 	mesh->texInds.total = 0;
 	mesh->texInds.data = calloc(mesh->texInds.cap, sizeof(uint16_t*));
@@ -314,10 +316,8 @@ void OEParseObj(char *file, OEMesh *mesh) {
 	
 	mesh->f = fopen(file, "r");
 	/*check for .obj & OpenFOAM file types*/
-	char buf[256];
-	sprintf(buf, "Failed to open .obj file: %s", file);
 	WASSERT(mesh->f!=NULL&&(strstr(file, ".obj")||
-					strstr(file, "points")||strstr(file, "faces")), buf);
+					strstr(file, "points")||strstr(file, "faces")), "Failed to open .obj file: %s", file);
 
 
 	initMeshData(mesh);	

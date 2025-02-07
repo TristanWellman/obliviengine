@@ -9,8 +9,7 @@ ifeq ($(UNAME_S),Linux)
     LDFLAGS += -L../lib -lSDL2 -lX11 -lGL -lOE
 endif
 ifeq ($(UNAME_S),Darwin)
-    LDFLAGS += -L../lib/mac -lSDL2 -framework Cocoa -framework OpenGL \
-			   -Llib -lOE
+    LDFLAGS += -L../lib/mac -L../lib -lOE -lSDL2 -framework Cocoa -framework OpenGL
 endif
 ifeq ($(OS),Windows_NT)
 
@@ -28,8 +27,15 @@ COMMON_O= *.o
 
 OUT= oetest
 
+MACLF= -L../lib/mac -L../lib -lOE -lSDL2 -framework Cocoa -framework OpenGL
+
 all: build
 
 build:
 	$(CC) $(CFLAGS) -c $(COMMON_C)
 	$(CC) $(CFLAGS) $(COMMON_O) -o $(OUT) $(LDFLAGS)
+
+mac:
+	$(CC) $(CFLAGS) -c $(COMMON_C)
+	$(CC) $(CFLAGS) $(COMMON_O) -o $(OUT) $(LDFLAGS) $(MACLF)
+

@@ -1,5 +1,5 @@
 CC= gcc
-CFLAGS= -O2 -Iinclude -Ishaders 
+CFLAGS= -g -O2 -Iinclude -Ishaders 
 CFLAGS_DEB= -g -O2 -Iinclude -Ishaders 
 LDFLAGS = -lm -ldl -lpthread 
 UNAME_S := $(shell uname -s)

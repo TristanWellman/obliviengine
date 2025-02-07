@@ -7,9 +7,9 @@
 //#include "engine/openxr/OEOpenxr.h"
 
 void draw() {
-	OEDrawObject(OEGetObjectFromName("Icosphere"));
-	OEDrawObjectTex(OEGetObjectFromName("Sphere"), OE_TEXPOS, getTexture("test"));
-	OEDrawObjectTex(OEGetObjectFromName("OECube"), OE_TEXPOS, getTexture("test"));
+	//OEDrawObject(OEGetObjectFromName("Icosphere"));
+	OEDrawObject(OEGetObjectFromName("Cube"));
+	OEDrawObject(OEGetObjectFromName("OECube"));
 	OEDrawObject(OEGetObjectFromName("OEPlane"));
 }
 
@@ -39,11 +39,11 @@ void colorTest() {
 
 void meshTest() {
 	OEMesh mesh, sphere;
-	OEParseObj("assets/models/msc.obj", &mesh);
+	OEParseObj("assets/models/cube.obj", &mesh);
 	sg_shader defShader = OEGetDefCubeShader();
 	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
-	OEParseObj("assets/models/sphere.obj", &sphere);
-	OECreateObjectFromMesh(&sphere, (vec3){3.0f,0.0f,0.0f});
+	/*OEParseObj("assets/models/sphere.obj", &sphere);
+	OECreateObjectFromMesh(&sphere, (vec3){3.0f,0.0f,0.0f});*/
 
 }
 
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 	Color c = (Color){77.0f, 106.0f, 148.0f, 255.0f};
 	OEAddLight("Test", (vec3){2.0f, 2.0f, 2.0f}, RGBA255TORGBA1(c));
 
-	addTexture("assets/stone.png", "test");
+	//addTexture("assets/stone.png", "test");
 
 	while(OERendererIsRunning()) {
 		OEPollEvents((EVENTFUNC)event);

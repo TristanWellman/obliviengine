@@ -3,4 +3,5 @@ include/nuklear.h
 include/stb_image.h
 assets
 *.o
+src/*.o
 .DS_Store
