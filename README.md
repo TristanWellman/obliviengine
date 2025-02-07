@@ -23,12 +23,6 @@ $ make
 Copy the lib (and dlls), shaders, and include folders to your project
 
 
-You need to put these files into ``include``
-
-* stb_image.h
-* nuklear.h
-* SDL2/
-
 ## Sample Cube
 
 ---
