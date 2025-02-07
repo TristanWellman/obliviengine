@@ -26,7 +26,7 @@
 #include "OELights.h"
 #include "log.h"
 
-#include <simple.glsl.h>
+#include "simple.glsl.h"
 
 #define MAXOBJS 1000000
 

@@ -24,7 +24,7 @@ $ make
 
 This should build the library that you can include in your project.
 
-Copy the lib (and dlls), shaders, and include folders to your project
+Copy the lib (and dlls), and include folders to your project
 
 
 ## Sample Cube

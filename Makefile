@@ -1,5 +1,5 @@
 CC= gcc
-CFLAGS= -g -O2 -Iinclude -Iinclude/SDL/include -Ishaders 
+CFLAGS= -g -O2 -Iinclude -Iinclude/SDL/include
 CFLAGS_DEB= -g -O2 -Iinclude -Ishaders 
 LDFLAGS = -lm -ldl -lpthread 
 UNAME_S := $(shell uname -s)
@@ -39,7 +39,7 @@ AR_ARGS= rcs $(LIB) $(COMMON_O)
 
 SHDC_WIN= sokol-tools-bin/bin/win32/sokol-shdc.exe 
 SHDC_MAC= sokol-tools-bin/bin/osx/sokol-shdc 
-SHADER_ARGS= --output shaders/simple.glsl.h --format sokol --slang glsl410
+SHADER_ARGS= --output include/OE/simple.glsl.h --format sokol --slang glsl410
 
 TEST_SRC= test
 
@@ -68,4 +68,4 @@ shaders_mac:
 	$(SHDC_MAC) --input shaders/simple.glsl $(SHADER_ARGS)
 
 shaders_clean:
-	rm shaders/*.h
+	rm include/OE/*glsl.h
