@@ -7,7 +7,7 @@
 	url = https://github.com/floooh/sokol-tools-bin
 
 [submodule "include/SDL"]
-	path = SDL
+	path = include/SDL
 	url = https://github.com/libsdl-org/SDL.git
 	branch = SDL2
 
