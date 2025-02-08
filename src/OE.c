@@ -244,7 +244,6 @@ void OEDrawObject(Object *obj) {
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.images[0] = globalRenderer->ssao.finalImage,
 		.images[OE_TEXPOS] = OEGetDefaultTexture(),
         .samplers[OE_TEXPOS] = globalRenderer->ssao.sampler
 
@@ -278,7 +277,6 @@ void OEDrawObjectTex(Object *obj, int assign, sg_image texture) {
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.images[0] = globalRenderer->ssao.finalImage,
 		.images[a] = texture,
         .samplers[a] = globalRenderer->ssao.sampler
 
@@ -298,7 +296,6 @@ void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms) {
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.images[0] = globalRenderer->ssao.finalImage,
 		.images[OE_TEXPOS] = OEGetDefaultTexture(),
         .samplers[OE_TEXPOS] = globalRenderer->ssao.sampler
     });
@@ -319,7 +316,6 @@ void OEDrawObjectTexEx(Object *obj, int assign,
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.images[0] = globalRenderer->ssao.finalImage,
 		.images[a] = texture,
         .samplers[a] = globalRenderer->ssao.sampler
     });
@@ -387,6 +383,8 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 			.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
 			.index_type = SG_INDEXTYPE_UINT16,
         	.cull_mode = SG_CULLMODE_BACK,
+			.sample_count = 1,
+			.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8,
         	.depth = {
             	.compare = SG_COMPAREFUNC_LESS_EQUAL,
 				.pixel_format = SG_PIXELFORMAT_DEPTH,
@@ -394,6 +392,29 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
         	},
 			.label = _label
 		};
+}
+
+/*This is mostly just for the render target quad but you can use it for whatever if needed*/
+sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
+	char *_label = calloc(strlen(label)+1, sizeof(char));
+	strcpy(_label, label);
+	return (sg_pipeline_desc) {
+		.shader = shader,
+		.layout = {
+			.attrs = {
+				[ATTR_quad_OEquad_position].format = SG_VERTEXFORMAT_FLOAT2,
+				[ATTR_quad_OEquad_texcoord].format = SG_VERTEXFORMAT_FLOAT2,
+			}
+		},
+		.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
+		.index_type = SG_INDEXTYPE_NONE,
+		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8,
+		.depth = {
+			.compare = SG_COMPAREFUNC_ALWAYS,
+			.write_enabled = false,
+		},
+		.label = _label
+	};
 }
 
 sg_shader OEGetDefCubeShader() {
@@ -587,20 +608,37 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
         .logger.func = slog_func});
 
 /*
- * setup Depth Buffer
+ * setup Render Target & Depth Buffer
  * */
 
 	globalRenderer->ssao.w = globalRenderer->window->width;
 	globalRenderer->ssao.h = globalRenderer->window->height;
+
+	globalRenderer->renderTarget = sg_make_image(&(sg_image_desc){
+		.render_target = true,
+		.width = globalRenderer->window->width,
+		.height = globalRenderer->window->height,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		//.sample_count = 4,
+		.label = "render_target"
+	});
+
 	globalRenderer->ssao.depthBuffer = sg_make_image(&(sg_image_desc){
 		.render_target = true,
-    	.width = globalRenderer->ssao.w, 
-    	.height = globalRenderer->ssao.h, 
+    	.width = globalRenderer->window->width, 
+    	.height = globalRenderer->window->height, 
     	.pixel_format = SG_PIXELFORMAT_DEPTH,
-		.sample_count = 4,
+		//.sample_count = 4,
 		.label = "depth_image"
 	});
-	globalRenderer->ssao.ssaoBuffer = sg_make_image(&(sg_image_desc){
+
+	globalRenderer->renderTargetAtt = sg_make_attachments(&(sg_attachments_desc){
+		.colors[0].image = globalRenderer->renderTarget,
+		.depth_stencil.image = globalRenderer->ssao.depthBuffer,
+		.label = "render_target_atts"});
+
+	/*As of now this ssao stuff is unused since I haven't made a shader for it*/
+	/*globalRenderer->ssao.ssaoBuffer = sg_make_image(&(sg_image_desc){
 		.render_target = true,
     	.width = globalRenderer->ssao.w, 
     	.height = globalRenderer->ssao.h, 
@@ -612,7 +650,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.colors[0].image = globalRenderer->ssao.ssaoBuffer,
 		.depth_stencil.image = globalRenderer->ssao.depthBuffer,
 		.label = "ssao_atts"
-	});
+	});*/
+	/*the sampler is important*/
 	globalRenderer->ssao.sampler = sg_make_sampler(&(sg_sampler_desc){
 		.min_filter = SG_FILTER_NEAREST,
 		.mag_filter = SG_FILTER_NEAREST,
@@ -620,6 +659,23 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.wrap_v = SG_WRAP_REPEAT,
 		.wrap_w = SG_WRAP_REPEAT,
     });
+
+/*
+ * Create the render targer shader and pipeline
+ * */
+
+	globalRenderer->renderTargetShade = sg_make_shader(quad_shader_desc(sg_query_backend()));
+
+	sg_pipeline_desc rtp = OEGetQuadPipeline(globalRenderer->renderTargetShade, 
+			"render_target_pipe");
+
+	globalRenderer->renderTargetPipe = sg_make_pipeline(&rtp);
+
+	globalRenderer->renderTargetBuff = sg_make_buffer(&(sg_buffer_desc) {
+				.data = SG_RANGE(quadVertices),
+				.label = "quad_verts"
+			});
+
 
 /*
  * Init objects
@@ -851,13 +907,40 @@ void OERenderFrame(RENDFUNC drawCall) {
        		.clear_value = { 0.0f, 0.3f, 0.5f, 1.0f }
         }
     };
-	float g = pass_action.colors[0].clear_value.g + 0.01f;
-    pass_action.colors[0].clear_value.g = (g > 1.0f) ? 0.0f : g;
-    sg_begin_pass(&(sg_pass){ .action = pass_action, 
+	sg_pass_action off_pass_action = (sg_pass_action) {
+       	.colors[0] = {
+           	.load_action = SG_LOADACTION_CLEAR,
+       		.clear_value = { 0.0f, 0.3f, 0.5f, 1.0f }
+        },
+		.depth = {
+			.load_action = SG_LOADACTION_CLEAR,
+			.clear_value = 1.0f,
+		}
+    };
+	/*Offscreen pass to the texture*/
+    sg_begin_pass(&(sg_pass){ .action = off_pass_action,
+							  .attachments = globalRenderer->renderTargetAtt});
+	
+		
+	sg_end_pass();
+
+
+	/*Onscreen main pass*/
+	sg_begin_pass(&(sg_pass){ .action = pass_action,
 							  .swapchain = OEGetSwapChain()});
-	
+
+	sg_apply_pipeline(globalRenderer->renderTargetPipe);
+
+	sg_apply_bindings(&(sg_bindings){
+		.vertex_buffers[0] = globalRenderer->renderTargetBuff,
+		.images[IMG_OEquad_texture] = globalRenderer->renderTarget,
+		.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler
+	});
+
+	sg_draw(0, 6, 1);
+
 	drawCall();
-	
+
 	if(globalRenderer->debug) {
 		sdtx_canvas(globalRenderer->window->width * 0.5f, 
 				globalRenderer->window->height * 0.5f);
@@ -871,7 +954,9 @@ void OERenderFrame(RENDFUNC drawCall) {
 		sdtx_draw();
 	}
 
+
 	sg_end_pass();
+
 	sg_commit();
 
 	/*glClear(GL_COLOR_BUFFER_BIT);*/
@@ -887,6 +972,8 @@ void OERenderFrame(RENDFUNC drawCall) {
 	globalRenderer->tick+=globalRenderer->frameTime;
 }
 
+/*These functions are pretty much just for the openxr stuff but,
+ * if for some reason you want to make a custom render loop you'll need these I guess.*/
 void OERendererTimerStart() {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
 	SDL_GetWindowSize(globalRenderer->window->window,

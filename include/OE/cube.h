@@ -20,6 +20,18 @@ static const uint16_t planeIndices[] = {
 	0, 2, 3 
 };
 
+/*These are the quad verts for the offscreen pass,
+ * You can also use it for whatever you need it*/
+static const float quadVertices[] = {
+	-1.0f, -1.0f, 0.0f, 0.0f, 
+	 1.0f, -1.0f, 1.0f, 0.0f,  
+	-1.0f,  1.0f, 0.0f, 1.0f, 
+
+	-1.0f,  1.0f, 0.0f, 1.0f, 
+	 1.0f, -1.0f, 1.0f, 0.0f, 
+	 1.0f,  1.0f, 1.0f, 1.0f, 
+};
+
 /*Pos, Color, Norms.
  * You shouldn't make these, use OEMesh to do it for you.*/
 static const float cubeVertices[] = {

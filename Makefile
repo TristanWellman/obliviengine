@@ -39,7 +39,7 @@ AR_ARGS= rcs $(LIB) $(COMMON_O)
 
 SHDC_WIN= sokol-tools-bin/bin/win32/sokol-shdc.exe 
 SHDC_MAC= sokol-tools-bin/bin/osx/sokol-shdc 
-SHADER_ARGS= --output include/OE/simple.glsl.h --format sokol --slang glsl410
+SHADER_ARGS=  --format sokol --slang glsl410
 
 TEST_SRC= test
 
@@ -62,10 +62,12 @@ clean: shaders_clean
 	rm $(OBJS) 
 
 shaders_win:
-	$(SHDC_WIN) --input shaders/simple.glsl $(SHADER_ARGS) 
+	$(SHDC_WIN) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS)
+	$(SHDC_WIN) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
 
 shaders_mac:
-	$(SHDC_MAC) --input shaders/simple.glsl $(SHADER_ARGS)
+	$(SHDC_MAC) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS)
+	$(SHDC_MAC) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
 
 shaders_clean:
 	rm include/OE/*glsl.h

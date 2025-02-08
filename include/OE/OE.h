@@ -6,10 +6,8 @@
 #define SOKOL_EXTERNAL_GL_LOADER
 #include <glad/glad.h>
 #include <sokol/sokol_gfx.h>
-//#include <sokol/sokol_app.h>
 #include <sokol/sokol_log.h>
 #include <sokol/util/sokol_debugtext.h>
-//#include <sokol/sokol_glue.h>
 
 #if defined __WIN32__ || __WIN64__
 #define SDL_MAIN_HANDLED
@@ -27,6 +25,7 @@
 #include "log.h"
 
 #include "simple.glsl.h"
+#include "quad.glsl.h"
 
 #define MAXOBJS 1000000
 
@@ -130,6 +129,14 @@ struct renderer {
 	/*This is for if you call a draw function and do not pass a texture*/
 	sg_image defTexture;
 
+	/*Render texture, and ssao buffer stuff*/
+	sg_image renderTarget;
+	sg_attachments renderTargetAtt;
+	/*This is just a shader for the screen quad*/
+	sg_shader renderTargetShade;
+	sg_pipeline renderTargetPipe;
+	sg_buffer renderTargetBuff;
+	/*Haven't setup ssao shader yet but we are using the depth buffer from it*/
 	SSAO ssao;
 
 	int debug;
@@ -141,7 +148,7 @@ struct renderer {
 
 static struct renderer *globalRenderer;
 
-//objs
+/*objs*/
 Object *OEGetObjectFromName(char *name);
 void OECreateObject(Object obj);
 void OECreateObjectEx(char *name, vec3 pos,
@@ -165,9 +172,10 @@ sg_shader OEGetDefCubeShader();
 Object OEGetDefaultCubeObj(char *name);
 sg_image OEGetDefaultTexture(); 
 
-//renderer
+/*renderer*/
 int OERendererIsRunning();
 sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label);
+sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label);
 sg_environment OEGetEnv(void);
 sg_swapchain OEGetSwapChain(void); 
 
