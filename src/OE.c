@@ -131,8 +131,10 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 				}
 			}
 		}
-
-		vec3_norm(normal, normal);
+		
+		Vec3 tmp = {normal[0],normal[1],normal[2]};
+		tmp = WNORM(tmp);
+		VEC3TOVEC3F(tmp, normal);
 
 		finalVerts[i+7] = normal[0];
 		finalVerts[i+8] = normal[1];
@@ -715,6 +717,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 	float aspect = (float)globalRenderer->window->width / (float)globalRenderer->window->height;
 	globalRenderer->cam.aspect = aspect;
+	Vec3 tmp;
 	
 	switch(camType) {
 		case ISOMETRIC:
@@ -727,10 +730,14 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			globalRenderer->cam.front[0] = cos(angle_y) * cos(angle_x);
 			globalRenderer->cam.front[1] = sin(angle_x);
 			globalRenderer->cam.front[2] = sin(angle_y) * cos(angle_x);
-			vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
+			tmp = (Vec3){globalRenderer->cam.front[0],globalRenderer->cam.front[1],globalRenderer->cam.front[2]};
+			tmp = WNORM(tmp);
+			VEC3TOVEC3F(tmp, globalRenderer->cam.front);
 
 			vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);
-			vec3_norm(globalRenderer->cam.right, globalRenderer->cam.right);
+			tmp = (Vec3){globalRenderer->cam.right[0],globalRenderer->cam.right[1],globalRenderer->cam.right[2]};
+			tmp = WNORM(tmp);
+			VEC3TOVEC3F(tmp, globalRenderer->cam.right);
 			vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
 
 			vec3_add(globalRenderer->cam.target, globalRenderer->cam.position, globalRenderer->cam.front);
@@ -753,12 +760,19 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, 5.0f});
 			vec3_dup(globalRenderer->cam.target, (vec3){0.0f, 0.0f, 0.0f});
 			vec3_dup(globalRenderer->cam.front, (vec3){0.0f, 0.0f, -1.0f});
-			vec3_norm(globalRenderer->cam.front, globalRenderer->cam.front);
+			tmp = (Vec3){globalRenderer->cam.front[0],globalRenderer->cam.front[1],globalRenderer->cam.front[2]};
+			tmp = WNORM(tmp);
+			VEC3TOVEC3F(tmp, globalRenderer->cam.front);
 			
 			vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);
-			vec3_norm(globalRenderer->cam.right, globalRenderer->cam.right);
+			tmp = (Vec3){globalRenderer->cam.right[0],globalRenderer->cam.right[1],globalRenderer->cam.right[2]};
+			tmp = WNORM(tmp);
+			VEC3TOVEC3F(tmp, globalRenderer->cam.right);
 			vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
-			vec3_norm(globalRenderer->cam.up, globalRenderer->cam.up);
+			tmp = (Vec3){globalRenderer->cam.up[0],globalRenderer->cam.up[1],globalRenderer->cam.up[2]};
+			tmp = WNORM(tmp);
+			VEC3TOVEC3F(tmp, globalRenderer->cam.up);
+
 
 			mat4x4_look_at(globalRenderer->cam.view,
 			               globalRenderer->cam.position,

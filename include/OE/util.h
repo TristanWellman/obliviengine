@@ -69,6 +69,9 @@ typedef struct {
 	(_x.y)*QISQRT((_x.x*_x.x)+(_x.y*_x.y)+(_x.z*_x.z)), \
 	(_x.z)*QISQRT((_x.x*_x.x)+(_x.y*_x.y)+(_x.z*_x.z))})
 
+/*_v1: src, _v2: dest*/
+#define VEC3TOVEC3F(_v1, _v2) \
+	(_v2)[0]=(_v1.x);(_v2)[1]=(_v1.y);(_v2)[2]=(_v1.z); 
  /*
   * This is a linear approximation macro
   * Very useless unless you specifically need NEAR values and are fine with the extra cost.
