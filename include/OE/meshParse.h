@@ -6,9 +6,16 @@
 #ifndef MESHPARSE_H
 #define MESHPARSE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "util.h"
 
-#define MAXDATA 10000
+#define MAXDATA 100000
+
+#define MAXTIMESTAMPS 10000
+#define MAXMAGDATA 100000
 
 #define VSIZE 3 /*x,y,z*/
 #define TEXSIZE 2 /*u,v*/
@@ -40,10 +47,23 @@ typedef struct {
 	char *label;
 } OEMesh;
 
+struct OEMagnitude {
+	DynArrD	values;
+	int timeStamp;
+};
+
 typedef struct {
 	DynArrD verts;
 	/*The faces need to be converted to indices!*/
 	DynArrI indices;
+	DynArrD faces;
+
+	int *owner, *neighbour;
+	int osize, nsize, ocap, ncap;
+	/*array of magnitude data for the model
+	 * - Used for colors*/
+	struct OEMagnitude *magnitudeTS;
+	int maxTS, sizeTS;
 } OEFOAMMesh;
 
 /*This sketchy void ptr expects a FILE ptr*/
@@ -52,7 +72,29 @@ typedef struct {
 	void *meshptr;
 } OEThreadArg;
 
+/*
+ * Get the magnitude values for a mesh at a specific timestamp. The timestamp should be in your "path"
+ * */
+void OEParseMagnitudeTimeStamp(char *path, int timeStamp, OEFOAMMesh *mesh);
+
+/*
+ * Get the OpenFOAM PolyMesh model for your renderer.
+ * Data is stored in vertices (x,y,z)
+ * */
+void OEParseFOAMObj(char* path, OEFOAMMesh* mesh);
+
+/*
+ * Load a ".obj" model into vertices and faces.
+ * */
 void OEParseObj(char *file, OEMesh *mesh);
+
+/*
+ * Scale a model up or down by "s"
+ * */
 void scaleMesh(OEMesh *mesh, float s); 
 
+
+#ifdef __cplusplus
+}
+#endif
 #endif

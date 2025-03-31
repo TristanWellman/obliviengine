@@ -1,7 +1,7 @@
 # This is a good referal for makefile usage with Obliviengine
 
 CC=gcc
-CFLAGS= -g -O2 -I../include -I../shaders
+CFLAGS= -g -O2 -I../include -I../include/SDL/include -I../shaders
 
 # setup required linker flags for 
 LDFLAGS= -lm -ldl -lpthread

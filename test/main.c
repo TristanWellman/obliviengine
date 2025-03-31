@@ -39,7 +39,7 @@ void colorTest() {
 
 void meshTest() {
 	OEMesh mesh, sphere;
-	OEParseObj("assets/models/cube.obj", &mesh);
+	OEParseObj("../assets/models/cube.obj", &mesh);
 	sg_shader defShader = OEGetDefCubeShader();
 	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
 	/*OEParseObj("assets/models/sphere.obj", &sphere);
