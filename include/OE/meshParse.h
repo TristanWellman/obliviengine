@@ -40,6 +40,8 @@ typedef struct {
 	DynArrD verts;
 	DynArrD vertTex;
 	DynArrD vertNorms;
+	/*Btw this is only called indices because I am too lazy to change all code instances to faces
+	 * This is a DynArrI of FACES... */
 	DynArrI indices;
 	DynArrI normInds;
 	DynArrI texInds;

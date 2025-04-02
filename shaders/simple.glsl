@@ -3,17 +3,40 @@
 	Most default things for the engine require atleast these attributes in a shader.
 */
 
+
 @ctype mat4 mat4x4
 @ctype vec3 vec3
 @ctype vec4 vec4
+@ctype vec2 vec2
 
-@vs vs
+@block uniforms
+
+#define MAXLIGHTS 64
+#define MAXSTEPS 100
+#define MAXDIST 100.0
+#define EPSILON 0.001
+
+
 layout(binding=0) uniform vs_params {
     mat4 mvp;
     mat4 model;
 };
 
-in vec4 position;
+layout(binding=1) uniform light_params {
+    vec4 positions[MAXLIGHTS]; /*[4] unused*/
+    vec4 colors[MAXLIGHTS];
+};
+
+layout(binding=3) uniform fs_params {
+    vec3 camPos;
+};
+
+@end
+
+@vs vs
+@include_block uniforms
+
+in vec3 position;
 in vec4 color0;
 in vec3 normal0;
 in vec2 texcoord0;
@@ -24,30 +47,20 @@ out vec3 fragPos;
 out vec2 texcoord;
 
 void main() {
-    gl_Position = mvp * position;
+    gl_Position = mvp * vec4(position,1.0);
     color = color0;
 
     mat3 normalMatrix = transpose(inverse(mat3(model)));
     normal = normalize(normalMatrix * normal0);
 
-    fragPos = vec3(model * position);
+    fragPos = vec3(model * vec4(position,1.0));
 	texcoord = texcoord0;
 }
 
 @end
 
 @fs fs
-
-#define MAXLIGHTS 64
-
-layout(binding=1) uniform light_params {
-    vec4 positions[MAXLIGHTS]; /*[4] unused*/
-    vec4 colors[MAXLIGHTS];
-};
-
-layout(binding=3) uniform fs_params {
-    vec3 camPos;
-};
+@include_block uniforms
 
 layout(binding=3) uniform texture2D _texture;
 layout(binding=3) uniform sampler smp;

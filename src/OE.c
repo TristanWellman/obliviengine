@@ -423,6 +423,30 @@ sg_shader OEGetDefCubeShader() {
 	return globalRenderer->defCubeShader;
 }
 
+sg_shader OEGetRayTracedShader() {
+	if(globalRenderer->rayTracedShader.id==SG_INVALID_ID)
+		globalRenderer->rayTracedShader = sg_make_shader(OERayTracer_shader_desc(sg_query_backend()));
+		
+	return globalRenderer->rayTracedShader;
+}
+
+sg_pipeline_desc OEGetRayTracedPipe() {
+	return OEGetDefaultPipe(OEGetRayTracedShader(), "rayTracedPipe");
+}
+
+
+void OESetDefaultShader(sg_shader shader) {
+	globalRenderer->defCubeShader = shader;
+	int i;
+	for(i=0;i<globalRenderer->objSize&&
+			globalRenderer->objects[i].name!=NULL;i++) {
+		globalRenderer->objects[i].defShader = shader;
+		sg_destroy_pipeline(globalRenderer->objects[i].pipe);
+		sg_pipeline_desc pipe = OEGetDefaultPipe(shader, globalRenderer->objects[i].name);
+		globalRenderer->objects[i].pipe = sg_make_pipeline(&pipe);
+	}
+}
+
 Object OEGetDefaultCubeObj(char *name) {
 	Object obj = {0};
 	obj.name = calloc(strlen(name)+1, sizeof(char));

@@ -26,6 +26,7 @@
 
 #include "simple.glsl.h"
 #include "quad.glsl.h"
+#include "rayTracer.glsl.h"
 
 #define MAXOBJS 1000000
 
@@ -125,6 +126,7 @@ struct renderer {
 	int objCap;
 	int objSize;
 	sg_shader defCubeShader;
+	sg_shader rayTracedShader;
 
 	/*This is for if you call a draw function and do not pass a texture*/
 	sg_image defTexture;
@@ -169,6 +171,9 @@ void OEDrawObjectTexEx(Object *obj, int assign,
 sg_buffer_desc OEGetCubeVertDesc();
 sg_buffer_desc OEGetCubeIndDesc();
 sg_shader OEGetDefCubeShader();
+sg_shader OEGetRayTracedShader();
+sg_pipeline_desc OEGetRayTracedPipe();
+void OESetDefaultShader(sg_shader shader);
 Object OEGetDefaultCubeObj(char *name);
 sg_image OEGetDefaultTexture(); 
 

@@ -4,6 +4,7 @@
  *
  * */
 #include <OE/OE.h>
+#include <time.h>
 //#include "engine/openxr/OEOpenxr.h"
 
 void draw() {
@@ -11,6 +12,13 @@ void draw() {
 	OEDrawObject(OEGetObjectFromName("Cube"));
 	OEDrawObject(OEGetObjectFromName("OECube"));
 	OEDrawObject(OEGetObjectFromName("OEPlane"));
+
+	int i;
+	for(i=0;i<15;i++) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "%s%d", "OECube", i);
+		OEDrawObject(OEGetObjectFromName(buf));
+	}
 }
 
 void event() {
@@ -47,18 +55,37 @@ void meshTest() {
 
 }
 
+void makeCubes() {
+	int i;
+	srand(pow(clock(),10));
+	for(i=0;i<15;i++) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "%s%d", "OECube", i);
+		sg_shader s = OEGetRayTracedShader();
+		OECreateObjectEx(buf, (vec3){(rand()%20)-10,(rand()%15),(rand()%20)-10},
+				OEGetCubeVertDesc(),OEGetCubeIndDesc(), s, OEGetDefaultPipe(s,buf));
+	}
+
+}
+
 int main(int argc, char **argv) {
 	
 	OEInitRenderer(1280, 720, "game", PERSPECTIVE);
 	//initOpenXR();
 	OEEnableDebugInfo();
 	meshTest();
+	//OESetDefaultShader(OEGetRayTracedShader());
+
+	makeCubes();
 
 	OESetObjectPosition("OEPlane", (vec3){0.0f, -1.0f, 0.0f});
 	OESetObjectPosition("OECube", (vec3){-3.0f, 0.0f, 0.0f});
 
-	Color c = (Color){77.0f, 106.0f, 148.0f, 255.0f};
-	OEAddLight("Test", (vec3){2.0f, 2.0f, 2.0f}, RGBA255TORGBA1(c));
+	Color light1 = (Color){255.0f, 50.0f, 50.0f, 255.0f};
+	Color light2 = (Color){50.0f, 50.0f, 255.0f, 255.0f};
+
+	OEAddLight("MainLight", (vec3){3.0f, 3.0f, 3.0f}, RGBA255TORGBA1(light2));
+	OEAddLight("FillLight", (vec3){-3.0f, 3.0f, -3.0f}, RGBA255TORGBA1(light1));
 
 	//addTexture("assets/stone.png", "test");
 
