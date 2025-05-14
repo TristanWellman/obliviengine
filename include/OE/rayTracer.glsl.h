@@ -214,9 +214,13 @@ static inline const sg_shader_desc* OERayTracer_shader_desc(sg_backend backend) 
             desc.vertex_func.entry = "main";
             desc.fragment_func.source = (const char*)fs_OERayTracer_source_glsl410;
             desc.fragment_func.entry = "main";
+            desc.attrs[0].base_type = SG_SHADERATTRBASETYPE_FLOAT;
             desc.attrs[0].glsl_name = "position";
+            desc.attrs[1].base_type = SG_SHADERATTRBASETYPE_FLOAT;
             desc.attrs[1].glsl_name = "color0";
+            desc.attrs[2].base_type = SG_SHADERATTRBASETYPE_FLOAT;
             desc.attrs[2].glsl_name = "normal0";
+            desc.attrs[3].base_type = SG_SHADERATTRBASETYPE_FLOAT;
             desc.attrs[3].glsl_name = "texcoord0";
             desc.uniform_blocks[0].stage = SG_SHADERSTAGE_VERTEX;
             desc.uniform_blocks[0].layout = SG_UNIFORMLAYOUT_STD140;

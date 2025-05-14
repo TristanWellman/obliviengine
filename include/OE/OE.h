@@ -34,6 +34,8 @@
 
 #define OE_WHITEP (0xFFFFFFFF)
 
+#define MAXPOSTPASS 16
+
 /*This is here because SG_RANGE does not work with ptr sizes.*/
 #define PTRRANGE(ptr_, size_) \
 	(sg_range){ .ptr = (ptr_), .size = sizeof(*(ptr_)) * (size_) }
@@ -141,6 +143,9 @@ struct renderer {
 	/*Haven't setup ssao shader yet but we are using the depth buffer from it*/
 	SSAO ssao;
 
+	sg_pipeline postPasses[MAXPOSTPASS];
+	int postPassSize;
+
 	int debug;
 	float tick;
 	float frameTime;
@@ -204,6 +209,7 @@ float OEGetFrameTime();
 float OEGetTick();
 SDL_Window *OEGetWindow(); 
 
+void OEAddPostPass(sg_pipeline pipe);
 void OERenderFrame(RENDFUNC drawCall);
 void OERendererTimerStart();
 void OERendererTimerEnd();

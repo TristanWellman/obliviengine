@@ -11,11 +11,10 @@ in vec2 OEquad_position;
 in vec2 OEquad_texcoord;
 
 out vec2 texcoord0;
-out vec2 fragPos;
 
 void main() {
 	texcoord0 = OEquad_texcoord;
-	fragPos = OEquad_position;
+	gl_Position = vec4(OEquad_position, 0.0, 1.0);
 }
 
 @end
@@ -26,7 +25,6 @@ layout(binding=0) uniform texture2D OEquad_texture;
 layout(binding=0) uniform sampler OEquad_smp;
 
 in vec2 texcoord0;
-in vec2 fragPos;
 
 out vec4 frag_color;
 

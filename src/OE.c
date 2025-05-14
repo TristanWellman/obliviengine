@@ -576,6 +576,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	strcpy(globalRenderer->window->title, title);
 	globalRenderer->window->running = 1;
 	globalRenderer->debug = 0;
+	globalRenderer->postPassSize = 0;
 
 	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)>=0,
 			"ERROR:: Failed to init SDL!");
@@ -932,6 +933,12 @@ SDL_Window *OEGetWindow() {
 	return globalRenderer->window->window;
 }
 
+void OEAddPostPass(sg_pipeline pipe) {
+	if(globalRenderer->postPassSize<MAXPOSTPASS) {
+		globalRenderer->postPasses[globalRenderer->postPassSize++] = pipe;
+	} else WLOG(WARN, "Too many post passes, skipping.");
+}
+
 void OERenderFrame(RENDFUNC drawCall) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
 	SDL_GetWindowSize(globalRenderer->window->window,
@@ -959,7 +966,7 @@ void OERenderFrame(RENDFUNC drawCall) {
     sg_begin_pass(&(sg_pass){ .action = off_pass_action,
 							  .attachments = globalRenderer->renderTargetAtt});
 	
-		
+	drawCall();	
 	sg_end_pass();
 
 
@@ -976,8 +983,17 @@ void OERenderFrame(RENDFUNC drawCall) {
 	});
 
 	sg_draw(0, 6, 1);
-
-	drawCall();
+	
+	int i;
+	for(i=0;i<globalRenderer->postPassSize;i++) {
+		sg_apply_pipeline(globalRenderer->postPasses[i]);
+		sg_apply_bindings(&(sg_bindings){
+			.vertex_buffers[0] = globalRenderer->renderTargetBuff,
+			.images[IMG_OEquad_texture] = globalRenderer->renderTarget,
+			.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler
+		});
+		sg_draw(0,6,1);
+	}
 
 	if(globalRenderer->debug) {
 		sdtx_canvas(globalRenderer->window->width * 0.5f, 
