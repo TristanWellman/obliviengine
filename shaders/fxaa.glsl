@@ -1,6 +1,6 @@
 /*
 	Obliviengine FXAA quad shader.
-	Based on: https://developer.download.nvidia.com/assets/gamedev/files/sdk/11/FXAA_WhitePaper.pdf?utm_source=chatgpt.com 
+	Based on: https://developer.download.nvidia.com/assets/gamedev/files/sdk/11/FXAA_WhitePaper.pdf
 */
 
 @ctype vec2 vec2
@@ -15,8 +15,8 @@ in vec2 OEFXAAQuad_texcoord;
 out vec2 uv;
 
 void main() {
-	gl_Position = vec4(OEFXAAQuad_position, 0.0, 1.0);
 	uv = OEFXAAQuad_texcoord;
+	gl_Position = vec4(OEFXAAQuad_position, 0.0, 1.0);
 }
 
 @end
@@ -35,6 +35,7 @@ layout(binding=1) uniform OEFXAA_resolution {
 #define REDUCEMUL (1.0/8.0)
 #define REDUCEMIN (1.0/128.0)
 
+/*https://stackoverflow.com/questions/596216/formula-to-determine-perceived-brightness-of-rgb-color*/
 #define LUMWEIGH vec3(0.299,0.587,0.114)
 
 in vec2 uv;

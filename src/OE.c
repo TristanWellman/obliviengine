@@ -245,6 +245,10 @@ void *applyFXAAUniforms() {
 	return NULL;
 }
 
+void *applyBloomUniforms() {
+	sg_apply_uniforms(UB_OEBloom_params, &SG_RANGE(globalRenderer->bloomParams));
+}
+
 void OEDrawObject(Object *obj) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
@@ -992,6 +996,26 @@ void OEEnableFXAA() {
 
 void OEDisableFXAA() {
 	OERemovePostPass((UNILOADER)applyFXAAUniforms);
+}
+
+void OEUpdateBloomParams(float threshold, float strength) {
+	globalRenderer->bloomParams.thresh = threshold;
+	globalRenderer->bloomParams.strength = strength;
+}
+
+void OEEnableBloom(float threshold, float strength) {
+	sg_shader bloom = sg_make_shader(OEBQuad_shader_desc(sg_query_backend()));
+	sg_pipeline_desc bloompd = OEGetQuadPipeline(bloom, "bloom");
+	sg_pipeline bloomp = sg_make_pipeline(&bloompd);
+	globalRenderer->bloomParams.resolution[0] = globalRenderer->window->width;
+	globalRenderer->bloomParams.resolution[1] = globalRenderer->window->height;
+	globalRenderer->bloomParams.thresh = threshold;
+	globalRenderer->bloomParams.strength = strength;
+	OEAddPostPass(bloomp, (UNILOADER)applyBloomUniforms);
+}
+
+void OEDisableBloom() {
+	OERemovePostPass((UNILOADER)applyBloomUniforms);
 }
 
 void OERenderFrame(RENDFUNC drawCall) {

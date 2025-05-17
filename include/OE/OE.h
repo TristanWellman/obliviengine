@@ -27,6 +27,7 @@
 #include "simple.glsl.h"
 #include "quad.glsl.h"
 #include "fxaa.glsl.h"
+#include "bloom.glsl.h"
 #include "rayTracer.glsl.h"
 
 #define MAXOBJS 1000000
@@ -155,6 +156,8 @@ struct renderer {
 	PostPass postPasses[MAXPOSTPASS];
 	int postPassSize;
 
+	OEBloom_params_t bloomParams;
+
 	int debug;
 	float tick;
 	float frameTime;
@@ -218,6 +221,9 @@ float OEGetFrameTime();
 float OEGetTick();
 SDL_Window *OEGetWindow(); 
 
+void OEUpdateBloomParams(float threshold, float strength);
+void OEEnableBloom(float threshold, float strength);
+void OEDisableBloom();
 void OEEnableFXAA();
 void OEDisableFXAA();
 void OEAddPostPass(sg_pipeline pipe, UNILOADER loader);

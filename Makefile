@@ -66,12 +66,14 @@ shaders_win:
 	$(SHDC_WIN) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
 	$(SHDC_WIN) --input shaders/rayTracer.glsl --output include/OE/rayTracer.glsl.h $(SHADER_ARGS)
 	$(SHDC_WIN) --input shaders/fxaa.glsl --output include/OE/fxaa.glsl.h $(SHADER_ARGS)
+	$(SHDC_WIN) --input shaders/bloom.glsl --output include/OE/bloom.glsl.h $(SHADER_ARGS)
 
 shaders_mac:
 	$(SHDC_MAC) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS)
 	$(SHDC_MAC) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
 	$(SHDC_MAC) --input shaders/rayTracer.glsl --output include/OE/rayTracer.glsl.h $(SHADER_ARGS)
 	$(SHDC_MAC) --input shaders/fxaa.glsl --output include/OE/fxaa.glsl.h $(SHADER_ARGS)
+	$(SHDC_MAC) --input shaders/bloom.glsl --output include/OE/bloom.glsl.h $(SHADER_ARGS)
 
 
 shaders_clean:
