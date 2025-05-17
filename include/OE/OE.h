@@ -26,6 +26,7 @@
 
 #include "simple.glsl.h"
 #include "quad.glsl.h"
+#include "fxaa.glsl.h"
 #include "rayTracer.glsl.h"
 
 #define MAXOBJS 1000000
@@ -98,6 +99,7 @@ typedef struct {
 	sg_pipeline pipe;
 	sg_attachments atts;
 	sg_sampler sampler;
+	sg_sampler depthSampler;
 } SSAO;
 
 typedef struct {
@@ -112,6 +114,11 @@ typedef struct {
 	int posx, posy;
 	vec3 ray_hit;
 } Mouse;
+
+typedef struct {
+	sg_pipeline pipe;
+	UNILOADER uniformBind;
+} PostPass;
 
 struct renderer {
 
@@ -136,6 +143,8 @@ struct renderer {
 	/*Render texture, and ssao buffer stuff*/
 	sg_image renderTarget;
 	sg_attachments renderTargetAtt;
+	sg_image postTarget;
+	sg_attachments postTargetAtt;
 	/*This is just a shader for the screen quad*/
 	sg_shader renderTargetShade;
 	sg_pipeline renderTargetPipe;
@@ -143,7 +152,7 @@ struct renderer {
 	/*Haven't setup ssao shader yet but we are using the depth buffer from it*/
 	SSAO ssao;
 
-	sg_pipeline postPasses[MAXPOSTPASS];
+	PostPass postPasses[MAXPOSTPASS];
 	int postPassSize;
 
 	int debug;
@@ -209,7 +218,9 @@ float OEGetFrameTime();
 float OEGetTick();
 SDL_Window *OEGetWindow(); 
 
-void OEAddPostPass(sg_pipeline pipe);
+void OEEnableFXAA();
+void OEDisableFXAA();
+void OEAddPostPass(sg_pipeline pipe, UNILOADER loader);
 void OERenderFrame(RENDFUNC drawCall);
 void OERendererTimerStart();
 void OERendererTimerEnd();

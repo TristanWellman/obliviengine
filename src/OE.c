@@ -236,6 +236,15 @@ void OEApplyCurrentUniforms(Object *obj) {
 	sg_apply_uniforms(UB_light_params, &SG_RANGE(light_params));
 }
 
+void *applyFXAAUniforms() {
+	OEFXAA_resolution_t params;
+	vec2_dup(params.resolution, (vec2){
+		globalRenderer->window->width,
+		globalRenderer->window->height});
+	sg_apply_uniforms(UB_OEFXAA_resolution, &SG_RANGE(params));
+	return NULL;
+}
+
 void OEDrawObject(Object *obj) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
@@ -349,7 +358,7 @@ sg_buffer_desc OEGetCubeIndDesc() {
 sg_environment OEGetEnv(void) {
 	return (sg_environment) {
 		.defaults = {
-			.color_format = SG_PIXELFORMAT_RGBA8,
+			.color_format = SG_PIXELFORMAT_RGBA32F,
 			.depth_format = SG_PIXELFORMAT_DEPTH,
 			.sample_count = 1,
 		},
@@ -361,7 +370,7 @@ sg_swapchain OEGetSwapChain(void) {
 	int h = globalRenderer->window->height;
 	return (sg_swapchain) {
 		.sample_count = 1,
-		.color_format = SG_PIXELFORMAT_RGBA8,
+		.color_format = SG_PIXELFORMAT_RGBA32F,
 		.depth_format = SG_PIXELFORMAT_DEPTH,
 		.width = w,
 		.height = h,
@@ -386,7 +395,7 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 			.index_type = SG_INDEXTYPE_UINT16,
         	.cull_mode = SG_CULLMODE_BACK,
 			.sample_count = 1,
-			.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8,
+			.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
         	.depth = {
             	.compare = SG_COMPAREFUNC_LESS_EQUAL,
 				.pixel_format = SG_PIXELFORMAT_DEPTH,
@@ -410,7 +419,7 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
 		},
 		.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
 		.index_type = SG_INDEXTYPE_NONE,
-		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8,
+		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
 		.depth = {
 			.compare = SG_COMPAREFUNC_ALWAYS,
 			.write_enabled = false,
@@ -645,9 +654,17 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.render_target = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.pixel_format = SG_PIXELFORMAT_RGBA32F,
 		//.sample_count = 4,
 		.label = "render_target"
+	});
+
+	globalRenderer->postTarget = sg_make_image(&(sg_image_desc){
+		.render_target = true,
+		.width = globalRenderer->window->width,
+		.height = globalRenderer->window->height,
+		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.label = "post_target"
 	});
 
 	globalRenderer->ssao.depthBuffer = sg_make_image(&(sg_image_desc){
@@ -663,6 +680,11 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.colors[0].image = globalRenderer->renderTarget,
 		.depth_stencil.image = globalRenderer->ssao.depthBuffer,
 		.label = "render_target_atts"});
+	
+	globalRenderer->postTargetAtt = sg_make_attachments(&(sg_attachments_desc){
+		.colors[0].image = globalRenderer->postTarget,
+		.depth_stencil.image = globalRenderer->ssao.depthBuffer,
+		.label = "post_target_atts"});
 
 	/*As of now this ssao stuff is unused since I haven't made a shader for it*/
 	/*globalRenderer->ssao.ssaoBuffer = sg_make_image(&(sg_image_desc){
@@ -680,6 +702,13 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	});*/
 	/*the sampler is important*/
 	globalRenderer->ssao.sampler = sg_make_sampler(&(sg_sampler_desc){
+		.min_filter = SG_FILTER_NEAREST,
+		.mag_filter = SG_FILTER_NEAREST,
+		.wrap_u = SG_WRAP_REPEAT,           
+		.wrap_v = SG_WRAP_REPEAT,
+		.wrap_w = SG_WRAP_REPEAT,
+    });
+	globalRenderer->ssao.depthSampler = sg_make_sampler(&(sg_sampler_desc){
 		.min_filter = SG_FILTER_NEAREST,
 		.mag_filter = SG_FILTER_NEAREST,
 		.wrap_u = SG_WRAP_REPEAT,           
@@ -933,10 +962,36 @@ SDL_Window *OEGetWindow() {
 	return globalRenderer->window->window;
 }
 
-void OEAddPostPass(sg_pipeline pipe) {
+void OEAddPostPass(sg_pipeline pipe, UNILOADER loader) {
 	if(globalRenderer->postPassSize<MAXPOSTPASS) {
-		globalRenderer->postPasses[globalRenderer->postPassSize++] = pipe;
+		globalRenderer->postPasses[globalRenderer->postPassSize++] = 
+			(PostPass){pipe, loader};
 	} else WLOG(WARN, "Too many post passes, skipping.");
+}
+
+void OERemovePostPass(UNILOADER loaderloc) {
+	int i,j=-1;
+	for(i=0;i<globalRenderer->postPassSize;i++) {
+		if(globalRenderer->postPasses[i].uniformBind==loaderloc) j=i;
+		if(i>=j&&i+1<=globalRenderer->postPassSize) {
+			globalRenderer->postPasses[i] = globalRenderer->postPasses[i+1];
+		}
+	}
+	if(j!=-1) {
+		globalRenderer->postPasses[globalRenderer->postPassSize] = (PostPass){0};
+		globalRenderer->postPassSize--;
+	}
+}
+
+void OEEnableFXAA() {
+	sg_shader fxaa = sg_make_shader(OEFXAA_shader_desc(sg_query_backend()));
+	sg_pipeline_desc fxaapd = OEGetQuadPipeline(fxaa, "fxaa");
+	sg_pipeline fxaap = sg_make_pipeline(&fxaapd);
+	OEAddPostPass(fxaap, (UNILOADER)applyFXAAUniforms);
+}
+
+void OEDisableFXAA() {
+	OERemovePostPass((UNILOADER)applyFXAAUniforms);
 }
 
 void OERenderFrame(RENDFUNC drawCall) {
@@ -962,38 +1017,50 @@ void OERenderFrame(RENDFUNC drawCall) {
 			.clear_value = 1.0f,
 		}
     };
+	sg_pass_action post_pass_action = (sg_pass_action) {
+		.colors[0].load_action = SG_LOADACTION_DONTCARE
+	};
 	/*Offscreen pass to the texture*/
     sg_begin_pass(&(sg_pass){ .action = off_pass_action,
-							  .attachments = globalRenderer->renderTargetAtt});
+			.attachments = globalRenderer->renderTargetAtt});
 	
 	drawCall();	
 	sg_end_pass();
 
-
-	/*Onscreen main pass*/
-	sg_begin_pass(&(sg_pass){ .action = pass_action,
-							  .swapchain = OEGetSwapChain()});
-
-	sg_apply_pipeline(globalRenderer->renderTargetPipe);
-
-	sg_apply_bindings(&(sg_bindings){
-		.vertex_buffers[0] = globalRenderer->renderTargetBuff,
-		.images[IMG_OEquad_texture] = globalRenderer->renderTarget,
-		.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler
-	});
-
-	sg_draw(0, 6, 1);
-	
-	int i;
+	/*Post-passes*/
+	int i, j = 1;
 	for(i=0;i<globalRenderer->postPassSize;i++) {
-		sg_apply_pipeline(globalRenderer->postPasses[i]);
+		sg_image src = j?globalRenderer->renderTarget:globalRenderer->postTarget;
+		sg_attachments dst = j?globalRenderer->renderTargetAtt:globalRenderer->postTargetAtt;
+		j=!j;
+
+		sg_begin_pass(&(sg_pass){ .action = post_pass_action,
+				.attachments = dst});
+
+		sg_apply_pipeline(globalRenderer->postPasses[i].pipe);
 		sg_apply_bindings(&(sg_bindings){
 			.vertex_buffers[0] = globalRenderer->renderTargetBuff,
-			.images[IMG_OEquad_texture] = globalRenderer->renderTarget,
-			.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler
+			.images[IMG_OEquad_texture] = src,
+			.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler,
 		});
+		if(globalRenderer->postPasses[i].uniformBind!=NULL) 
+			globalRenderer->postPasses[i].uniformBind();
 		sg_draw(0,6,1);
+
+		sg_end_pass();
 	}
+
+	/*On-Screen main pass*/
+	sg_begin_pass(&(sg_pass){ .action = pass_action,
+			.swapchain = OEGetSwapChain()});
+
+	sg_apply_pipeline(globalRenderer->renderTargetPipe);
+	sg_apply_bindings(&(sg_bindings){
+		.vertex_buffers[0] = globalRenderer->renderTargetBuff,
+		.images[0] = globalRenderer->renderTarget,
+		.samplers[0] = globalRenderer->ssao.sampler
+	});
+	sg_draw(0,6,1);
 
 	if(globalRenderer->debug) {
 		sdtx_canvas(globalRenderer->window->width * 0.5f, 
@@ -1008,7 +1075,7 @@ void OERenderFrame(RENDFUNC drawCall) {
 		sdtx_draw();
 	}
 
-
+	
 	sg_end_pass();
 
 	sg_commit();

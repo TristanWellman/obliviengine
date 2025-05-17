@@ -105,7 +105,7 @@ void main() {
     }
 
     vec3 result = ambient + diffuse + specular;
-    frag_color = vec4(result*vec3(color)*vec3(texcolor), color.a);
+    frag_color = vec4(result*vec3(color)*vec3(texcolor), gl_FragCoord.z);
 
 }
 
