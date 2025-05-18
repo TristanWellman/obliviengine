@@ -1,23 +1,30 @@
 CC= gcc
 CFLAGS= -g -O2 -Iinclude -Iinclude/SDL/include
 CFLAGS_DEB= -g -O2 -Iinclude -Ishaders 
-LDFLAGS = -lm -ldl -lpthread 
+LDFLAGS = -lm -lpthread 
+LIB?= lib/libOE.a
 UNAME_S := $(shell uname -s)
+ARCH := $(shell $(CC) -dumpmachine)
 SHADER= shaders_win
 ifeq ($(UNAME_S),Linux)
 	BACKEND= -DSOKOL_GLCORE
-    LDFLAGS += -Llib -lSDL2 -lX11 -lGL
+    LDFLAGS += -Llib -ldl -lSDL2 -lX11 -lGL
 endif
 ifeq ($(UNAME_S),Darwin)
 	BACKEND = -DSOKOL_GLCORE
-    LDFLAGS += -Llib/mac -lSDL2 -framework Cocoa -framework OpenGL 
+	LIB = lib/mac/libOE.a
+    LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
 	SHADER = shaders_mac
 endif
-ifeq ($(OS),Windows_NT)
-	#BACKEND = -DSOKOL_D3D11
-	BACKEND = -DSOKOL_GLCORE
 
-    LDFLAGS += -Llib -lSDL2 -lgdi32 -lopengl32
+ifeq ($(OS),Windows_NT)
+	ifeq ($(ARCH),i686-w64-mingw32)
+		LIB = lib/win32/libOE.a
+		LDFLAGS += -Llib/win32 -lSDL2 -lgdi32 -lopengl32
+	else
+		LDFLAGS += -Llib -lSDL2 -lgdi32 -lopengl32
+	endif
+	BACKEND = -DSOKOL_GLCORE
 endif
 
 SRCS := $(wildcard src/*.c)
@@ -34,7 +41,6 @@ ifneq ($(wildcard C:/msys64/mingw64/include/openxr*),)
 	OBJS = $(SRCS:.c=.o)
 endif
 
-LIB= lib/libOE.a
 AR_ARGS= rcs $(LIB) $(COMMON_O)
 
 SHDC_WIN= sokol-tools-bin/bin/win32/sokol-shdc.exe 
