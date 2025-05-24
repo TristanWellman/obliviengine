@@ -3,13 +3,14 @@
 CC=gcc
 CFLAGS= -g -O2 -I../include -I../include/SDL/include -I../shaders
 
+UNAME_S := $(shell uname -s)
 # setup required linker flags for 
 LDFLAGS= -lm -ldl -lpthread
 ifeq ($(UNAME_S),Linux)
-    LDFLAGS += -L../lib -lSDL2 -lX11 -lGL -lOE
+    LDFLAGS += -L../lib/lin -lOE -lSDL2 -lX11 -lGL 
 endif
 ifeq ($(UNAME_S),Darwin)
-    LDFLAGS += -L../lib/mac -L../lib -lOE -lSDL2 -framework Cocoa -framework OpenGL
+    LDFLAGS += -L../lib/mac -lOE -lSDL2 -framework Cocoa -framework OpenGL
 endif
 ifeq ($(OS),Windows_NT)
 
@@ -27,8 +28,6 @@ COMMON_O= *.o
 
 OUT= oetest
 
-MACLF= -L../lib/mac -L../lib -lOE -lSDL2 -framework Cocoa -framework OpenGL
-
 all: build
 
 build:
@@ -37,5 +36,5 @@ build:
 
 mac:
 	$(CC) $(CFLAGS) -c $(COMMON_C)
-	$(CC) $(CFLAGS) $(COMMON_O) -o $(OUT) $(LDFLAGS) $(MACLF)
+	$(CC) $(CFLAGS) $(COMMON_O) -o $(OUT) $(LDFLAGS)
 

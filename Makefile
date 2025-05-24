@@ -5,26 +5,28 @@ LDFLAGS = -lm -lpthread
 LIB?= lib/libOE.a
 UNAME_S := $(shell uname -s)
 ARCH := $(shell $(CC) -dumpmachine)
-SHADER= shaders_win
+SHDC= sokol-tools-bin/bin/win32/sokol-shdc.exe
 ifeq ($(UNAME_S),Linux)
 	BACKEND= -DSOKOL_GLCORE
-    LDFLAGS += -Llib -ldl -lSDL2 -lX11 -lGL
+	LIB= lib/lin/libOE.a
+    LDFLAGS += -ldl -lSDL2 -lX11 -lGL
+	SHDC= sokol-tools-bin/bin/linux/sokol-shdc 
 endif
 ifeq ($(UNAME_S),Darwin)
-	BACKEND = -DSOKOL_GLCORE
-	LIB = lib/mac/libOE.a
+	BACKEND= -DSOKOL_GLCORE
+	LIB= lib/mac/libOE.a
     LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
-	SHADER = shaders_mac
+	SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
 endif
 
 ifeq ($(OS),Windows_NT)
 	ifeq ($(ARCH),i686-w64-mingw32)
-		LIB = lib/win32/libOE.a
+		LIB= lib/win32/libOE.a
 		LDFLAGS += -Llib/win32 -lSDL2 -lgdi32 -lopengl32
 	else
 		LDFLAGS += -Llib -lSDL2 -lgdi32 -lopengl32
 	endif
-	BACKEND = -DSOKOL_GLCORE
+	BACKEND= -DSOKOL_GLCORE
 endif
 
 SRCS := $(wildcard src/*.c)
@@ -43,15 +45,13 @@ endif
 
 AR_ARGS= rcs $(LIB) $(COMMON_O)
 
-SHDC_WIN= sokol-tools-bin/bin/win32/sokol-shdc.exe 
-SHDC_MAC= sokol-tools-bin/bin/osx/sokol-shdc 
 SHADER_ARGS=  --format sokol --slang glsl410 --ifdef 
 
 TEST_SRC= test
 
-.PHONY: test lib clean shaders_win shaders_mac shaders_clean
+.PHONY: test lib clean shaders shaders_clean
 
-all: $(SHADER) lib
+all: shaders lib
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(BACKEND) -c $< -o $@
@@ -67,20 +67,12 @@ test:
 clean: shaders_clean
 	rm $(OBJS) 
 
-shaders_win:
-	$(SHDC_WIN) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS) 
-	$(SHDC_WIN) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
-	$(SHDC_WIN) --input shaders/rayTracer.glsl --output include/OE/rayTracer.glsl.h $(SHADER_ARGS)
-	$(SHDC_WIN) --input shaders/fxaa.glsl --output include/OE/fxaa.glsl.h $(SHADER_ARGS)
-	$(SHDC_WIN) --input shaders/bloom.glsl --output include/OE/bloom.glsl.h $(SHADER_ARGS)
-
-shaders_mac:
-	$(SHDC_MAC) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS)
-	$(SHDC_MAC) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
-	$(SHDC_MAC) --input shaders/rayTracer.glsl --output include/OE/rayTracer.glsl.h $(SHADER_ARGS)
-	$(SHDC_MAC) --input shaders/fxaa.glsl --output include/OE/fxaa.glsl.h $(SHADER_ARGS)
-	$(SHDC_MAC) --input shaders/bloom.glsl --output include/OE/bloom.glsl.h $(SHADER_ARGS)
-
+shaders:
+	$(SHDC) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS) 
+	$(SHDC) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/rayTracer.glsl --output include/OE/rayTracer.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/fxaa.glsl --output include/OE/fxaa.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/bloom.glsl --output include/OE/bloom.glsl.h $(SHADER_ARGS)
 
 shaders_clean:
-	rm include/OE/*glsl.h
+	rm include/OE/*.glsl.h
