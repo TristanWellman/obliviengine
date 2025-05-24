@@ -57,7 +57,6 @@ void event() {
 }
 
 int main(int argc, char **argv) {
-	
 	OEInitRenderer(1280, 720, "game", PERSPECTIVE);
 	OEEnableDebugInfo();
 	

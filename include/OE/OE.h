@@ -28,6 +28,7 @@
 #include "quad.glsl.h"
 #include "fxaa.glsl.h"
 #include "bloom.glsl.h"
+/*#include "ssao.glsl.h"*/
 #include "rayTracer.glsl.h"
 
 #define MAXOBJS 1000000
@@ -101,6 +102,7 @@ typedef struct {
 	sg_attachments atts;
 	sg_sampler sampler;
 	sg_sampler depthSampler;
+	/*OESSAO_params_t params;*/
 } SSAO;
 
 typedef struct {
@@ -221,6 +223,8 @@ float OEGetFrameTime();
 float OEGetTick();
 SDL_Window *OEGetWindow(); 
 
+/*void OEEnableSSAO(float strength);
+void OEDisableSSAO();*/
 void OEUpdateBloomParams(float threshold, float strength);
 void OEEnableBloom(float threshold, float strength);
 void OEDisableBloom();

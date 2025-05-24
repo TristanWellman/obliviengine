@@ -247,7 +247,13 @@ void *applyFXAAUniforms() {
 
 void *applyBloomUniforms() {
 	sg_apply_uniforms(UB_OEBloom_params, &SG_RANGE(globalRenderer->bloomParams));
+	return NULL;
 }
+
+/*void *applySSAOUniforms() {
+	sg_apply_uniforms(UB_OESSAO_params, &SG_RANGE(globalRenderer->ssao.params));
+	return NULL;
+}*/
 
 void OEDrawObject(Object *obj) {
 	if(obj==NULL) {
@@ -1018,6 +1024,20 @@ void OEDisableBloom() {
 	OERemovePostPass((UNILOADER)applyBloomUniforms);
 }
 
+/*void OEEnableSSAO(float strength) {
+	sg_shader ssao = sg_make_shader(OESSAO_shader_desc(sg_query_backend()));
+	sg_pipeline_desc ssaopd = OEGetQuadPipeline(ssao, "ssao");
+	sg_pipeline ssaop = sg_make_pipeline(&ssaopd);
+	globalRenderer->ssao.params.resolution[0] = globalRenderer->window->width;
+	globalRenderer->ssao.params.resolution[1] = globalRenderer->window->height;
+	globalRenderer->ssao.params.strength = strength;
+	OEAddPostPass(ssaop, (UNILOADER)applySSAOUniforms);
+}
+
+void OEDisableSSAO() {
+	OERemovePostPass((UNILOADER)applySSAOUniforms);
+}*/
+
 void OERenderFrame(RENDFUNC drawCall) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
 	SDL_GetWindowSize(globalRenderer->window->window,
@@ -1051,20 +1071,24 @@ void OERenderFrame(RENDFUNC drawCall) {
 	drawCall();	
 	sg_end_pass();
 
+	sg_image src = globalRenderer->renderTarget;
+	sg_image final = src;
+
 	/*Post-passes*/
-	int i, j = 1;
+	int i;
 	for(i=0;i<globalRenderer->postPassSize;i++) {
-		sg_image src = j?globalRenderer->renderTarget:globalRenderer->postTarget;
-		sg_attachments dst = j?globalRenderer->renderTargetAtt:globalRenderer->postTargetAtt;
-		j=!j;
+		sg_image dst = (src.id==globalRenderer->renderTarget.id)
+			?globalRenderer->renderTarget:globalRenderer->postTarget;
+		sg_attachments dstAtt = (src.id==globalRenderer->renderTarget.id)
+			?globalRenderer->renderTargetAtt:globalRenderer->postTargetAtt;
 
 		sg_begin_pass(&(sg_pass){ .action = post_pass_action,
-				.attachments = dst});
+				.attachments = dstAtt});
 
 		sg_apply_pipeline(globalRenderer->postPasses[i].pipe);
 		sg_apply_bindings(&(sg_bindings){
 			.vertex_buffers[0] = globalRenderer->renderTargetBuff,
-			.images[IMG_OEquad_texture] = src,
+			.images[IMG_OEquad_texture] = dst,
 			.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler,
 		});
 		if(globalRenderer->postPasses[i].uniformBind!=NULL) 
@@ -1072,6 +1096,8 @@ void OERenderFrame(RENDFUNC drawCall) {
 		sg_draw(0,6,1);
 
 		sg_end_pass();
+		src = dst;
+		final = src;
 	}
 
 	/*On-Screen main pass*/
@@ -1081,7 +1107,7 @@ void OERenderFrame(RENDFUNC drawCall) {
 	sg_apply_pipeline(globalRenderer->renderTargetPipe);
 	sg_apply_bindings(&(sg_bindings){
 		.vertex_buffers[0] = globalRenderer->renderTargetBuff,
-		.images[0] = globalRenderer->renderTarget,
+		.images[0] = final,
 		.samplers[0] = globalRenderer->ssao.sampler
 	});
 	sg_draw(0,6,1);
