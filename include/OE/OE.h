@@ -87,21 +87,20 @@ typedef struct {
 	vec3 pos;
 } Object;
 
-/*
- * SSAO is not automatically applied to a process!
- * You must add a sampler to your shader and make a pipe to pass the ssao buffers.
- * */
+/*Depth buffer and related things should not be in an SSAO struct, 
+ * but I am currently too lazy to go through and fix every instance of it*/
 typedef struct {
 	int w,h;
-	sg_shader depthShader;
-	sg_shader ssaoShader;
+	sg_shader depthShader;	
+	sg_sampler depthSampler;
 	sg_image depthBuffer;
+
+	sg_shader ssaoShader;
 	sg_image ssaoBuffer;
 	sg_image finalImage; /*resolv*/
 	sg_pipeline pipe;
 	sg_attachments atts;
 	sg_sampler sampler;
-	sg_sampler depthSampler;
 	/*OESSAO_params_t params;*/
 } SSAO;
 
@@ -152,9 +151,10 @@ struct renderer {
 	sg_shader renderTargetShade;
 	sg_pipeline renderTargetPipe;
 	sg_buffer renderTargetBuff;
-	/*Haven't setup ssao shader yet but we are using the depth buffer from it*/
+	
 	SSAO ssao;
 
+	/*The user's post passes (bloom, fxaa, ssao, etc.)*/
 	PostPass postPasses[MAXPOSTPASS];
 	int postPassSize;
 

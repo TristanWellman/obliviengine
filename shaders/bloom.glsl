@@ -57,7 +57,7 @@ void main() {
 	sum += texture(sampler2D(OEBTex,OEBSmp),uv+texel*vec2(1,1)).rgb;
 
 	vec3 blur = (sum/9.0)*mask*strength;
-	frag_color = vec4(col.rgb+blur, col.a);
+	frag_color = vec4(col.rgb+blur, 1.0);
 }
 
 @end

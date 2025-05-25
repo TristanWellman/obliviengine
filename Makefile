@@ -9,13 +9,13 @@ SHDC= sokol-tools-bin/bin/win32/sokol-shdc.exe
 ifeq ($(UNAME_S),Linux)
 	BACKEND= -DSOKOL_GLCORE
 	LIB= lib/lin/libOE.a
-    LDFLAGS += -ldl -lSDL2 -lX11 -lGL
+	LDFLAGS += -ldl -lSDL2 -lX11 -lGL
 	SHDC= sokol-tools-bin/bin/linux/sokol-shdc 
 endif
 ifeq ($(UNAME_S),Darwin)
 	BACKEND= -DSOKOL_GLCORE
 	LIB= lib/mac/libOE.a
-    LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
+	LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
 	SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
 endif
 

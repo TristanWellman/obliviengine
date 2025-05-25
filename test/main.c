@@ -47,7 +47,7 @@ void colorTest() {
 
 void meshTest() {
 	OEMesh mesh, sphere;
-	OEParseObj("../assets/models/cube.obj", &mesh);
+	OEParseObj("./assets/models/cube.obj", &mesh);
 	sg_shader defShader = OEGetDefCubeShader();
 	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
 	/*OEParseObj("assets/models/sphere.obj", &sphere);
@@ -61,7 +61,7 @@ void makeCubes() {
 	for(i=0;i<15;i++) {
 		char buf[256];
 		snprintf(buf, sizeof(buf), "%s%d", "OECube", i);
-		sg_shader s = OEGetRayTracedShader();
+		sg_shader s = OEGetDefCubeShader();
 		OECreateObjectEx(buf, (vec3){(rand()%20)-10,(rand()%15),(rand()%20)-10},
 				OEGetCubeVertDesc(),OEGetCubeIndDesc(), s, OEGetDefaultPipe(s,buf));
 	}
@@ -75,6 +75,9 @@ int main(int argc, char **argv) {
 	OEEnableDebugInfo();
 	meshTest();
 	//OESetDefaultShader(OEGetRayTracedShader());
+
+	OEEnableBloom(0.8, 0.5);
+	OEEnableFXAA();
 
 	makeCubes();
 

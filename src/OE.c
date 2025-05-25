@@ -368,7 +368,7 @@ sg_buffer_desc OEGetCubeIndDesc() {
 sg_environment OEGetEnv(void) {
 	return (sg_environment) {
 		.defaults = {
-			.color_format = SG_PIXELFORMAT_RGBA32F,
+			.color_format = SG_PIXELFORMAT_RGBA8,
 			.depth_format = SG_PIXELFORMAT_DEPTH,
 			.sample_count = 1,
 		},
@@ -380,7 +380,7 @@ sg_swapchain OEGetSwapChain(void) {
 	int h = globalRenderer->window->height;
 	return (sg_swapchain) {
 		.sample_count = 1,
-		.color_format = SG_PIXELFORMAT_RGBA32F,
+		.color_format = SG_PIXELFORMAT_RGBA8,
 		.depth_format = SG_PIXELFORMAT_DEPTH,
 		.width = w,
 		.height = h,
@@ -405,7 +405,7 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 			.index_type = SG_INDEXTYPE_UINT16,
         	.cull_mode = SG_CULLMODE_BACK,
 			.sample_count = 1,
-			.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
+			.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8,
         	.depth = {
             	.compare = SG_COMPAREFUNC_LESS_EQUAL,
 				.pixel_format = SG_PIXELFORMAT_DEPTH,
@@ -429,7 +429,7 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
 		},
 		.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
 		.index_type = SG_INDEXTYPE_NONE,
-		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8,
 		.depth = {
 			.compare = SG_COMPAREFUNC_ALWAYS,
 			.write_enabled = false,
@@ -664,7 +664,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.render_target = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
 		//.sample_count = 4,
 		.label = "render_target"
 	});
@@ -673,7 +673,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.render_target = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
 		.label = "post_target"
 	});
 
@@ -682,7 +682,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
     	.pixel_format = SG_PIXELFORMAT_DEPTH,
-		//.sample_count = 4,
+		.sample_count = 1,
 		.label = "depth_image"
 	});
 
@@ -1049,7 +1049,11 @@ void OERenderFrame(RENDFUNC drawCall) {
        	.colors[0] = {
            	.load_action = SG_LOADACTION_CLEAR,
        		.clear_value = { 0.0f, 0.3f, 0.5f, 1.0f }
-        }
+        },
+		.depth = {
+			.load_action = SG_LOADACTION_CLEAR,
+			.clear_value = 1.0f,
+		}
     };
 	sg_pass_action off_pass_action = (sg_pass_action) {
        	.colors[0] = {
@@ -1062,7 +1066,11 @@ void OERenderFrame(RENDFUNC drawCall) {
 		}
     };
 	sg_pass_action post_pass_action = (sg_pass_action) {
-		.colors[0].load_action = SG_LOADACTION_DONTCARE
+		.colors[0].load_action = SG_LOADACTION_DONTCARE,
+		.depth = {
+			.load_action = SG_LOADACTION_CLEAR,
+			.clear_value = 1.0f,
+		}
 	};
 	/*Offscreen pass to the texture*/
     sg_begin_pass(&(sg_pass){ .action = off_pass_action,
@@ -1078,9 +1086,9 @@ void OERenderFrame(RENDFUNC drawCall) {
 	int i;
 	for(i=0;i<globalRenderer->postPassSize;i++) {
 		sg_image dst = (src.id==globalRenderer->renderTarget.id)
-			?globalRenderer->renderTarget:globalRenderer->postTarget;
+			?globalRenderer->postTarget:globalRenderer->renderTarget;
 		sg_attachments dstAtt = (src.id==globalRenderer->renderTarget.id)
-			?globalRenderer->renderTargetAtt:globalRenderer->postTargetAtt;
+			?globalRenderer->postTargetAtt:globalRenderer->renderTargetAtt;
 
 		sg_begin_pass(&(sg_pass){ .action = post_pass_action,
 				.attachments = dstAtt});
@@ -1088,7 +1096,7 @@ void OERenderFrame(RENDFUNC drawCall) {
 		sg_apply_pipeline(globalRenderer->postPasses[i].pipe);
 		sg_apply_bindings(&(sg_bindings){
 			.vertex_buffers[0] = globalRenderer->renderTargetBuff,
-			.images[IMG_OEquad_texture] = dst,
+			.images[IMG_OEquad_texture] = src,
 			.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler,
 		});
 		if(globalRenderer->postPasses[i].uniformBind!=NULL) 

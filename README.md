@@ -98,35 +98,35 @@ void draw() {
 }
 
 void event() {
-	SDL_Event event = OEGetEvent();
-	float camSpeed = 5.0f*OEGetFrameTime();
-	if(OEIsKeyPressed()) {
-		Vec3 pos = OEGetCamPos();
-		switch(OEGetKeySym()) {
-			case SDLK_w: OEMoveCam(FRONT, camSpeed); break;
-			case SDLK_s: OEMoveCam(BACKWARD, camSpeed); break;
-			case SDLK_a: OEMoveCam(LEFT, camSpeed); break;
-			case SDLK_d: OEMoveCam(RIGHT, camSpeed); break;
-			case SDLK_SPACE: OEMoveCam(UP, camSpeed); break;
-			case SDLK_RSHIFT:
-			case SDLK_LSHIFT: OEMoveCam(DOWN, camSpeed); break;
-		};
-	}	
+    SDL_Event event = OEGetEvent();
+    float camSpeed = 5.0f*OEGetFrameTime();
+    if(OEIsKeyPressed()) {
+        Vec3 pos = OEGetCamPos();
+        switch(OEGetKeySym()) {
+            case SDLK_w: OEMoveCam(FRONT, camSpeed); break;
+            case SDLK_s: OEMoveCam(BACKWARD, camSpeed); break;
+            case SDLK_a: OEMoveCam(LEFT, camSpeed); break;
+            case SDLK_d: OEMoveCam(RIGHT, camSpeed); break;
+            case SDLK_SPACE: OEMoveCam(UP, camSpeed); break;
+            case SDLK_RSHIFT:
+            case SDLK_LSHIFT: OEMoveCam(DOWN, camSpeed); break;
+	    };
+    }	
 }
 
 int main(int argc, char **argv) {
 	
-	OEInitRenderer(1280, 720, "game", PERSPECTIVE);
+    OEInitRenderer(1280, 720, "game", PERSPECTIVE);
     OEInitOpenXR();
-	OEEnableDebugInfo();
+    OEEnableDebugInfo();
 	
-	while(OERendererIsRunning()) {
-		OEPollEvents((EVENTFUNC)event);
+    while(OERendererIsRunning()) {
+        OEPollEvents((EVENTFUNC)event);
         OEPollXREvents();
-		OERenderXRFrame((RENDFUNC)draw);
-	}
+        OERenderXRFrame((RENDFUNC)draw);
+    }
 	
-	return 0;
+    return 0;
 }
 ```
 
