@@ -696,20 +696,6 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.depth_stencil.image = globalRenderer->ssao.depthBuffer,
 		.label = "post_target_atts"});
 
-	/*As of now this ssao stuff is unused since I haven't made a shader for it*/
-	/*globalRenderer->ssao.ssaoBuffer = sg_make_image(&(sg_image_desc){
-		.render_target = true,
-    	.width = globalRenderer->ssao.w, 
-    	.height = globalRenderer->ssao.h, 
-    	.pixel_format = SG_PIXELFORMAT_R8,
-		.sample_count = 4,
-		.label = "ssao_image"
-	});
-	globalRenderer->ssao.atts = sg_make_attachments(&(sg_attachments_desc){
-		.colors[0].image = globalRenderer->ssao.ssaoBuffer,
-		.depth_stencil.image = globalRenderer->ssao.depthBuffer,
-		.label = "ssao_atts"
-	});*/
 	/*the sampler is important*/
 	globalRenderer->ssao.sampler = sg_make_sampler(&(sg_sampler_desc){
 		.min_filter = SG_FILTER_NEAREST,
@@ -770,7 +756,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 	/*Setup Camera*/
 
-	float scale = 10.0f;
+	globalRenderer->cam.oScale = 10.0f;
+	float oScale = globalRenderer->cam.oScale;
 
 	mat4x4_identity(globalRenderer->cam.model);
 	mat4x4_identity(globalRenderer->cam.view);
@@ -782,11 +769,12 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	float aspect = (float)globalRenderer->window->width / (float)globalRenderer->window->height;
 	globalRenderer->cam.aspect = aspect;
 	Vec3 tmp;
-	
+
+	globalRenderer->camType = camType;
 	switch(camType) {
 		case ISOMETRIC:
 			//globalRenderer->cam.fov = 80.0f;
-			vec3_dup(globalRenderer->cam.position, (vec3){-1.0f, 15.0f, -1.0f});
+			vec3_dup(globalRenderer->cam.position, (vec3){-15.0f, 15.0f, -15.0f});
 
 			float angle_y = DEG2RAD(45.0f);
 			float angle_x = DEG2RAD(-30.0f);
@@ -811,8 +799,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			               globalRenderer->cam.up);
 
 			mat4x4_ortho(globalRenderer->cam.proj, 
-			             -scale * aspect, scale * aspect, 
-			             -scale, scale, 
+			             -oScale * aspect, oScale * aspect, 
+			             -oScale, oScale, 
 			             0.1f, 100.0f);
 
 			mat4x4 tmp_;
@@ -862,7 +850,20 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 void OEUpdateViewMat() {
 	Camera *cam = &globalRenderer->cam;
 	vec3_add(globalRenderer->cam.target, 
-			globalRenderer->cam.position, globalRenderer->cam.front);
+				globalRenderer->cam.position, globalRenderer->cam.front);
+	if(globalRenderer->camType==PERSPECTIVE) {
+		mat4x4_perspective(globalRenderer->cam.proj,
+						   globalRenderer->cam.fov,
+						   globalRenderer->cam.aspect,
+						   0.1f, 100.0f);
+	} else if(globalRenderer->camType==ISOMETRIC) {
+		float aspect = (float)globalRenderer->window->width / (float)globalRenderer->window->height;
+		float oScale = globalRenderer->cam.oScale;
+		mat4x4_ortho(globalRenderer->cam.proj, 
+				-oScale * aspect, oScale * aspect, 
+				-oScale, oScale, 0.1f, 100.0f);
+
+	}
 	mat4x4_look_at(cam->view, cam->position, cam->target, cam->up);
 	computeCameraRay();
 	OEComputeRotationMatrix(globalRenderer->cam.rotation,
@@ -873,18 +874,25 @@ void OEUpdateViewMat() {
 void OEMoveCam(enum face direction, float len) {
 	Camera *cam = &globalRenderer->cam;
 	vec3 tmp = {0.0f,0.0f,0.0f};
+	vec3 forw;
+	vec3_dup(forw, cam->front);
+	if(globalRenderer->camType==PERSPECTIVE) forw[1]=0.0f;
 	switch(direction) {
         case FRONT: {
-            vec3 forward_dir = {cam->front[0], 0.0f, cam->front[2]};
-            vec3_norm(forward_dir, forward_dir);
-            vec3_scale(tmp, forward_dir, len);
+			if(globalRenderer->camType==ISOMETRIC) {
+				cam->oScale-=len;
+				if(cam->oScale<0.1f) cam->oScale=0.1f;
+				break;
+			}
+            vec3_norm(forw, forw);
+            vec3_scale(tmp, forw, len);
             vec3_add(cam->position, cam->position, tmp);
             break;
         }
         case BACKWARD: {
-            vec3 backward_dir = {-cam->front[0], 0.0f, -cam->front[2]};
-            vec3_norm(backward_dir, backward_dir);
-            vec3_scale(tmp, backward_dir, len);
+			if(globalRenderer->camType==ISOMETRIC) {cam->oScale+=len;break;}
+            vec3_norm(forw, forw);
+            vec3_scale(tmp, forw, -len);
             vec3_add(cam->position, cam->position, tmp);
             break;
         }

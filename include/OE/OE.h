@@ -62,14 +62,19 @@ typedef void (*EVENTFUNC)();
 typedef void (*UNILOADER)();
 
 typedef struct {
-	float aspect, fov;
+	vec3 position, target, up;
+	vec3 front, right; /* front could also be called direction! */
+	vec3 ray_hit; /*This is what the camera is looking at (good for player position)*/
+
 	mat4x4 model;
 	mat4x4 view, proj, rotation;
 	mat4x4 iso;
 	mat4x4 mvp;
-	vec3 position, target, up;
-	vec3 front, right; /* front could also be called direction! */
-	vec3 ray_hit; /*This is what the camera is looking at (good for player position)*/
+
+	/*These must stay last for the 4x4 alignment*/
+	float aspect;
+	float fov;
+	float oScale;
 } Camera;
 
 typedef struct {
@@ -130,6 +135,7 @@ struct renderer {
 	int lastKey;
 
 	Camera cam;
+	enum CamType camType;
 	Mouse mouse;
 
 	sg_bindings bindings;
