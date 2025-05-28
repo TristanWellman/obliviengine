@@ -20,6 +20,9 @@
 typedef struct {
 	float x, y, z;
 } Vec3;
+typedef struct {
+	float x, y;
+} Vec2;
 
 typedef struct {
 	float r, g, b, a;
@@ -90,6 +93,34 @@ typedef struct {
 #define RGBA1TORGBA255(_src) \
 	((__typeof(_src)){(_src.r)*255.0f, (_src.g)*255.0f, \
 	 (_src.b)*255.0f, (_src.a)*255.0f})
+
+/*Bitset structure declaration macro
+ * _name - name of the struct
+ * _s - number of bits
+ *
+ * #include <stdio.h>
+ * 
+ * WBITSETINIT(Foo, 100);
+ *
+ * int main() {
+ * 		Foo bs;
+ * 		FooReset(&bs, 0);
+ * 		FooSet(&bs, 24);
+ * 		if(FooGet(&bs, 24)) 
+ * }
+ *
+ * */
+/*#define WBITSETINIT(_name, _s) \
+	static const _name##Bits=(_s); \
+	static const _name##Bytes=((_s)+7)/8; \
+	static const _name##Extra=(8*_name##Bytes)-(_s); \
+	typedef struct {uint32_t _b[_name##Bytes];} _name; \
+	static void _name##Set(_name *bs, unsigned i) { \
+		if(i<_name##Bits) bs->_b[i>>3]|=(1u<<(i&7));} \
+	static void _name##Reset(_name *bs, int value) { \
+		memset(bs->b, \
+	} \
+*/
 
 /*
  *  keep in mind this is pretty sketchy since we declare a variable in a macro

@@ -26,6 +26,26 @@ void OEAddLight(char *ID, vec3 pos, Color color) {
 	globalData->size++;
 }
 
+void OESetLightPosition(char *ID, vec3 pos) {
+	if(globalData==NULL||ID==NULL) return;
+	int i;
+	for(i=0;i<globalData->size;i++) {
+		if(globalData->lights[i].ID!=NULL) {
+			if(!strcmp(ID, globalData->lights[i].ID)) vec3_dup(globalData->lights[i].pos, pos);
+		}
+	}
+}
+
+void OESetLightColor(char *ID, Color color) {
+	if(globalData==NULL||ID==NULL) return;
+	int i;
+	for(i=0;i<globalData->size;i++) {
+		if(globalData->lights[i].ID!=NULL) {
+			if(!strcmp(ID, globalData->lights[i].ID)) globalData->lights[i].color = color;
+		}
+	}
+}
+
 light_params_t getLightUniform() {
 	int i;
 	for(i=0;i<globalData->size;i++) {

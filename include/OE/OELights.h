@@ -22,6 +22,8 @@ struct LightData {
 };
 
 void OEAddLight(char *ID, vec3 pos, Color color);
+void OESetLightPosition(char *ID, vec3 pos);
+void OESetLightColor(char *ID, Color color); 
 light_params_t getLightUniform();
 
 #endif

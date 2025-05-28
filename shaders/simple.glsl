@@ -87,21 +87,28 @@ void main() {
     vec3 materialSpecular = vec3(0.5);
 
 	vec3 texcolor = texture(sampler2D(_texture, smp), texcoord).rgb;
-
-    for (int i = 0; i < MAXLIGHTS; i++) {
+	
+	int al = 0;
+	for(al=0;al<MAXLIGHTS&&(colors[al]==vec4(0.0));al++);
+	float lightScale = 1.0/max(al,1);
+	int i;
+    for(i = 0; i < MAXLIGHTS; i++) {
 		if(colors[i]==vec4(0.0)) break;
         vec3 lightPos = vec3(positions[i]);
         vec3 lightColor = vec3(colors[i]);
 
-        ambient += lightColor * materialAmbient;
+		float d = length(lightPos-fragPos);
+		float atten = 1.0/(1.0+0.09*d+0.01*d*d);
+
+        ambient += lightScale * atten * lightColor * materialAmbient;
 
         vec3 lightDir = normalize(lightPos - fragPos);
         float diff = max(dot(norm, lightDir), 0.0);
-        diffuse += diff * lightColor * materialDiffuse;
+        diffuse += lightScale * atten * diff * lightColor * materialDiffuse;
 
         vec3 reflectDir = reflect(-lightDir, norm);
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-        specular += spec * lightColor * materialSpecular;
+        specular += lightScale * atten * spec * lightColor * materialSpecular;
     }
 
     vec3 result = ambient + diffuse + specular;
