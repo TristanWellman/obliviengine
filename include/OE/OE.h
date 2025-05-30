@@ -99,8 +99,6 @@ typedef struct {
 typedef struct {
 	int w,h;
 	sg_shader depthShader;	
-	sg_sampler depthSampler;
-	sg_image depthBuffer;
 
 	sg_shader ssaoShader;
 	sg_image ssaoBuffer;
@@ -149,12 +147,18 @@ struct renderer {
 
 	/*This is for if you call a draw function and do not pass a texture*/
 	sg_image defTexture;
+	
+	sg_image depthBuffer;
+	sg_image normalBuffer;
+	sg_image positionBuffer;
 
 	/*Render texture, and ssao buffer stuff*/
 	sg_image renderTarget;
 	sg_attachments renderTargetAtt;
 	sg_image postTarget;
+	sg_image postTargetPong; /*We must alternate images/attachments for user passes*/
 	sg_attachments postTargetAtt;
+	sg_attachments postTargetAttPong; 
 	/*This is just a shader for the screen quad*/
 	sg_shader renderTargetShade;
 	sg_pipeline renderTargetPipe;

@@ -70,7 +70,23 @@ in vec3 normal;
 in vec3 fragPos;
 in vec2 texcoord;
 
-out vec4 frag_color;
+layout(location=0) out vec4 frag_color;
+layout(location=1) out vec4 depth_color;
+layout(location=2) out vec4 normal_color;
+layout(location=3) out vec4 position_color;
+
+void depth() {
+	float depth = gl_FragCoord.z;
+	depth_color = vec4(vec3(depth),1.0);
+}
+
+void normal_c() {
+	normal_color = vec4(normal,1.0);
+}
+
+void position() {
+	position_color = vec4(fragPos,1.0);
+}
 
 /*Phong Lighting for simple shader*/
 void main() {
@@ -113,6 +129,10 @@ void main() {
 
     vec3 result = ambient + diffuse + specular;
     frag_color = vec4(result*vec3(color)*vec3(texcolor), 1.0);
+
+	depth();
+	normal_c();
+	position();
 
 }
 

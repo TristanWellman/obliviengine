@@ -72,7 +72,7 @@ void createSwapChains() {
                 .render_target = true,
                 .width = swapchainCreateInfo.width,
                 .height = swapchainCreateInfo.height,
-                .pixel_format = SG_PIXELFORMAT_RGBA8,
+                .pixel_format = SG_PIXELFORMAT_RGBA32F,
 //#if defined(SOKOL_GLCORE33)
                 .gl_textures = swapchainImages[i].image,
 //#endif
