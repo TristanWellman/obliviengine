@@ -526,7 +526,7 @@ void OEParseFOAMObj(char *path, OEFOAMMesh *mesh) {
 	fclose(fneighbour);
 }
 
-void OEParseObj(char *file, OEMesh *mesh) {
+void OEParseObj(char *name, char *file, OEMesh *mesh) {
 	if(mesh==NULL) mesh = calloc(1, sizeof(OEMesh));
 	
 	mesh->f = fopen(file, "r");
@@ -549,6 +549,7 @@ void OEParseObj(char *file, OEMesh *mesh) {
 		if(checkObjIndices(line, mesh)) continue;
 	}
 
+	mesh->label = name;
 	if(mesh->label!=NULL) {
 		// I want you to know I hate that MSVC does not allow for varied array sizes I.E. buf[strlen(str)]
 		char *buf = calloc(strlen(mesh->label)+128, sizeof(char));

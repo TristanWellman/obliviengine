@@ -50,6 +50,7 @@ void OECreateObject(Object obj) {
 
 	globalRenderer->objects[pos].numIndices = obj.numIndices;
 	mat4x4_dup(globalRenderer->objects[pos].model,  obj.model);
+	mat4x4_dup(globalRenderer->objects[pos].originalModel, obj.model);
 	vec3_dup(globalRenderer->objects[pos].pos, obj.pos);
 
 	globalRenderer->objects[pos].numID = globalRenderer->objSize;
@@ -82,6 +83,7 @@ void OECreateObjectEx(char *name, vec3 pos,
 	obj.pos[2] = pos[2];
 	mat4x4_identity(obj.model);
 	mat4x4_translate(obj.model, obj.pos[0], obj.pos[1], obj.pos[2]);
+	mat4x4_dup(obj.originalModel, obj.model);
 
 	OECreateObject(obj);
 	free(obj.name);
@@ -174,7 +176,7 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 				.label = "objv"
 			});
 	obj.ibuf = sg_make_buffer(&(sg_buffer_desc){
-				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.usage.index_buffer = true,
 				.data = PTRRANGE(finalInds, indSize),
 				.label = "obji"
 			});
@@ -189,6 +191,7 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 	obj.pos[2] = pos[2];
 	mat4x4_identity(obj.model);
 	mat4x4_translate(obj.model, obj.pos[0], obj.pos[1], obj.pos[2]);
+	mat4x4_dup(obj.originalModel, obj.model);
 
 	OECreateObject(obj);
 	free(obj.name);
@@ -210,6 +213,24 @@ void OESetObjectPosition(char *ID, vec3 position) {
 		mat4x4_identity(obj->model);
 		mat4x4_translate(obj->model, obj->pos[0], obj->pos[1], obj->pos[2]);
 	}
+}
+
+void OERotateObject(char *ID, float deg) {
+	Object *obj = OEGetObjectFromName(ID);
+	if(obj!=NULL) {
+		float rad = DEG2RAD(deg);
+		mat4x4 rot, trans;
+		mat4x4_identity(rot);
+		mat4x4_identity(trans);
+		mat4x4_rotate(rot, rot, 0.0f, 1.0f, 0.0f ,rad);
+		mat4x4_translate(trans, obj->pos[0], obj->pos[1], obj->pos[2]);
+		mat4x4_mul(obj->model, trans, rot);
+	}
+}
+
+void OEResetRotation(char *ID) {
+	Object *obj = OEGetObjectFromName(ID);
+	if(obj!=NULL) mat4x4_dup(obj->model, obj->originalModel);
 }
 
 void setObjectShader(char *name, sg_shader shd) {
@@ -359,7 +380,7 @@ sg_buffer_desc OEGetCubeVertDesc() {
 
 sg_buffer_desc OEGetCubeIndDesc() {
 	return (sg_buffer_desc){
-				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.usage.index_buffer = true,
 				.data = SG_RANGE(cubeIndices),
 				.label = "cube_indices"
 			};
@@ -475,7 +496,7 @@ Object OEGetDefaultCubeObj(char *name) {
 				.label = "cube_verts"
 			});
 	obj.ibuf = sg_make_buffer(&(sg_buffer_desc){
-				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.usage.index_buffer = true,
 				.data = SG_RANGE(cubeIndices),
 				.label = "cube_indices"
 			});
@@ -507,7 +528,7 @@ void initBaseObjects() {
 			"ERROR:: Failed to init vbuf!");
 
 	test.ibuf = sg_make_buffer(&(sg_buffer_desc){
-				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.usage.index_buffer = true,
 				.data = SG_RANGE(cubeIndices),
 				.label = "cube_indices"
 			});
@@ -536,7 +557,7 @@ void initBaseObjects() {
 
 	
 	plane.ibuf = sg_make_buffer(&(sg_buffer_desc){
-				.type = SG_BUFFERTYPE_INDEXBUFFER,
+				.usage.index_buffer = true,
 				.data = SG_RANGE(planeIndices),
 				.label = "plane_indices"
 			});
@@ -661,7 +682,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->ssao.h = globalRenderer->window->height;
 
 	globalRenderer->renderTarget = sg_make_image(&(sg_image_desc){
-		.render_target = true,
+		.usage.render_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
 		.pixel_format = SG_PIXELFORMAT_RGBA8,
@@ -670,7 +691,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	});
 
 	globalRenderer->postTarget = sg_make_image(&(sg_image_desc){
-		.render_target = true,
+		.usage.render_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
 		.pixel_format = SG_PIXELFORMAT_RGBA8,
@@ -678,7 +699,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	});
 
 	globalRenderer->ssao.depthBuffer = sg_make_image(&(sg_image_desc){
-		.render_target = true,
+		.usage.render_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
     	.pixel_format = SG_PIXELFORMAT_DEPTH,
@@ -774,14 +795,14 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	switch(camType) {
 		case ISOMETRIC:
 			//globalRenderer->cam.fov = 80.0f;
-			vec3_dup(globalRenderer->cam.position, (vec3){-15.0f, 15.0f, -15.0f});
+			vec3_dup(globalRenderer->cam.position, (vec3){15.0f, 15.0f, 15.0f});
 
 			float angle_y = DEG2RAD(45.0f);
 			float angle_x = DEG2RAD(-30.0f);
 	
-			globalRenderer->cam.front[0] = cos(angle_y) * cos(angle_x);
-			globalRenderer->cam.front[1] = sin(angle_x);
-			globalRenderer->cam.front[2] = sin(angle_y) * cos(angle_x);
+			globalRenderer->cam.front[0] = -1.0f; 
+			globalRenderer->cam.front[1] = -1.0f;
+			globalRenderer->cam.front[2] = -1.0f;
 			tmp = (Vec3){globalRenderer->cam.front[0],globalRenderer->cam.front[1],globalRenderer->cam.front[2]};
 			tmp = WNORM(tmp);
 			VEC3TOVEC3F(tmp, globalRenderer->cam.front);
@@ -792,7 +813,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			VEC3TOVEC3F(tmp, globalRenderer->cam.right);
 			vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
 
-			vec3_add(globalRenderer->cam.target, globalRenderer->cam.position, globalRenderer->cam.front);
+			//vec3_add(globalRenderer->cam.target, globalRenderer->cam.position, globalRenderer->cam.front);
+			vec3_dup(globalRenderer->cam.target, (vec3){0.0f,0.0f,0.0f});
 			mat4x4_look_at(globalRenderer->cam.view,
 			               globalRenderer->cam.position,
 			               globalRenderer->cam.target,
@@ -880,8 +902,11 @@ void OEMoveCam(enum face direction, float len) {
 	switch(direction) {
         case FRONT: {
 			if(globalRenderer->camType==ISOMETRIC) {
-				cam->oScale-=len;
-				if(cam->oScale<0.1f) cam->oScale=0.1f;
+				cam->position[0] -= len;
+				cam->position[1] -= len;
+				cam->position[2] -= len;
+				vec3_scale(tmp, cam->up, len);
+				vec3_add(cam->position, cam->position, tmp);
 				break;
 			}
             vec3_norm(forw, forw);
@@ -890,7 +915,14 @@ void OEMoveCam(enum face direction, float len) {
             break;
         }
         case BACKWARD: {
-			if(globalRenderer->camType==ISOMETRIC) {cam->oScale+=len;break;}
+			if(globalRenderer->camType==ISOMETRIC) {
+				cam->position[0] += len;
+				cam->position[1] += len;
+				cam->position[2] += len;
+				vec3_scale(tmp, cam->up, -len);
+				vec3_add(cam->position, cam->position, tmp);
+				break;
+			}
             vec3_norm(forw, forw);
             vec3_scale(tmp, forw, -len);
             vec3_add(cam->position, cam->position, tmp);
@@ -905,12 +937,27 @@ void OEMoveCam(enum face direction, float len) {
         	vec3_add(cam->position, cam->position, tmp);	
 			break;
 		case UP:
+			if(globalRenderer->camType==ISOMETRIC) {
+				cam->position[0] += len;
+				cam->position[1] += len;
+				cam->position[2] += len;
+				cam->oScale+=len;break;
+			}
 			vec3_scale(tmp, cam->up, len);
 			vec3_add(cam->position, cam->position, tmp);
 			break;
 		case DOWN:
+			if(globalRenderer->camType==ISOMETRIC) {
+				cam->position[0] -= len;
+				cam->position[1] -= len;
+				cam->position[2] -= len;
+				cam->oScale-=len;
+				if(cam->oScale<0.1f) cam->oScale=0.1f;
+				break;
+			}
 			vec3_scale(tmp, cam->up, -len);
 			vec3_add(cam->position, cam->position, tmp);
+			break;
 	};
 
 	OEUpdateViewMat();
@@ -1056,7 +1103,7 @@ void OERenderFrame(RENDFUNC drawCall) {
 	sg_pass_action pass_action = (sg_pass_action) {
        	.colors[0] = {
            	.load_action = SG_LOADACTION_CLEAR,
-       		.clear_value = { 0.0f, 0.3f, 0.5f, 1.0f }
+       		.clear_value = { 0.0f, 0.0f, 0.0f, 1.0f }
         },
 		.depth = {
 			.load_action = SG_LOADACTION_CLEAR,
@@ -1066,7 +1113,7 @@ void OERenderFrame(RENDFUNC drawCall) {
 	sg_pass_action off_pass_action = (sg_pass_action) {
        	.colors[0] = {
            	.load_action = SG_LOADACTION_CLEAR,
-       		.clear_value = { 0.0f, 0.3f, 0.5f, 1.0f }
+       		.clear_value = { 0.0f, 0.0f, 0.0f, 1.0f }
         },
 		.depth = {
 			.load_action = SG_LOADACTION_CLEAR,
@@ -1105,7 +1152,9 @@ void OERenderFrame(RENDFUNC drawCall) {
 		sg_apply_bindings(&(sg_bindings){
 			.vertex_buffers[0] = globalRenderer->renderTargetBuff,
 			.images[IMG_OEquad_texture] = src,
+			.images[1] = globalRenderer->ssao.depthBuffer,
 			.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler,
+			.samplers[1] = globalRenderer->ssao.sampler
 		});
 		if(globalRenderer->postPasses[i].uniformBind!=NULL) 
 			globalRenderer->postPasses[i].uniformBind();

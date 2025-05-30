@@ -100,15 +100,15 @@ void main() {
 		float d = length(lightPos-fragPos);
 		float atten = 1.0/(1.0+0.09*d+0.01*d*d);
 
-        ambient += lightScale * atten * lightColor * materialAmbient;
+        ambient += (lightScale * atten * lightColor * materialAmbient)*2.0;
 
         vec3 lightDir = normalize(lightPos - fragPos);
         float diff = max(dot(norm, lightDir), 0.0);
-        diffuse += lightScale * atten * diff * lightColor * materialDiffuse;
+        diffuse += (lightScale * atten * diff * lightColor * materialDiffuse);
 
         vec3 reflectDir = reflect(-lightDir, norm);
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-        specular += lightScale * atten * spec * lightColor * materialSpecular;
+        specular += (lightScale * atten * spec * lightColor * materialSpecular);
     }
 
     vec3 result = ambient + diffuse + specular;

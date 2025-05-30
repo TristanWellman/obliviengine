@@ -88,7 +88,7 @@ void OEParseFOAMObj(char* path, OEFOAMMesh* mesh);
 /*
  * Load a ".obj" model into vertices and faces.
  * */
-void OEParseObj(char *file, OEMesh *mesh);
+void OEParseObj(char *name, char *file, OEMesh *mesh);
 
 /*
  * Scale a model up or down by "s"

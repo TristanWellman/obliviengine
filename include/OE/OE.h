@@ -87,6 +87,8 @@ typedef struct {
 	int numID;
 
 	int numIndices;
+
+	mat4x4 originalModel; /*For user to reset the model matrix*/
 	mat4x4 model;
 
 	vec3 pos;
@@ -185,7 +187,10 @@ void OECreateObjectEx(char *name, vec3 pos,
  * Hopefully I change this in the future for customization but idk :| */
 void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 		/*sg_shader defShader, sg_pipeline_desc pipe*/);
-void OESetObjectPosition(char *ID, vec3 position); 
+void OESetObjectPosition(char *ID, vec3 position);
+/*Rotates obj around the y-axis TODO: specify axis of rotation*/
+void OERotateObject(char *ID, float deg);
+void OEResetRotation(char *ID);
 
 void OEDrawObject(Object *obj);
 void OEDrawObjectTex(Object *obj, int assign, sg_image texture);
