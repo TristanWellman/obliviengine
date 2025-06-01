@@ -96,80 +96,70 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 	obj.name = calloc(strlen(mesh->label)+1, sizeof(char));
 	strcpy(obj.name, mesh->label);
 
-	obj.numIndices = mesh->indices.size*6;
 
-	/*Expand mesh verts and indices*/
-	/*4+VSIZE cuz 4 color values, 3 normal values, 2 tex coords*/
-	int vertSize = mesh->verts.total+(mesh->verts.size*(6+VSIZE));
-	int indSize = mesh->indices.size*6;
+	int numFaces = mesh->indices.size;
+	int totalVerts = numFaces*ISIZE;
+	int totalTris = numFaces*2;
+	int fpv = VSIZE+4+NORMSIZE+TEXSIZE;
+	int vertSize = totalVerts*fpv;
+	int indSize = totalTris*3;
+	obj.numIndices = indSize;
 	float *finalVerts = calloc(vertSize, sizeof(float));
 	uint16_t *finalInds = calloc(indSize, sizeof(uint16_t));
-	/*This REQUIRES 3 points per vert, 
-	 * if there isn't you've done something wrong and it'll crash*/
-	int i,j=0, l,k;
-	for(i=0;i<vertSize;i+=(VSIZE+(6+VSIZE)),j++) {
-		/*verts*/
-		finalVerts[i] = mesh->verts.data[j][0];
-		finalVerts[i+1] = mesh->verts.data[j][1];
-		finalVerts[i+2] = mesh->verts.data[j][2];
 
-		/*color*/
-		finalVerts[i+3] = 1.0f;
-		finalVerts[i+4] = 1.0f;
-		finalVerts[i+5] = 1.0f;
-		finalVerts[i+6] = 1.0f;
-
-		/*Normals*/
-		/*TODO Use faster lookup method!*/
-    	vec3 normal = {0.0f, 0.0f, 0.0f};
-
-		for(l=0;l<mesh->normInds.size;l++) {
-			for(k=0;k<ISIZE;k++) {
-				if(mesh->indices.data[l][k]-1==j) {
-					int pos = mesh->normInds.data[l][k] - 1;
-					normal[0] += mesh->vertNorms.data[pos][0];
-					normal[1] += mesh->vertNorms.data[pos][1];
-					normal[2] += mesh->vertNorms.data[pos][2];	
+	int i,j,l=0;
+	for(i=0;i<numFaces;i++) {
+		for(j=0;j<ISIZE;j++,l++) {
+			int b = l*fpv;
+			/*Verts*/
+			int v = mesh->indices.data[i][j];
+			int vIdx = v<0?mesh->verts.size+v:v-1;
+			if(vIdx<0||vIdx>=mesh->verts.size) vIdx = 0;
+			finalVerts[b] = mesh->verts.data[vIdx][0];
+			finalVerts[b+1] = mesh->verts.data[vIdx][1];
+			finalVerts[b+2] = mesh->verts.data[vIdx][2];
+			/*Color*/
+			finalVerts[b+3] = 1.0f;
+			finalVerts[b+4] = 1.0f;
+			finalVerts[b+5] = 1.0f;
+			finalVerts[b+6] = 1.0f;
+			/*Norms*/
+			int vn = mesh->normInds.data[i][j];
+			float nx = 0.0f, ny = 0.0f, nz = 0.0f;
+			if(vn!=0) {
+				int vnIdx = vn<0?mesh->vertNorms.size+vn:vn-1;
+				if(vnIdx>=0&&vnIdx<mesh->vertNorms.size) {
+					nx = mesh->vertNorms.data[vnIdx][0];
+					ny = mesh->vertNorms.data[vnIdx][1];
+					nz = mesh->vertNorms.data[vnIdx][2];
 				}
 			}
-		}
-		
-		Vec3 tmp = {normal[0],normal[1],normal[2]};
-		tmp = WNORM(tmp);
-		VEC3TOVEC3F(tmp, normal);
-
-		finalVerts[i+7] = normal[0];
-		finalVerts[i+8] = normal[1];
-		finalVerts[i+9] = normal[2];
-
-		/*Tex Coords*/
-		vec2 texCoords = {0.0f, 0.0f};
-
-		for(l=0;l<mesh->texInds.size;l++) {
-			for(k=0;k<ISIZE;k++) {
-				if(mesh->indices.data[l][k]-1==j) {
-					int pos = mesh->texInds.data[l][k] - 1;
-					texCoords[0] += mesh->vertTex.data[pos][0];
-					texCoords[1] += mesh->vertTex.data[pos][1];
+			finalVerts[b+7] = nx;
+			finalVerts[b+8] = ny;
+			finalVerts[b+9] = nz;
+			/*UV/texcoords*/
+			int vt = mesh->texInds.data[i][j];
+			float tu = 0.0f, tv = 0.0f;
+			if(vt!=0) {
+				int vtIdx = vt<0?mesh->vertTex.size+vt:vt-1;
+				if(vtIdx>=0&&vtIdx<mesh->vertTex.size) {
+					tu = mesh->vertTex.data[vtIdx][0];
+					tv = mesh->vertTex.data[vtIdx][1];
 				}
 			}
+			finalVerts[b+10] = tu;
+			finalVerts[b+11] = tv;
 		}
-
-		finalVerts[i+10] = texCoords[0];
-		finalVerts[i+11] = texCoords[1];
-
 	}
-	/*This REQUIRES 4 points per face,and atleast 6 faces.
-	 * If there isn't you've done something wrong and it'll crash*/
-	for(i=0,j=0;i<indSize;i+=6,j++) {
-    	finalInds[i]   = mesh->indices.data[j][0] - 1;
-    	finalInds[i+1] = mesh->indices.data[j][2] - 1;
-		finalInds[i+2] = mesh->indices.data[j][1] - 1;
-	    finalInds[i+3] = mesh->indices.data[j][0] - 1;
-	    finalInds[i+4] = mesh->indices.data[j][3] - 1;
-	    finalInds[i+5] = mesh->indices.data[j][2] - 1;
+	int offs = 0;
+	for(i=0,j=0;i<numFaces;i++,offs+=ISIZE) {
+		finalInds[j++] = (uint16_t)(offs);
+		finalInds[j++] = (uint16_t)(offs+2);
+		finalInds[j++] = (uint16_t)(offs+1);
+		finalInds[j++] = (uint16_t)(offs);
+		finalInds[j++] = (uint16_t)(offs+3);
+		finalInds[j++] = (uint16_t)(offs+2);
 	}
-	
 
 	obj.vbuf = sg_make_buffer(&(sg_buffer_desc) {
 				.data = PTRRANGE(finalVerts, vertSize),
@@ -250,6 +240,7 @@ void OEApplyCurrentUniforms(Object *obj) {
 	Camera *cam = OEGetCamera();
     memcpy(vs_params.mvp, mvp, sizeof(mvp));
 	memcpy(vs_params.model, obj->model, sizeof(obj->model));
+	memcpy(vs_params.view, cam->view, sizeof(cam->view));
 	memcpy(fs_params.camPos, cam->position, sizeof(cam->position));
 
     sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
@@ -271,10 +262,10 @@ void *applyBloomUniforms() {
 	return NULL;
 }
 
-/*void *applySSAOUniforms() {
+void *applySSAOUniforms() {
 	sg_apply_uniforms(UB_OESSAO_params, &SG_RANGE(globalRenderer->ssao.params));
 	return NULL;
-}*/
+}
 
 void OEDrawObject(Object *obj) {
 	if(obj==NULL) {
@@ -389,8 +380,8 @@ sg_buffer_desc OEGetCubeIndDesc() {
 sg_environment OEGetEnv(void) {
 	return (sg_environment) {
 		.defaults = {
-			.color_format = SG_PIXELFORMAT_RGBA8,
-			.depth_format = SG_PIXELFORMAT_NONE,
+			.color_format = SG_PIXELFORMAT_RGBA32F,
+			.depth_format = SG_PIXELFORMAT_DEPTH,
 			.sample_count = 1,
 		},
 	};
@@ -401,8 +392,8 @@ sg_swapchain OEGetSwapChain(void) {
 	int h = globalRenderer->window->height;
 	return (sg_swapchain) {
 		.sample_count = 1,
-		.color_format = SG_PIXELFORMAT_RGBA8,
-		.depth_format = SG_PIXELFORMAT_NONE,
+		.color_format = SG_PIXELFORMAT_RGBA32F,
+		.depth_format = SG_PIXELFORMAT_DEPTH,
 		.width = w,
 		.height = h,
 		.gl.framebuffer = 0,
@@ -428,13 +419,15 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 			.sample_count = 1,
 			.color_count = 4,
 			.colors = {
-				[0] = {.pixel_format = SG_PIXELFORMAT_RGBA8}, /*Color Buffer*/
-				[1] = {.pixel_format = SG_PIXELFORMAT_RGBA8}, /*Depth Buffer*/
-				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA8}, /*Normal Buffer*/
-				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA8}, /*Position Buffer*/
+				[0] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Color Buffer*/
+				[1] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Depth Buffer*/
+				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Normal Buffer*/
+				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Position Buffer*/
 			},
         	.depth = {
-				.pixel_format = SG_PIXELFORMAT_NONE,
+				.compare = SG_COMPAREFUNC_LESS_EQUAL,
+				.pixel_format = SG_PIXELFORMAT_DEPTH,
+				.write_enabled = true
         	},
 			.label = _label
 		};
@@ -453,9 +446,10 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
 		},
 		.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
 		.index_type = SG_INDEXTYPE_NONE,
-		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8,
+		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
         .depth = {
-			.pixel_format = SG_PIXELFORMAT_NONE,
+			.compare = SG_COMPAREFUNC_ALWAYS,
+			.write_enabled = false,
         },
 		.label = _label
 	};
@@ -687,7 +681,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.usage.render_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.pixel_format = SG_PIXELFORMAT_RGBA32F,
 		//.sample_count = 4,
 		.label = "render_target"
 	});
@@ -696,22 +690,29 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.usage.render_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.pixel_format = SG_PIXELFORMAT_RGBA32F,
 		.label = "post_target"
 	});
 	globalRenderer->postTargetPong = sg_make_image(&(sg_image_desc){
 		.usage.render_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.pixel_format = SG_PIXELFORMAT_RGBA32F,
 		.label = "post_target_p"
 	});
-
+	globalRenderer->depthDummy = sg_make_image(&(sg_image_desc){
+		.usage.render_attachment = true,
+    	.width = globalRenderer->window->width, 
+    	.height = globalRenderer->window->height, 
+    	.pixel_format = SG_PIXELFORMAT_DEPTH,
+		.sample_count = 1,
+		.label = "depthd_image"
+	});
 	globalRenderer->depthBuffer = sg_make_image(&(sg_image_desc){
 		.usage.render_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA8,
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
 		.sample_count = 1,
 		.label = "depth_image"
 	});
@@ -719,7 +720,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.usage.render_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA8,
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
 		.sample_count = 1,
 		.label = "normal_image"
 	});
@@ -727,7 +728,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.usage.render_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA8,
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
 		.sample_count = 1,
 		.label = "position_image"
 	});
@@ -737,13 +738,16 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.colors[1].image = globalRenderer->depthBuffer,
 		.colors[2].image = globalRenderer->normalBuffer,
 		.colors[3].image = globalRenderer->positionBuffer,
+		.depth_stencil.image = globalRenderer->depthDummy,
 		.label = "render_target_atts"});
 	
 	globalRenderer->postTargetAtt = sg_make_attachments(&(sg_attachments_desc){
 		.colors[0].image = globalRenderer->postTarget,
+		.depth_stencil.image = globalRenderer->depthDummy,
 		.label = "post_target_atts"});
 	globalRenderer->postTargetAttPong = sg_make_attachments(&(sg_attachments_desc){
 		.colors[0].image = globalRenderer->postTargetPong,
+		.depth_stencil.image = globalRenderer->depthDummy,
 		.label = "post_target_atts_p"});
 
 	/*the sampler is important*/
@@ -1102,19 +1106,36 @@ void OEDisableBloom() {
 	OERemovePostPass((UNILOADER)applyBloomUniforms);
 }
 
-/*void OEEnableSSAO(float strength) {
+void OEEnableSSAO() {
+	srand((unsigned)time(NULL));
+	int i;
+	for(i=0;i<128;i++) {
+		Vec3 Vsample = (Vec3){
+			WRANDFR(-1.0f,1.0f),
+			WRANDFR(-1.0f,1.0f),
+			WRANDFR(-1.0f,1.0f)};
+		Vsample = WNORM(Vsample);
+		vec3 sample;
+		vec3_dup(sample, (vec3){Vsample.x,Vsample.y,Vsample.z});
+		float scale = (float)i/128.0f;
+		scale = WLERP(0.1f,1.0f,scale*scale);
+		vec3_scale(sample,sample,scale);
+		/*We have to do vec4 in the shader bindings since we use glsl 4.1*/
+		vec4 final;
+		vec4_dup(final,(vec4){sample[0],sample[1],sample[2],0.0f}); 
+		vec4_dup(globalRenderer->ssao.params.kernel[i],final);
+	}
+
 	sg_shader ssao = sg_make_shader(OESSAO_shader_desc(sg_query_backend()));
 	sg_pipeline_desc ssaopd = OEGetQuadPipeline(ssao, "ssao");
 	sg_pipeline ssaop = sg_make_pipeline(&ssaopd);
-	globalRenderer->ssao.params.resolution[0] = globalRenderer->window->width;
-	globalRenderer->ssao.params.resolution[1] = globalRenderer->window->height;
-	globalRenderer->ssao.params.strength = strength;
+
 	OEAddPostPass(ssaop, (UNILOADER)applySSAOUniforms);
 }
 
 void OEDisableSSAO() {
 	OERemovePostPass((UNILOADER)applySSAOUniforms);
-}*/
+}
 
 void OERenderFrame(RENDFUNC drawCall) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
@@ -1128,18 +1149,29 @@ void OERenderFrame(RENDFUNC drawCall) {
            	.load_action = SG_LOADACTION_CLEAR,
        		.clear_value = {0.0f,0.0f,0.0f,1.0f}
         },
-
+		.depth = {
+			.load_action = SG_LOADACTION_CLEAR,
+			.clear_value = 1.0f
+		}
     };
 	sg_pass_action off_pass_action = (sg_pass_action) {
        	.colors = {
            	[0] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}},
-			[1] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {1.0f,1.0f,1.0f,1.0f}},
-			[2] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {1.0f,1.0f,1.0f,1.0f}},
-			[3] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {1.0f,1.0f,1.0f,1.0f}}
+			[1] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}},
+			[2] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}},
+			[3] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}}
         },
+		.depth = {
+			.load_action = SG_LOADACTION_CLEAR,
+			.clear_value = 1.0f
+		}
     };
 	sg_pass_action post_pass_action = (sg_pass_action) {
 		.colors[0].load_action = SG_LOADACTION_DONTCARE,
+		.depth = {
+			.load_action = SG_LOADACTION_CLEAR,
+			.clear_value = 1.0f
+		}
 	};
 	/*Offscreen pass to the texture*/
     sg_begin_pass(&(sg_pass){ .action = off_pass_action,
@@ -1201,9 +1233,11 @@ void OERenderFrame(RENDFUNC drawCall) {
 		sdtx_font(1);
 		sdtx_color3b(0xf4, 0x43, 0x36);
 		Camera *cam = &globalRenderer->cam;
-		sdtx_printf("FPS: %d\nFrameTime: %f\nCamPos: %f, %f, %f", 
+		sdtx_printf("FPS: %d\nFrameTime: %f\nCamPos: %f, %f, %f\n\nResolution: %d,%d\nGPU: %s\nDriver: %s", 
 				(int)globalRenderer->fps, globalRenderer->frameTime,
-				cam->position[0], cam->position[1], cam->position[2]);
+				cam->position[0], cam->position[1], cam->position[2],
+				globalRenderer->window->width, globalRenderer->window->height,
+				glGetString(GL_RENDERER), glGetString(GL_VERSION));
 		sdtx_draw();
 	}
 

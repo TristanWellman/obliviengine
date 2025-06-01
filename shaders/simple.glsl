@@ -20,6 +20,7 @@
 layout(binding=0) uniform vs_params {
     mat4 mvp;
     mat4 model;
+	mat4 view;
 };
 
 layout(binding=1) uniform light_params {
@@ -44,6 +45,8 @@ in vec2 texcoord0;
 out vec4 color;
 out vec3 normal;
 out vec3 fragPos;
+out vec3 viewSpacePos;
+out vec3 viewSpaceNorm;
 out vec2 texcoord;
 
 void main() {
@@ -54,6 +57,8 @@ void main() {
     normal = normalize(normalMatrix * normal0);
 
     fragPos = vec3(model * vec4(position,1.0));
+	viewSpacePos = vec3(view*vec4(fragPos,1.0));
+	viewSpaceNorm = normalize(mat3(view) * normal);
 	texcoord = texcoord0;
 }
 
@@ -68,6 +73,8 @@ layout(binding=3) uniform sampler smp;
 in vec4 color;
 in vec3 normal; 
 in vec3 fragPos;
+in vec3 viewSpacePos;
+in vec3 viewSpaceNorm;
 in vec2 texcoord;
 
 layout(location=0) out vec4 frag_color;
@@ -81,11 +88,11 @@ void depth() {
 }
 
 void normal_c() {
-	normal_color = vec4(normal,1.0);
+	normal_color = vec4(viewSpaceNorm*0.5+0.5,1.0);
 }
 
 void position() {
-	position_color = vec4(fragPos,1.0);
+	position_color = vec4(viewSpacePos,1.0);
 }
 
 /*Phong Lighting for simple shader*/

@@ -28,7 +28,7 @@
 #include "quad.glsl.h"
 #include "fxaa.glsl.h"
 #include "bloom.glsl.h"
-/*#include "ssao.glsl.h"*/
+#include "ssao.glsl.h"
 #include "rayTracer.glsl.h"
 
 #define MAXOBJS 1000000
@@ -106,7 +106,7 @@ typedef struct {
 	sg_pipeline pipe;
 	sg_attachments atts;
 	sg_sampler sampler;
-	/*OESSAO_params_t params;*/
+	OESSAO_params_t params;
 } SSAO;
 
 typedef struct {
@@ -147,7 +147,8 @@ struct renderer {
 
 	/*This is for if you call a draw function and do not pass a texture*/
 	sg_image defTexture;
-	
+
+	sg_image depthDummy; /*trick sokol for depth testing*/
 	sg_image depthBuffer;
 	sg_image normalBuffer;
 	sg_image positionBuffer;
@@ -238,8 +239,8 @@ float OEGetFrameTime();
 float OEGetTick();
 SDL_Window *OEGetWindow(); 
 
-/*void OEEnableSSAO(float strength);
-void OEDisableSSAO();*/
+void OEEnableSSAO();
+void OEDisableSSAO();
 void OEUpdateBloomParams(float threshold, float strength);
 void OEEnableBloom(float threshold, float strength);
 void OEDisableBloom();

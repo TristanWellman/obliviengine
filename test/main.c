@@ -9,8 +9,8 @@
 
 void draw() {
 	//OEDrawObject(OEGetObjectFromName("Icosphere"));
-	OEDrawObject(OEGetObjectFromName("Cube"));
-	OEDrawObject(OEGetObjectFromName("OECube"));
+	OEDrawObjectTex(OEGetObjectFromName("Cube"), OE_TEXPOS, getTexture("test"));
+	OEDrawObjectTex(OEGetObjectFromName("OECube"), OE_TEXPOS, getTexture("test"));
 	OEDrawObject(OEGetObjectFromName("OEPlane"));
 
 	int i;
@@ -47,7 +47,7 @@ void colorTest() {
 
 void meshTest() {
 	OEMesh mesh, sphere;
-	OEParseObj("./assets/models/cube.obj", &mesh);
+	OEParseObj("Cube", "./assets/models/cube.obj", &mesh);
 	sg_shader defShader = OEGetDefCubeShader();
 	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
 	/*OEParseObj("assets/models/sphere.obj", &sphere);
@@ -70,7 +70,7 @@ void makeCubes() {
 
 int main(int argc, char **argv) {
 	
-	OEInitRenderer(1280, 720, "game", ISOMETRIC);
+	OEInitRenderer(1280, 720, "game", PERSPECTIVE);
 	//initOpenXR();
 	OEEnableDebugInfo();
 	meshTest();
@@ -78,6 +78,7 @@ int main(int argc, char **argv) {
 
 	OEEnableBloom(0.8, 0.5);
 	OEEnableFXAA();
+	OEEnableSSAO();
 
 	makeCubes();
 
@@ -90,7 +91,7 @@ int main(int argc, char **argv) {
 	OEAddLight("MainLight", (vec3){3.0f, 3.0f, 3.0f}, RGBA255TORGBA1(light2));
 	OEAddLight("FillLight", (vec3){-3.0f, 3.0f, -3.0f}, RGBA255TORGBA1(light1));
 
-	//addTexture("assets/stone.png", "test");
+	addTexture("test", "assets/uvtest.jpg");
 
 	while(OERendererIsRunning()) {
 		OEPollEvents((EVENTFUNC)event);

@@ -73,6 +73,7 @@ shaders:
 	$(SHDC) --input shaders/rayTracer.glsl --output include/OE/rayTracer.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/fxaa.glsl --output include/OE/fxaa.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/bloom.glsl --output include/OE/bloom.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/ssao.glsl --output include/OE/ssao.glsl.h $(SHADER_ARGS)
 
 shaders_clean:
 	rm include/OE/*.glsl.h

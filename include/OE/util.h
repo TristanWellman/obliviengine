@@ -51,6 +51,16 @@ typedef struct {
 #define WSWAP(_x, _y) \
 	((_x)^=(_y));((_y)^=(_x));((_x)^=(_y));
 
+/* Linear Interpolation
+ * https://en.wikipedia.org/wiki/Linear_interpolation
+ * */
+#define WLERP(_v0,_v1,_t) \
+	((_v0)+(_t)*((_v1)-(_v0)))
+
+/*Helper rand range macro*/
+#define WRANDFR(_min, _max) \
+	((_min)+((_max)-(_min))*((float)rand()/(float)RAND_MAX))
+
 /*
  * My implementation of everyone's favorite
  * Fast Inverse Square Root Algorithm
