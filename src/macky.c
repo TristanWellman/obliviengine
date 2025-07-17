@@ -90,7 +90,7 @@ int checkData(char *str, char *data) {
 }
 
 char *extractValue(char *fileBuffer, int index) {
-	char *buf = (char *)malloc(sizeof(char)*1024);
+	char *buf = (char *)malloc(sizeof(char)*1025);
 	int begin=index;
 	/*Work backward to the start of declaration*/
 	for(;begin>=0;begin--) {
@@ -118,6 +118,7 @@ char *extractValue(char *fileBuffer, int index) {
 		buf[i]=fileBuffer[valueStartIndex];
 		i++;
 	}	
+	buf[i] = '\0';
 	return buf;
 }
 

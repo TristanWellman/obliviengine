@@ -74,51 +74,65 @@ int checkObjIndices(char *line, OEMesh *mesh) {
 	if(line==NULL) return 0;
 	/*we check for '/' since some .obj files contain other 'f' materials*/
 	if(strstr(line, "f ")&&strchr(line, '/')) { 		
-		if(mesh->indices.size>=mesh->indices.cap) {
+		if(mesh->indices.size+1>=mesh->indices.cap) {
 			mesh->indices.cap+=MAXDATA;
-			mesh->indices.data = (uint16_t **)realloc(mesh->indices.data,
-					sizeof(uint16_t *)*mesh->indices.cap);
+			mesh->indices.data = (uint32_t **)realloc(mesh->indices.data,
+					sizeof(uint32_t *)*mesh->indices.cap);
 		}
-		if(mesh->normInds.size>=mesh->normInds.cap) {
+		if(mesh->normInds.size+1>=mesh->normInds.cap) {
 			mesh->normInds.cap+=MAXDATA;
-			mesh->normInds.data = (uint16_t **)realloc(mesh->normInds.data,
-					sizeof(uint16_t *)*mesh->normInds.cap);
+			mesh->normInds.data = (uint32_t **)realloc(mesh->normInds.data,
+					sizeof(uint32_t *)*mesh->normInds.cap);
 		}
-		if(mesh->texInds.size>=mesh->texInds.cap) {
+		if(mesh->texInds.size+1>=mesh->texInds.cap) {
 			mesh->texInds.cap+=MAXDATA;
-			mesh->texInds.data = (uint16_t **)realloc(mesh->texInds.data,
-					sizeof(uint16_t *)*mesh->texInds.cap);
+			mesh->texInds.data = (uint32_t **)realloc(mesh->texInds.data,
+					sizeof(uint32_t *)*mesh->texInds.cap);
 		}
 		char *is = strchr(line, 'f')+1;
 		if(is!=NULL) {
-			mesh->indices.data[mesh->indices.size] = calloc(ISIZE, sizeof(uint16_t));
-			mesh->normInds.data[mesh->normInds.size] = calloc(ISIZE, sizeof(uint16_t));
-			mesh->texInds.data[mesh->texInds.size] = calloc(ISIZE, sizeof(uint16_t));
+			mesh->indices.data[mesh->indices.size] = calloc(ISIZE, sizeof(uint32_t));
+			mesh->normInds.data[mesh->normInds.size] = calloc(ISIZE, sizeof(uint32_t));
+			mesh->texInds.data[mesh->texInds.size] = calloc(ISIZE, sizeof(uint32_t));
 			int j;
 			for(j=0;j<ISIZE;j++) {
 				while(is[0]==' ')is++;
-				char *buf = calloc(256, sizeof(char));
+				if(is[0]=='\0'||is[0]=='\n') {
+					mesh->indices.data[mesh->indices.size][j] = 0;
+					mesh->texInds.data[mesh->texInds.size][j] = 0;
+					mesh->normInds.data[mesh->normInds.size][j] = 0;
+					mesh->normInds.total++;
+					mesh->indices.total++;
+					mesh->texInds.total++;
+					continue;
+				}
+				int len = strlen(line);
+				char *buf = calloc(len+1, sizeof(char));
 				int i = 0;
-				for(;is[0]!=' '&&is[0]!='\n';is++,i++) buf[i]=is[0];
-				if(buf==NULL||buf[0]=='\0') continue;
+				while(is[0]!=' '&&is[0]!='\n'&&is[0]!='\0') {buf[i++]=is[0];is++;}
+				buf[i]='\0';
+				char *endptr;
 				char *cpy = strdup(buf);
-				char *tmp = strtok(cpy, "/");
-				mesh->indices.data[mesh->indices.size][j] = atoi(tmp);
+				char *tok = strtok(cpy, "/");
+				if(tok!=NULL) {
+					mesh->indices.data[mesh->indices.size][j] = (uint32_t)strtol(tok,&endptr,10);
+					if(endptr==tok) mesh->indices.data[mesh->indices.size][j] = 0;
+				} else mesh->indices.data[mesh->indices.size][j] = 0;
+				tok = strtok(NULL, "/");
+				if(tok!=NULL) {
+					mesh->texInds.data[mesh->texInds.size][j] = (uint32_t)strtol(tok,&endptr,10);
+					if(endptr==tok) mesh->texInds.data[mesh->texInds.size][j] = 0;
+				} else mesh->texInds.data[mesh->texInds.size][j] = 0;			
+				tok = strtok(NULL, "/");
+				if(tok!=NULL) {
+					mesh->normInds.data[mesh->normInds.size][j] = (uint32_t)strtol(tok,&endptr,10);
+					if(endptr==tok) mesh->normInds.data[mesh->normInds.size][j] = 0;
+				} else mesh->normInds.data[mesh->normInds.size][j] = 0;
 				free(cpy);
-				/*get the texture coord indexes*/
-				while(buf[0]!='/') buf++;
-				buf++;
-				cpy = strdup(buf);
-				char *tex = strtok(cpy, "/");
-				mesh->texInds.data[mesh->texInds.size][j] = atoi(tex);
-				free(cpy);
-				/*get normal indexes*/
-				while(buf[0]!='/') buf++;
-				buf++;
-				mesh->normInds.data[mesh->normInds.size][j] = atoi(buf);
 				mesh->normInds.total++;
 				mesh->indices.total++;
 				mesh->texInds.total++;
+				free(buf);
 			}
 			/*printf("(%d, %d, %d, %d)\n", mesh->normInds.data[mesh->normInds.size][0],
 					mesh->normInds.data[mesh->normInds.size][1],
@@ -197,15 +211,15 @@ void initMeshData(OEMesh *mesh) {
 	mesh->indices.cap = MAXDATA;
 	mesh->indices.size = 0;
 	mesh->indices.total = 0;
-	mesh->indices.data = calloc(mesh->indices.cap, sizeof(uint16_t*));
+	mesh->indices.data = calloc(mesh->indices.cap, sizeof(uint32_t*));
 	mesh->normInds.cap = MAXDATA;
 	mesh->normInds.size = 0;
 	mesh->normInds.total = 0;
-	mesh->normInds.data = calloc(mesh->normInds.cap, sizeof(uint16_t*));
+	mesh->normInds.data = calloc(mesh->normInds.cap, sizeof(uint32_t*));
 	mesh->texInds.cap = MAXDATA;
 	mesh->texInds.size = 0;
 	mesh->texInds.total = 0;
-	mesh->texInds.data = calloc(mesh->texInds.cap, sizeof(uint16_t*));
+	mesh->texInds.data = calloc(mesh->texInds.cap, sizeof(uint32_t*));
 
 	mesh->label = NULL;
 }
@@ -270,11 +284,11 @@ void *parseFoamFaces(FILE* f, OEFOAMMesh* mesh) {
 	mesh->indices.cap = mesh->faces.size;
 	mesh->indices.size = 0;
 	mesh->indices.total = 0;
-	mesh->indices.data = (uint16_t **)realloc(mesh->indices.data, 
-		mesh->indices.cap*sizeof(uint16_t *));
+	mesh->indices.data = (uint32_t **)realloc(mesh->indices.data, 
+		mesh->indices.cap*sizeof(uint32_t *));
 
 	for (j = 0; j < mesh->indices.cap; j++) {
-		mesh->indices.data[j] = calloc(ISIZE+2, sizeof(uint16_t));
+		mesh->indices.data[j] = calloc(ISIZE+2, sizeof(uint32_t));
 
 		mesh->indices.data[j][0] = mesh->faces.data[j][0];
 		mesh->indices.data[j][1] = mesh->faces.data[j][1];
@@ -500,7 +514,7 @@ void OEParseFOAMObj(char *path, OEFOAMMesh *mesh) {
 	mesh->indices.cap = MAXDATA;
 	mesh->indices.size = 0;
 	mesh->indices.total = 0;
-	mesh->indices.data = calloc(mesh->indices.cap, sizeof(uint16_t*));
+	mesh->indices.data = calloc(mesh->indices.cap, sizeof(uint32_t*));
 	mesh->osize = 0;
 	mesh->nsize = 0;
 	mesh->ocap = 0;

@@ -3,6 +3,10 @@
 #include <OE/OE.h>
 #include <OE/cube.h>
 
+#ifndef igGetIO
+#define igGetIO igGetIO_Nil
+#endif
+
 //#include <simple.glsl.h>
 
 Object *OEGetObjectFromName(char *name) {
@@ -113,11 +117,11 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 			int b = l*fpv;
 			/*Verts*/
 			int v = mesh->indices.data[i][j];
-			int vIdx = v<0?mesh->verts.size+v:v-1;
-			if(vIdx<0||vIdx>=mesh->verts.size) vIdx = 0;
-			finalVerts[b] = mesh->verts.data[vIdx][0];
-			finalVerts[b+1] = mesh->verts.data[vIdx][1];
-			finalVerts[b+2] = mesh->verts.data[vIdx][2];
+			int vI = v<0?mesh->verts.size+v:v-1;
+			if(vI<0||vI>=mesh->verts.size) vI = 0;
+			finalVerts[b] = mesh->verts.data[vI][0];
+			finalVerts[b+1] = mesh->verts.data[vI][1];
+			finalVerts[b+2] = mesh->verts.data[vI][2];
 			/*Color*/
 			finalVerts[b+3] = 1.0f;
 			finalVerts[b+4] = 1.0f;
@@ -127,11 +131,11 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 			int vn = mesh->normInds.data[i][j];
 			float nx = 0.0f, ny = 0.0f, nz = 0.0f;
 			if(vn!=0) {
-				int vnIdx = vn<0?mesh->vertNorms.size+vn:vn-1;
-				if(vnIdx>=0&&vnIdx<mesh->vertNorms.size) {
-					nx = mesh->vertNorms.data[vnIdx][0];
-					ny = mesh->vertNorms.data[vnIdx][1];
-					nz = mesh->vertNorms.data[vnIdx][2];
+				int vnI = vn<0?mesh->vertNorms.size+vn:vn-1;
+				if(vnI>=0&&vnI<mesh->vertNorms.size) {
+					nx = mesh->vertNorms.data[vnI][0];
+					ny = mesh->vertNorms.data[vnI][1];
+					nz = mesh->vertNorms.data[vnI][2];
 				}
 			}
 			finalVerts[b+7] = nx;
@@ -141,10 +145,10 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 			int vt = mesh->texInds.data[i][j];
 			float tu = 0.0f, tv = 0.0f;
 			if(vt!=0) {
-				int vtIdx = vt<0?mesh->vertTex.size+vt:vt-1;
-				if(vtIdx>=0&&vtIdx<mesh->vertTex.size) {
-					tu = mesh->vertTex.data[vtIdx][0];
-					tv = mesh->vertTex.data[vtIdx][1];
+				int vtI = vt<0?mesh->vertTex.size+vt:vt-1;
+				if(vtI>=0&&vtI<mesh->vertTex.size) {
+					tu = mesh->vertTex.data[vtI][0];
+					tv = mesh->vertTex.data[vtI][1];
 				}
 			}
 			finalVerts[b+10] = tu;
@@ -189,6 +193,97 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 	free(finalInds);
 }
 
+/*This should be used over the OECreateObjectFromMesh since my .obj parser is "ok"*/
+void OECreateMeshFromAssimp(char *name, char *path, vec3 pos) {
+	Object obj = {0};
+	obj.name = strdup(name); 
+
+	const struct aiScene *scene = aiImportFile(path,
+			aiProcess_GenSmoothNormals|aiProcess_Triangulate|
+			aiProcess_JoinIdenticalVertices|aiProcess_PreTransformVertices);
+	if(!scene||scene->mNumMeshes==0) {
+		char *buf = calloc(128+strlen(path), sizeof(char));
+		snprintf(buf,sizeof(buf),"Failed to load FBX file: %s", path);
+		WLOG(ERROR,buf)
+		free(buf);
+		return;
+	}
+	struct aiMesh *mesh = scene->mMeshes[0];
+	int faceCount = mesh->mNumFaces;
+	int vertCount = faceCount*VSIZE;
+	int indCount = faceCount*VSIZE;
+	int totalFSize = 12*vertCount; /*all the floats*/
+	obj.numIndices = indCount;
+
+	float *finalVerts = calloc(totalFSize, sizeof(float));
+	uint16_t *finalInds = calloc(indCount, sizeof(uint16_t));
+
+	float scale = 0.01f;
+
+	int i,j,k,l=0;
+	for(i=0;i<faceCount;i++) {
+		struct aiFace *face = &mesh->mFaces[i];
+		for(j=0;j<VSIZE;j++,l++) {
+			/*position*/
+			k = face->mIndices[j];
+			int b = l*12;
+			finalVerts[b+0] = mesh->mVertices[k].x*scale;
+			finalVerts[b+1] = mesh->mVertices[k].y*scale;
+			finalVerts[b+2] = mesh->mVertices[k].z*scale;
+			/*Color*/
+			finalVerts[b+3] = 1.0f;
+			finalVerts[b+4] = 1.0f;
+			finalVerts[b+5] = 1.0f;
+			finalVerts[b+6] = 0.0f;
+			/*Normals*/
+			finalVerts[b+7] = mesh->mNormals[k].x;
+			finalVerts[b+8] = mesh->mNormals[k].y;
+			finalVerts[b+9] = mesh->mNormals[k].z;
+			/*UV/texcoords*/
+			if(mesh->mTextureCoords[0]) {
+				finalVerts[b+10] = mesh->mTextureCoords[0][k].x;
+				finalVerts[b+11] = 1.0-mesh->mTextureCoords[0][k].y;
+			} else {
+				finalVerts[b+10] = 0.0f;
+				finalVerts[b+11] = 0.0f;
+			}
+		}
+	}
+
+	for(i=0;i<faceCount;i++) {
+		finalInds[(i*VSIZE)+0] = (uint16_t)((i*VSIZE)+0);
+		finalInds[(i*VSIZE)+1] = (uint16_t)((i*VSIZE)+2);
+		finalInds[(i*VSIZE)+2] = (uint16_t)((i*VSIZE)+1);
+	}
+
+	obj.vbuf = sg_make_buffer(&(sg_buffer_desc) {
+				.data = PTRRANGE(finalVerts, totalFSize),
+				.label = "objv"
+			});
+	obj.ibuf = sg_make_buffer(&(sg_buffer_desc){
+				.usage.index_buffer = true,
+				.data = PTRRANGE(finalInds, indCount),
+				.label = "obji"
+			});
+
+	sg_shader defShader = OEGetDefCubeShader();
+	memcpy(&obj.defShader, &defShader, sizeof(defShader));
+	sg_pipeline_desc pipe = OEGetDefaultPipe(defShader, "mesh");
+	obj.pipe = sg_make_pipeline(&pipe);
+
+	obj.pos[0] = pos[0];
+	obj.pos[1] = pos[1];
+	obj.pos[2] = pos[2];
+	mat4x4_identity(obj.model);
+	mat4x4_translate(obj.model, obj.pos[0], obj.pos[1], obj.pos[2]);
+	mat4x4_dup(obj.originalModel, obj.model);
+
+	OECreateObject(obj);
+	free(finalVerts);
+	free(finalInds);
+	aiReleaseImport(scene);
+}
+
 void createObjPipe() {
 
 }
@@ -230,13 +325,14 @@ void setObjectShader(char *name, sg_shader shd) {
 
 /*This is specifically for the default shader*/
 void OEApplyCurrentUniforms(Object *obj) {
+	vs_params_t vs_params = {0};
+	fs_params_t fs_params = {0};
+	light_params_t light_params = getLightUniform();
+
     mat4x4 mvp, mv;
     mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
     mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
 
-	vs_params_t vs_params;
-	fs_params_t fs_params;
-	light_params_t light_params = getLightUniform();
 	Camera *cam = OEGetCamera();
     memcpy(vs_params.mvp, mvp, sizeof(mvp));
 	memcpy(vs_params.model, obj->model, sizeof(obj->model));
@@ -608,11 +704,16 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->window = calloc(1, sizeof(Window));
 	globalRenderer->window->width = width;
 	globalRenderer->window->height = height;
-	globalRenderer->window->title = calloc(strlen(title)+1, sizeof(char *));
-	strcpy(globalRenderer->window->title, title);
+	globalRenderer->window->title = strdup(title);
 	globalRenderer->window->running = 1;
 	globalRenderer->debug = 0;
 	globalRenderer->postPassSize = 0;
+	globalRenderer->imgui.ioptr = NULL;
+	int pp;
+	for(pp=0;pp<MAXPOSTPASS;pp++) {
+		globalRenderer->postPasses[pp] = (PostPass){0};
+		globalRenderer->postPasses[pp].ID = NULL;
+	}
 
 	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)>=0,
 			"ERROR:: Failed to init SDL!");
@@ -626,6 +727,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);	
+
+	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK, "1");
 
 	globalRenderer->window->window = SDL_CreateWindow(
 			globalRenderer->window->title,
@@ -670,6 +773,20 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
         .fonts = {[1]  = sdtx_font_oric()},
         .logger.func = slog_func});
 
+/*
+ * Cimgui Setup
+ * */
+	igCreateContext(NULL);
+	globalRenderer->imgui.ioptr = igGetIO();
+	ImGuiIO *iotmp = globalRenderer->imgui.ioptr;
+	iotmp->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	iotmp->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+	ImGui_ImplSDL2_InitForOpenGL(globalRenderer->window->window, 
+			globalRenderer->window->gl_context);	
+	ImGui_ImplOpenGL3_Init("#version 410");
+
+	igStyleColorsDark(NULL);
 /*
  * setup Render Target & Depth Buffer
  * */
@@ -776,6 +893,15 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 				.label = "quad_verts"
 			});
 
+	globalRenderer->ppshaders.fxaa = sg_make_shader(OEFXAA_shader_desc(sg_query_backend()));
+	globalRenderer->ppshaders.ssao = sg_make_shader(OESSAO_shader_desc(sg_query_backend()));
+	globalRenderer->ppshaders.bloom = sg_make_shader(OEBQuad_shader_desc(sg_query_backend()));
+	sg_pipeline_desc fxaapd = OEGetQuadPipeline(globalRenderer->ppshaders.fxaa, "fxaa");
+	globalRenderer->ppshaders.fxaap = sg_make_pipeline(&fxaapd);
+	sg_pipeline_desc ssaopd = OEGetQuadPipeline(globalRenderer->ppshaders.ssao, "ssao");
+	globalRenderer->ppshaders.ssaop = sg_make_pipeline(&ssaopd);
+	sg_pipeline_desc bloompd = OEGetQuadPipeline(globalRenderer->ppshaders.bloom, "bloom");
+	globalRenderer->ppshaders.bloomp = sg_make_pipeline(&bloompd);
 
 /*
  * Init objects
@@ -810,6 +936,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	mat4x4_identity(globalRenderer->cam.model);
 	mat4x4_identity(globalRenderer->cam.view);
 	mat4x4_identity(globalRenderer->cam.proj);
+	mat4x4_identity(globalRenderer->cam.mvp);
+	mat4x4_identity(globalRenderer->cam.rotation);
 
 	vec3_dup(globalRenderer->cam.up, (vec3){0.0f, 1.0f, 0.0f});
 	globalRenderer->cam.fov = DEG2RAD(80.0f);
@@ -820,7 +948,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 	globalRenderer->camType = camType;
 	switch(camType) {
-		case ISOMETRIC:
+		case ISOMETRIC: {
 			//globalRenderer->cam.fov = 80.0f;
 			vec3_dup(globalRenderer->cam.position, (vec3){15.0f, 15.0f, 15.0f});
 
@@ -850,14 +978,14 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			mat4x4_ortho(globalRenderer->cam.proj, 
 			             -oScale * aspect, oScale * aspect, 
 			             -oScale, oScale, 
-			             0.1f, 100.0f);
+			             0.1f, 80.0f);
 
-			mat4x4 tmp_;
-			mat4x4_mul(tmp_, globalRenderer->cam.proj, globalRenderer->cam.view);
-			mat4x4_mul(globalRenderer->cam.mvp, tmp_, globalRenderer->cam.model);
+			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.proj, globalRenderer->cam.view);
+			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.mvp, globalRenderer->cam.model);
 
 			break;
-		case PERSPECTIVE: 
+		}
+		case PERSPECTIVE: {
 			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, 5.0f});
 			vec3_dup(globalRenderer->cam.target, (vec3){0.0f, 0.0f, 0.0f});
 			vec3_dup(globalRenderer->cam.front, (vec3){0.0f, 0.0f, -1.0f});
@@ -893,6 +1021,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 				globalRenderer->cam.up);
 
 			break;
+		}
 	};
 }
 
@@ -980,6 +1109,9 @@ void OEMoveCam(enum face direction, float len) {
 				cam->position[2] -= len;
 				cam->oScale-=len;
 				if(cam->oScale<0.1f) cam->oScale=0.1f;
+				if(cam->position[0]<0.1f) cam->position[0]=0.1f;
+				if(cam->position[1]<0.1f) cam->position[1]=0.1f;
+				if(cam->position[1]<0.1f) cam->position[1]=0.1f;
 				break;
 			}
 			vec3_scale(tmp, cam->up, -len);
@@ -995,7 +1127,8 @@ void OECamSet(vec3 pos) {
 }
 
 Camera *OEGetCamera() {
-	return &globalRenderer->cam;
+	return &globalRenderer->cam;void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui);
+
 }
 
 Vec3 OEGetCamPos() {
@@ -1026,6 +1159,7 @@ Mouse OEGetMouse() {
 
 void OEPollEvents(EVENTFUNC event) {
 	while(SDL_PollEvent(&globalRenderer->event)!=0) {
+		ImGui_ImplSDL2_ProcessEvent(&globalRenderer->event);
 		if(globalRenderer->event.type==SDL_QUIT) {
 			globalRenderer->window->running = 0;
 		}
@@ -1054,36 +1188,42 @@ SDL_Window *OEGetWindow() {
 	return globalRenderer->window->window;
 }
 
-void OEAddPostPass(sg_pipeline pipe, UNILOADER loader) {
+/*returns the ID*/
+PostPass *OEAddPostPass(char *id, sg_pipeline pipe, UNILOADER loader) {
 	if(globalRenderer->postPassSize<MAXPOSTPASS) {
-		globalRenderer->postPasses[globalRenderer->postPassSize++] = 
-			(PostPass){pipe, loader};
+		/*Even though we organize the passes after removal we need to check it*/
+		int i;
+		for(i=0;i<MAXPOSTPASS;i++) {
+			if(globalRenderer->postPasses[i].ID==NULL) {
+				globalRenderer->postPasses[i] = 
+					(PostPass){id, pipe, loader};
+				globalRenderer->postPassSize++;
+				return &globalRenderer->postPasses[i];
+			}
+		}
 	} else WLOG(WARN, "Too many post passes, skipping.");
+	return NULL;
 }
 
-void OERemovePostPass(UNILOADER loaderloc) {
+void OERemovePostPass(char *id) {
 	int i,j=-1;
 	for(i=0;i<globalRenderer->postPassSize;i++) {
-		if(globalRenderer->postPasses[i].uniformBind==loaderloc) j=i;
-		if(i>=j&&i+1<=globalRenderer->postPassSize) {
-			globalRenderer->postPasses[i] = globalRenderer->postPasses[i+1];
-		}
+		if(globalRenderer->postPasses[i].ID!=NULL&&
+				!strcmp(globalRenderer->postPasses[i].ID,id)) {j=i;break;}
 	}
-	if(j!=-1) {
-		globalRenderer->postPasses[globalRenderer->postPassSize] = (PostPass){0};
-		globalRenderer->postPassSize--;
-	}
+	if(j<0) return;
+	for(i=j;i<globalRenderer->postPassSize-1;i++) globalRenderer->postPasses[i]=globalRenderer->postPasses[i+1];
+	globalRenderer->postPasses[globalRenderer->postPassSize-1] = (PostPass){0};
+	globalRenderer->postPassSize--;
+
 }
 
 void OEEnableFXAA() {
-	sg_shader fxaa = sg_make_shader(OEFXAA_shader_desc(sg_query_backend()));
-	sg_pipeline_desc fxaapd = OEGetQuadPipeline(fxaa, "fxaa");
-	sg_pipeline fxaap = sg_make_pipeline(&fxaapd);
-	OEAddPostPass(fxaap, (UNILOADER)applyFXAAUniforms);
+	OEAddPostPass(OEFXAA, globalRenderer->ppshaders.fxaap, (UNILOADER)applyFXAAUniforms);
 }
 
 void OEDisableFXAA() {
-	OERemovePostPass((UNILOADER)applyFXAAUniforms);
+	OERemovePostPass(OEFXAA);
 }
 
 void OEUpdateBloomParams(float threshold, float strength) {
@@ -1092,18 +1232,15 @@ void OEUpdateBloomParams(float threshold, float strength) {
 }
 
 void OEEnableBloom(float threshold, float strength) {
-	sg_shader bloom = sg_make_shader(OEBQuad_shader_desc(sg_query_backend()));
-	sg_pipeline_desc bloompd = OEGetQuadPipeline(bloom, "bloom");
-	sg_pipeline bloomp = sg_make_pipeline(&bloompd);
 	globalRenderer->bloomParams.resolution[0] = globalRenderer->window->width;
 	globalRenderer->bloomParams.resolution[1] = globalRenderer->window->height;
 	globalRenderer->bloomParams.thresh = threshold;
 	globalRenderer->bloomParams.strength = strength;
-	OEAddPostPass(bloomp, (UNILOADER)applyBloomUniforms);
+	OEAddPostPass(OEBLOOM, globalRenderer->ppshaders.bloomp, (UNILOADER)applyBloomUniforms);
 }
 
 void OEDisableBloom() {
-	OERemovePostPass((UNILOADER)applyBloomUniforms);
+	OERemovePostPass(OEBLOOM);
 }
 
 void OEEnableSSAO() {
@@ -1125,19 +1262,14 @@ void OEEnableSSAO() {
 		vec4_dup(final,(vec4){sample[0],sample[1],sample[2],0.0f}); 
 		vec4_dup(globalRenderer->ssao.params.kernel[i],final);
 	}
-
-	sg_shader ssao = sg_make_shader(OESSAO_shader_desc(sg_query_backend()));
-	sg_pipeline_desc ssaopd = OEGetQuadPipeline(ssao, "ssao");
-	sg_pipeline ssaop = sg_make_pipeline(&ssaopd);
-
-	OEAddPostPass(ssaop, (UNILOADER)applySSAOUniforms);
+	OEAddPostPass(OESSAO, globalRenderer->ppshaders.ssaop, (UNILOADER)applySSAOUniforms);
 }
 
 void OEDisableSSAO() {
-	OERemovePostPass((UNILOADER)applySSAOUniforms);
+	OERemovePostPass(OESSAO);
 }
 
-void OERenderFrame(RENDFUNC drawCall) {
+void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
 	SDL_GetWindowSize(globalRenderer->window->window,
 			&globalRenderer->window->width,
@@ -1213,7 +1345,7 @@ void OERenderFrame(RENDFUNC drawCall) {
 		src = dst;
 		final = src;
 	}
-
+	
 	/*On-Screen main pass*/
 	sg_begin_pass(&(sg_pass){ .action = pass_action,
 			.swapchain = OEGetSwapChain()});
@@ -1241,10 +1373,19 @@ void OERenderFrame(RENDFUNC drawCall) {
 		sdtx_draw();
 	}
 
-	
+	if(cimgui!=NULL) {
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		igNewFrame();
+		cimgui();
+		igRender();
+		ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData());
+	}
+
 	sg_end_pass();
 
 	sg_commit();
+
 
 	/*glClear(GL_COLOR_BUFFER_BIT);*/
 	SDL_GL_SwapWindow(globalRenderer->window->window);

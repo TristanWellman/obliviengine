@@ -5,3 +5,4 @@ assets
 *.o
 src/*.o
 .DS_Store
+lib/*

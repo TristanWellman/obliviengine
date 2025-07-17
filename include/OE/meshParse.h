@@ -23,7 +23,7 @@ extern "C" {
 #define ISIZE 4 /*v1,v2,v3,v4*/
 
 typedef struct {
-	uint16_t **data;
+	uint32_t **data;
 	int cap;
 	int size;
 	int total;

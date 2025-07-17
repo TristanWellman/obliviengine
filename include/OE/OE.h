@@ -16,6 +16,18 @@
 #include <SDL_opengl.h>
 #include <SDL_syswm.h>
 
+#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
+#if !defined CIMGUI_USE_SDL2 && !defined CIMGUI_USE_OPENGL3
+#define CIMGUI_USE_OPENGL3
+#define CIMGUI_USE_SDL2
+#endif
+#include <cimgui/cimgui.h>
+#include <cimgui/cimgui_impl.h>
+
+#include <assimp/cimport.h>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #include "linmath.h"
 #include "util.h"
 #include "texture.h"
@@ -38,6 +50,9 @@
 #define OE_WHITEP (0xFFFFFFFF)
 
 #define MAXPOSTPASS 16
+#define OEFXAA "OEFXAA"
+#define OESSAO "OESSAO"
+#define OEBLOOM "OEB"
 
 /*This is here because SG_RANGE does not work with ptr sizes.*/
 #define PTRRANGE(ptr_, size_) \
@@ -62,16 +77,17 @@ typedef void (*EVENTFUNC)();
 typedef void (*UNILOADER)();
 
 typedef struct {
+	/*These need to stay up top for alignment*/
+	mat4x4 model;
+	mat4x4 view, proj, rotation;
+	mat4x4 mvp;
+
 	vec3 position, target, up;
 	vec3 front, right; /* front could also be called direction! */
 	vec3 ray_hit; /*This is what the camera is looking at (good for player position)*/
 
-	mat4x4 model;
-	mat4x4 view, proj, rotation;
-	mat4x4 iso;
-	mat4x4 mvp;
 
-	/*These must stay last for the 4x4 alignment*/
+	/*These must stay last for the 4x4 alignment (sort of a padding)*/
 	float aspect;
 	float fov;
 	float oScale;
@@ -123,13 +139,24 @@ typedef struct {
 } Mouse;
 
 typedef struct {
+	char *ID;
 	sg_pipeline pipe;
 	UNILOADER uniformBind;
 } PostPass;
 
+struct OEImgui {
+	ImGuiIO *ioptr;	
+};
+
+typedef struct {
+	sg_shader fxaa, ssao, bloom;
+	sg_pipeline fxaap, ssaop, bloomp;
+} OEPPShaders;
+
 struct renderer {
 
 	Window *window;
+	struct OEImgui imgui;
 	SDL_Event event;
 	int keyPressed;
 	int lastKey;
@@ -142,6 +169,7 @@ struct renderer {
 	Object *objects;
 	int objCap;
 	int objSize;
+	OEPPShaders ppshaders; /*These are the enable/disable-able post-pass shaders*/
 	sg_shader defCubeShader;
 	sg_shader rayTracedShader;
 
@@ -190,8 +218,9 @@ void OECreateObjectEx(char *name, vec3 pos,
 		sg_pipeline_desc pipe);
 /*For now mesh objects require the default shader.
  * Hopefully I change this in the future for customization but idk :| */
-void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
-		/*sg_shader defShader, sg_pipeline_desc pipe*/);
+void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos);
+/*For loading things other than .obj files*/
+void OECreateMeshFromAssimp(char *name, char *path, vec3 pos);
 void OESetObjectPosition(char *ID, vec3 position);
 /*Rotates obj around the y-axis TODO: specify axis of rotation*/
 void OERotateObject(char *ID, float deg);
@@ -246,8 +275,9 @@ void OEEnableBloom(float threshold, float strength);
 void OEDisableBloom();
 void OEEnableFXAA();
 void OEDisableFXAA();
-void OEAddPostPass(sg_pipeline pipe, UNILOADER loader);
-void OERenderFrame(RENDFUNC drawCall);
+PostPass *OEAddPostPass(char *id, sg_pipeline pipe, UNILOADER loader);
+void OERemovePostPass(char *id);
+void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui);
 void OERendererTimerStart();
 void OERendererTimerEnd();
 void OECleanup(void);

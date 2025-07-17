@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
 		// Get key events
 		OEPollEvents((EVENTFUNC)event);
 		// Render the cube
-		OERenderFrame((RENDFUNC)draw);
+		OERenderFrame((RENDFUNC)draw, NULL);
 	}
 	
 	return 0;

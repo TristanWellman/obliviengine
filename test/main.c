@@ -11,7 +11,7 @@ void draw() {
 	//OEDrawObject(OEGetObjectFromName("Icosphere"));
 	OEDrawObjectTex(OEGetObjectFromName("Cube"), OE_TEXPOS, getTexture("test"));
 	OEDrawObjectTex(OEGetObjectFromName("OECube"), OE_TEXPOS, getTexture("test"));
-	OEDrawObject(OEGetObjectFromName("OEPlane"));
+	OEDrawObjectTex(OEGetObjectFromName("Plane"), OE_TEXPOS, getTexture("test"));
 
 	int i;
 	for(i=0;i<15;i++) {
@@ -46,13 +46,12 @@ void colorTest() {
 }
 
 void meshTest() {
-	OEMesh mesh, sphere;
+	OEMesh mesh, plane;
 	OEParseObj("Cube", "./assets/models/cube.obj", &mesh);
-	sg_shader defShader = OEGetDefCubeShader();
+	OEParseObj("Plane", "./assets/models/plane.obj", &plane);
 	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
-	/*OEParseObj("assets/models/sphere.obj", &sphere);
-	OECreateObjectFromMesh(&sphere, (vec3){3.0f,0.0f,0.0f});*/
-
+	scaleMesh(&plane, 5.0f);	
+	OECreateObjectFromMesh(&plane, (vec3){0.0f,-1.0f,0.0f});
 }
 
 void makeCubes() {
@@ -82,7 +81,6 @@ int main(int argc, char **argv) {
 
 	makeCubes();
 
-	OESetObjectPosition("OEPlane", (vec3){0.0f, -1.0f, 0.0f});
 	OESetObjectPosition("OECube", (vec3){-3.0f, 0.0f, 0.0f});
 
 	Color light1 = (Color){255.0f, 50.0f, 50.0f, 255.0f};
