@@ -2,6 +2,7 @@
 #ifndef OESCRIPT_H
 #define OESCRIPT_H
 #define OELUALIBSIZE 10 
+#define OENORET 0
 
 typedef struct {
 	char *filePath;

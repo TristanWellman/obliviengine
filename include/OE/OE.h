@@ -232,6 +232,7 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos);
 /*For loading things other than .obj files*/
 void OECreateMeshFromAssimp(char *name, char *path, vec3 pos);
 void OESetObjectPosition(char *ID, vec3 position);
+Vec3 OEGetObjectPosition(char *ID);
 /*Rotates obj around the y-axis TODO: specify axis of rotation*/
 void OERotateObject(char *ID, float deg);
 void OEResetRotation(char *ID);

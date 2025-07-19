@@ -327,6 +327,17 @@ void OESetObjectPosition(char *ID, vec3 position) {
 	}
 }
 
+Vec3 OEGetObjectPosition(char *ID) {
+	Object *obj = OEGetObjectFromName(ID);
+	Vec3 ret = {0, 0, 0};
+	if(obj!=NULL) {
+		ret.x = obj->pos[0];
+		ret.y = obj->pos[1];
+		ret.z = obj->pos[2];
+	} else WLOG(WARN, "Getting invalid object position!");
+	return ret;
+}
+
 void OERotateObject(char *ID, float deg) {
 	Object *obj = OEGetObjectFromName(ID);
 	if(obj!=NULL) {
