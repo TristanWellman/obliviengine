@@ -26,7 +26,7 @@ CIMGUI_LOC = lib/libcimgui.a
 ifeq ($(UNAME_S),Linux)
 	BACKEND= -DSOKOL_GLCORE
 	LIB= lib/lin/libOE.a
-	LDFLAGS += -ldl -lSDL2 -lcimgui -lassimp -lX11 -lGL
+	LDFLAGS += -ldl -lSDL2 -lcimgui -lassimp -llua -lX11 -lGL
 	SHDC= sokol-tools-bin/bin/linux/sokol-shdc 
 	CIMGUI_LDFLAGS += -ldl -lSDL2 -lcimgui -lX11 -lGL
 	CIMGUI_LOC = lib/lin/libcimgui.a
@@ -34,7 +34,7 @@ endif
 ifeq ($(UNAME_S),Darwin)
 	BACKEND= -DSOKOL_GLCORE
 	LIB= lib/mac/libOE.a
-	LDFLAGS += -Llib/mac -ldl -lSDL2 -lcimgui -lassimp -framework Cocoa -framework OpenGL 
+	LDFLAGS += -Llib/mac -ldl -lSDL2 -lcimgui -lassimp -llua -framework Cocoa -framework OpenGL 
 	SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
 	CIMGUI_LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
 	CIMGUI_LOC = lib/mac/libcimgui.a
@@ -47,7 +47,7 @@ ifeq ($(OS),Windows_NT)
 		CIMGUI_LDFLAGS += -Llib/win32 -lSDL2 -lgdi32 -lopengl32
 		CIMGUI_LOC = lib/win32/libcimgui.a
 	else
-		LDFLAGS += -Llib -lSDL2 -lcimgui -lassimp -lgdi32 -lopengl32
+		LDFLAGS += -Llib -lSDL2 -lcimgui -lassimp -llua -lgdi32 -lopengl32
 		CIMGUI_LDFLAGS += -Llib -lSDL2 -lgdi32 -lopengl32
 	endif
 	BACKEND= -DSOKOL_GLCORE

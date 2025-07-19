@@ -17,6 +17,7 @@
 #include <c-vector/cvector.h>*/
 
 /*This is for cases where you cannot use a float[3] (vec3)*/
+#define V3SIZE 3
 typedef struct {
 	float x, y, z;
 } Vec3;

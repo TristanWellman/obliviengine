@@ -52,6 +52,7 @@ void meshTest() {
 	OECreateObjectFromMesh(&mesh, (vec3){0.0f,0.0f,0.0f});
 	scaleMesh(&plane, 5.0f);	
 	OECreateObjectFromMesh(&plane, (vec3){0.0f,-1.0f,0.0f});
+	OEAttachScript("Cube", "./test/scripts/test.lua");
 }
 
 void makeCubes() {
@@ -95,7 +96,7 @@ int main(int argc, char **argv) {
 		OEPollEvents((EVENTFUNC)event);
 		//OEPollXREvents();
 		//OERenderXRFrame((RENDFUNC)draw);
-		OERenderFrame((RENDFUNC)draw);
+		OERenderFrame((RENDFUNC)draw, NULL);
 	}
 	
 	return 0;

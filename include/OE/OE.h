@@ -28,6 +28,10 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#include <lua/lua.h>
+#include <lua/lauxlib.h>
+#include <lua/lualib.h>
+
 #include "linmath.h"
 #include "util.h"
 #include "texture.h"
@@ -35,6 +39,7 @@
 #include "macky.h"
 #include "OELights.h"
 #include "log.h"
+#include "OEScript.h"
 
 #include "simple.glsl.h"
 #include "quad.glsl.h"
@@ -94,6 +99,7 @@ typedef struct {
 } Camera;
 
 typedef struct {
+	OEScript script;
 	sg_buffer vbuf, ibuf;
 	sg_shader defShader;
 	/*Each obj get's it's own pipe so we can draw one defined obj multiple times*/	
@@ -153,6 +159,7 @@ typedef struct {
 	sg_pipeline fxaap, ssaop, bloomp;
 } OEPPShaders;
 
+/*TODO: Seperate a lot of this into different structs so it's not so fat.*/
 struct renderer {
 
 	Window *window;
@@ -201,6 +208,8 @@ struct renderer {
 
 	OEBloom_params_t bloomParams;
 
+	OELuaData luaData; 
+
 	int debug;
 	float tick;
 	float frameTime;
@@ -212,6 +221,7 @@ static struct renderer *globalRenderer;
 
 /*objs*/
 Object *OEGetObjectFromName(char *name);
+void OEAttachScript(char *ID, char *scriptPath);
 void OECreateObject(Object obj);
 void OECreateObjectEx(char *name, vec3 pos,
 		sg_buffer_desc vbuf, sg_buffer_desc ibuf, sg_shader defShader,

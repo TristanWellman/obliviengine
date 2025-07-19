@@ -20,6 +20,33 @@ Object *OEGetObjectFromName(char *name) {
 	return NULL;
 }
 
+void OEAttachScript(char *ID, char *scriptPath) {
+	FILE *test = fopen(scriptPath, "r");
+	if(test==NULL) {
+		int ssize = strlen(scriptPath)+1024;
+		char *buf = calloc(ssize, sizeof(char));
+		snprintf(buf, sizeof(char)*ssize, "Failed to open Lua script: %s", scriptPath);
+		WLOG(WARN, buf);
+		free(buf);
+		fclose(test);
+		return;
+	}
+	fclose(test);
+	Object *obj = OEGetObjectFromName(ID);
+	obj->script = (OEScript){scriptPath};
+}
+
+void preFrameScriptExecute() {
+	int i;
+	lua_State *state = globalRenderer->luaData.lState;
+	for(i=0;i<globalRenderer->objSize;i++) {
+		if(globalRenderer->objects[i].script.filePath!=NULL) {
+			if(luaL_dofile(state, globalRenderer->objects[i].script.filePath))
+				lua_pop(state, lua_gettop(state));
+		}
+	}
+}
+
 void OECreateObject(Object obj) {
 	if(obj.name==NULL) return;
 	int i;
@@ -363,11 +390,21 @@ void *applySSAOUniforms() {
 	return NULL;
 }
 
+void runObjLuaScript(Object *obj) {
+	lua_State *state = globalRenderer->luaData.lState;
+	if(obj->script.filePath!=NULL) {
+		if(luaL_dofile(state, obj->script.filePath))
+			lua_pop(state, lua_gettop(state));
+	}
+}
+
 void OEDrawObject(Object *obj) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
 		return;
 	}
+	
+	runObjLuaScript(obj);
 
     sg_apply_pipeline(obj->pipe);
     sg_apply_bindings(&(sg_bindings){
@@ -388,7 +425,9 @@ void OEDrawObjectBind(Object *obj, sg_bindings binding) {
 		return;
 	}
 
-    sg_apply_pipeline(obj->pipe);
+	runObjLuaScript(obj);
+    
+	sg_apply_pipeline(obj->pipe);
     sg_apply_bindings(&binding);
 
 	OEApplyCurrentUniforms(obj);
@@ -401,6 +440,9 @@ void OEDrawObjectTex(Object *obj, int assign, sg_image texture) {
 		WLOG(ERROR, "NULL object passed to drawObject");
 		return;
 	}
+
+	runObjLuaScript(obj);
+
 	const int a = 3;
     sg_apply_pipeline(obj->pipe);
     sg_apply_bindings(&(sg_bindings){
@@ -420,7 +462,9 @@ void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms) {
 		WLOG(ERROR, "NULL object passed to drawObject");
 		return;
 	}
-	
+
+	runObjLuaScript(obj);
+
     sg_apply_pipeline(obj->pipe);
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
@@ -440,6 +484,9 @@ void OEDrawObjectTexEx(Object *obj, int assign,
 		WLOG(ERROR, "NULL object passed to drawObject");
 		return;
 	}
+
+	runObjLuaScript(obj);
+
 	const int a = 3;	
     sg_apply_pipeline(obj->pipe);
     sg_apply_bindings(&(sg_bindings){
@@ -1023,6 +1070,13 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			break;
 		}
 	};
+
+	/*
+	 * Init Lua Scripting
+	 * */
+	OEInitLua(&globalRenderer->luaData);
+	int i;
+	for(i=0;i<globalRenderer->objSize;i++) globalRenderer->objects[i].script.filePath = NULL;
 }
 
 void OEUpdateViewMat() {

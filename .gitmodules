@@ -20,3 +20,6 @@
 [submodule "include/assimp"]
 	path = include/assimp
 	url = https://github.com/assimp/assimp.git
+[submodule "include/lua"]
+	path = include/lua
+	url = https://github.com/lua/lua.git
