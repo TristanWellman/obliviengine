@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
 
 	OEEnableBloom(0.8, 0.5);
 	OEEnableFXAA();
-	OEEnableSSAO();
+	OEEnableSSGI();
 
 	makeCubes();
 

@@ -401,6 +401,13 @@ void *applySSAOUniforms() {
 	return NULL;
 }
 
+void *applySSGIUniforms() {
+	memcpy(globalRenderer->ssgiParams.proj, 
+			globalRenderer->cam.proj, sizeof(globalRenderer->ssgiParams.proj));
+	sg_apply_uniforms(UB_OESSGI_params, &SG_RANGE(globalRenderer->ssgiParams));
+	return NULL;
+}
+
 void runObjLuaScript(Object *obj) {
 	lua_State *state = globalRenderer->luaData.lState;
 	if(obj->script.filePath!=NULL) {
@@ -960,6 +967,9 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->ppshaders.ssaop = sg_make_pipeline(&ssaopd);
 	sg_pipeline_desc bloompd = OEGetQuadPipeline(globalRenderer->ppshaders.bloom, "bloom");
 	globalRenderer->ppshaders.bloomp = sg_make_pipeline(&bloompd);
+	globalRenderer->ppshaders.ssgi = sg_make_shader(OESSGI_shader_desc(sg_query_backend()));
+	sg_pipeline_desc ssgipd = OEGetQuadPipeline(globalRenderer->ppshaders.ssgi, "ssgi");
+	globalRenderer->ppshaders.ssgip = sg_make_pipeline(&ssgipd);
 
 /*
  * Init objects
@@ -1332,6 +1342,14 @@ void OEEnableSSAO() {
 
 void OEDisableSSAO() {
 	OERemovePostPass(OESSAO);
+}
+
+void OEEnableSSGI() {
+	OEAddPostPass(OESSGI, globalRenderer->ppshaders.ssgip, (UNILOADER)applySSGIUniforms);	
+}
+
+void OEDisableSSGI() {
+	OERemovePostPass(OESSGI);
 }
 
 void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {

@@ -83,7 +83,7 @@ void main() {
 	}
 	AO = 1.0-(AO/KSIZE);
 	frag_color = vec4(AO)*col;
-    //frag_color = vec4(AO);
+    frag_color = vec4(1.0,0.5,0.3,1.0);
 }
 
 @end
