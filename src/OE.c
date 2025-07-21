@@ -408,6 +408,11 @@ void *applySSGIUniforms() {
 	return NULL;
 }
 
+void *applyDnoiseUniforms() {
+	sg_apply_uniforms(UB_OEDNOISE_params, &SG_RANGE(globalRenderer->deNoiseParams));
+	return NULL;
+}
+
 void runObjLuaScript(Object *obj) {
 	lua_State *state = globalRenderer->luaData.lState;
 	if(obj->script.filePath!=NULL) {
@@ -970,6 +975,9 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->ppshaders.ssgi = sg_make_shader(OESSGI_shader_desc(sg_query_backend()));
 	sg_pipeline_desc ssgipd = OEGetQuadPipeline(globalRenderer->ppshaders.ssgi, "ssgi");
 	globalRenderer->ppshaders.ssgip = sg_make_pipeline(&ssgipd);
+	globalRenderer->ppshaders.dnoise = sg_make_shader(OEDNOISE_shader_desc(sg_query_backend()));
+	sg_pipeline_desc dnoisepd = OEGetQuadPipeline(globalRenderer->ppshaders.dnoise, "dnoise");
+	globalRenderer->ppshaders.dnoisep = sg_make_pipeline(&dnoisepd);
 
 /*
  * Init objects
@@ -1345,12 +1353,27 @@ void OEDisableSSAO() {
 }
 
 void OEEnableSSGI() {
-	OEAddPostPass(OESSGI, globalRenderer->ppshaders.ssgip, (UNILOADER)applySSGIUniforms);	
+	OEAddPostPass(OESSGI, globalRenderer->ppshaders.ssgip, (UNILOADER)applySSGIUniforms);
+	globalRenderer->deNoiseParams.resolution[0] = globalRenderer->window->width;
+	globalRenderer->deNoiseParams.resolution[1] = globalRenderer->window->height;
+	OEAddPostPass(OEDNOISE, globalRenderer->ppshaders.dnoisep, (UNILOADER)applyDnoiseUniforms);	
 }
 
 void OEDisableSSGI() {
 	OERemovePostPass(OESSGI);
+	OERemovePostPass(OEDNOISE);
 }
+
+void OEEnableDNOISE() {
+	globalRenderer->deNoiseParams.resolution[0] = globalRenderer->window->width;
+	globalRenderer->deNoiseParams.resolution[1] = globalRenderer->window->height;
+	OEAddPostPass(OEDNOISE, globalRenderer->ppshaders.dnoisep, (UNILOADER)applyDnoiseUniforms);	
+}
+
+void OEDisableDNOISE() {
+	OERemovePostPass(OEDNOISE);
+}
+
 
 void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();

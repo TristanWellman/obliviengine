@@ -110,6 +110,7 @@ shaders:
 	$(SHDC) --input shaders/bloom.glsl --output include/OE/bloom.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/ssao.glsl --output include/OE/ssao.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/ssgi.glsl --output include/OE/ssgi.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/denoise.glsl --output include/OE/denoise.glsl.h $(SHADER_ARGS)
 
 shaders_clean:
 	rm include/OE/*.glsl.h

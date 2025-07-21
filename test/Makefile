@@ -10,7 +10,8 @@ ifeq ($(UNAME_S),Linux)
     LDFLAGS += -ldl -L../lib/lin -lOE -lSDL2 -lcimgui -lassimp -llua -lX11 -lGL 
 endif
 ifeq ($(UNAME_S),Darwin)
-    LDFLAGS += -ldl -L../lib/mac -lcimgui -lOE -lSDL2 -lcimgui -lassimp -llua -framework Cocoa -framework OpenGL
+    LDFLAGS = -L/opt/homebrew/opt/minizip/lib -lm -lminizip -lz -lpthread -lstdc++ \
+			   -ldl -L../lib/mac -lcimgui -lOE -lSDL2 -lassimp -llua -framework Cocoa -framework OpenGL
 endif
 ifeq ($(OS),Windows_NT)
 

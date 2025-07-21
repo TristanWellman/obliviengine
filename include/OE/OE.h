@@ -48,6 +48,7 @@
 #include "ssao.glsl.h"
 #include "rayTracer.glsl.h"
 #include "ssgi.glsl.h"
+#include "denoise.glsl.h"
 
 #define MAXOBJS 1000000
 
@@ -60,6 +61,7 @@
 #define OESSAO "OESSAO"
 #define OEBLOOM "OEB"
 #define OESSGI "OESSGI"
+#define OEDNOISE "OEDNOISE"
 
 /*This is here because SG_RANGE does not work with ptr sizes.*/
 #define PTRRANGE(ptr_, size_) \
@@ -157,8 +159,10 @@ struct OEImgui {
 };
 
 typedef struct {
-	sg_shader fxaa, ssao, bloom, ssgi;
-	sg_pipeline fxaap, ssaop, bloomp, ssgip;
+	sg_shader fxaa, ssao, bloom, 
+			  ssgi, dnoise;
+	sg_pipeline fxaap, ssaop, bloomp, 
+				ssgip, dnoisep;
 } OEPPShaders;
 
 /*TODO: Seperate a lot of this into different structs so it's not so fat.*/
@@ -210,6 +214,7 @@ struct renderer {
 
 	OEBloom_params_t bloomParams;
 	OESSGI_params_t ssgiParams;
+	OEDNOISE_params_t deNoiseParams;
 
 	OELuaData luaData; 
 
@@ -291,6 +296,8 @@ void OEEnableFXAA();
 void OEDisableFXAA();
 void OEEnableSSGI();
 void OEDisableSSGI();
+void OEEnableDNOISE();
+void OEDisableDNOISE();
 PostPass *OEAddPostPass(char *id, sg_pipeline pipe, UNILOADER loader);
 void OERemovePostPass(char *id);
 void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui);
