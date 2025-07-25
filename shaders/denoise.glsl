@@ -38,11 +38,6 @@ layout(binding=0) uniform texture2D OEDNOISE_texture;
 in vec2 uv;
 out vec4 frag_color;
 
-void smartDeNoise(vec3 col, vec2 uv, 
-		float sigma, float ksigma, float thresh) {
-
-}
-
 void main() {
 	vec4 col = texture(sampler2D(OEDNOISE_texture, OEDNOISE_smp), uv);
 	float radius = round(KSIGMA*SIGMA);

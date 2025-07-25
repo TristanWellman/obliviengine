@@ -1,6 +1,6 @@
-/*
-	Copyright (c) 2025 Tristan Wellman 
-	Obliviengine SSAO Post-Pass Shader.
+/* Copyright (c) 2025 Tristan Wellman 
+ * Obliviengine SSAO Post-Pass Shader.
+ * TODO: Fix the SSAO :/ (Use the SSGI, it has a fake AO effect).
  */
 
 

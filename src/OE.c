@@ -583,12 +583,14 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 			.index_type = SG_INDEXTYPE_UINT16,
         	.cull_mode = SG_CULLMODE_BACK,
 			.sample_count = 1,
-			.color_count = 4,
+			.color_count = 6,
 			.colors = {
 				[0] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Color Buffer*/
 				[1] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Depth Buffer*/
 				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Normal Buffer*/
 				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Position Buffer*/
+				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Noise Buffer*/
+				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Previous Frame Buffer*/
 			},
         	.depth = {
 				.compare = SG_COMPAREFUNC_LESS_EQUAL,
@@ -919,12 +921,32 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.sample_count = 1,
 		.label = "position_image"
 	});
+	globalRenderer->noiseBuffer = sg_make_image(&(sg_image_desc){
+		.usage.render_attachment = true,
+    	.width = globalRenderer->window->width, 
+    	.height = globalRenderer->window->height, 
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.sample_count = 1,
+		.label = "noise_image"
+	});
+	globalRenderer->prevFrameBuffer = sg_make_image(&(sg_image_desc){
+		.usage.render_attachment = true,
+    	.width = globalRenderer->window->width, 
+    	.height = globalRenderer->window->height, 
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.sample_count = 1,
+		.label = "previous_frame"
+	});
+
+
 
 	globalRenderer->renderTargetAtt = sg_make_attachments(&(sg_attachments_desc){
 		.colors[0].image = globalRenderer->renderTarget,
 		.colors[1].image = globalRenderer->depthBuffer,
 		.colors[2].image = globalRenderer->normalBuffer,
 		.colors[3].image = globalRenderer->positionBuffer,
+		.colors[4].image = globalRenderer->noiseBuffer,
+		.colors[5].image = globalRenderer->prevFrameBuffer,
 		.depth_stencil.image = globalRenderer->depthDummy,
 		.label = "render_target_atts"});
 	
@@ -936,6 +958,10 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.colors[0].image = globalRenderer->postTargetPong,
 		.depth_stencil.image = globalRenderer->depthDummy,
 		.label = "post_target_atts_p"});
+	globalRenderer->prevFrameTarg = sg_make_attachments(&(sg_attachments_desc){
+		.colors[0].image = globalRenderer->prevFrameBuffer,
+		.depth_stencil.image = globalRenderer->depthDummy,
+		.label = "prev_frame_target_atts"});
 
 	/*the sampler is important*/
 	globalRenderer->ssao.sampler = sg_make_sampler(&(sg_sampler_desc){
@@ -1006,7 +1032,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 	/*Setup Camera*/
 
-	globalRenderer->cam.oScale = 10.0f;
+	globalRenderer->cam.oScale = 4.0f;
 	float oScale = globalRenderer->cam.oScale;
 
 	mat4x4_identity(globalRenderer->cam.model);
@@ -1397,7 +1423,9 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
            	[0] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}},
 			[1] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}},
 			[2] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}},
-			[3] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}}
+			[3] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}},
+			[4] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}},
+			[5] = {.load_action = SG_LOADACTION_CLEAR,.clear_value = {0.0f,0.0f,0.0f,1.0f}}
         },
 		.depth = {
 			.load_action = SG_LOADACTION_CLEAR,
@@ -1411,6 +1439,7 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 			.clear_value = 1.0f
 		}
 	};
+
 	/*Offscreen pass to the texture*/
     sg_begin_pass(&(sg_pass){ .action = off_pass_action,
 			.attachments = globalRenderer->renderTargetAtt});
@@ -1441,6 +1470,8 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 			.images[1] = globalRenderer->depthBuffer,
 			.images[2] = globalRenderer->normalBuffer,
 			.images[3] = globalRenderer->positionBuffer,
+			.images[4] = globalRenderer->noiseBuffer,
+			.images[5] = globalRenderer->prevFrameBuffer,
 			.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler,
 		});
 		if(globalRenderer->postPasses[i].uniformBind!=NULL) 
@@ -1452,6 +1483,19 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 		final = src;
 	}
 	
+	/*Get the previous frame into it's buffer*/
+	post_pass_action.depth.load_action = SG_LOADACTION_DONTCARE;
+	sg_begin_pass(&(sg_pass){ .action = post_pass_action,
+			.attachments = globalRenderer->prevFrameTarg});
+	sg_apply_pipeline(globalRenderer->renderTargetPipe);
+	sg_apply_bindings(&(sg_bindings){
+		.vertex_buffers[0] = globalRenderer->renderTargetBuff,
+		.images[0] = final,
+		.samplers[0] = globalRenderer->ssao.sampler
+	});
+	sg_draw(0,6,1);
+	sg_end_pass();
+
 	/*On-Screen main pass*/
 	sg_begin_pass(&(sg_pass){ .action = pass_action,
 			.swapchain = OEGetSwapChain()});
@@ -1492,8 +1536,6 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 
 	sg_commit();
 
-
-	/*glClear(GL_COLOR_BUFFER_BIT);*/
 	SDL_GL_SwapWindow(globalRenderer->window->window);
 
 	OEUpdateViewMat();

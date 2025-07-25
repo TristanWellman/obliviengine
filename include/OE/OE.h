@@ -193,6 +193,8 @@ struct renderer {
 	sg_image depthBuffer;
 	sg_image normalBuffer;
 	sg_image positionBuffer;
+	sg_image noiseBuffer;
+	sg_image prevFrameBuffer;
 
 	/*Render texture, and ssao buffer stuff*/
 	sg_image renderTarget;
@@ -200,7 +202,8 @@ struct renderer {
 	sg_image postTarget;
 	sg_image postTargetPong; /*We must alternate images/attachments for user passes*/
 	sg_attachments postTargetAtt;
-	sg_attachments postTargetAttPong; 
+	sg_attachments postTargetAttPong;
+	sg_attachments prevFrameTarg;
 	/*This is just a shader for the screen quad*/
 	sg_shader renderTargetShade;
 	sg_pipeline renderTargetPipe;

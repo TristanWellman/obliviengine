@@ -63,6 +63,8 @@ layout(binding=0) uniform sampler OESSGI_smp;
 layout(binding=0) uniform texture2D OESSGI_texture;
 layout(binding=2) uniform texture2D OESSGI_ntexture;
 layout(binding=3) uniform texture2D OESSGI_ptexture;
+layout(binding=4) uniform texture2D OESSGI_noiseTexture;
+layout(binding=5) uniform texture2D OESSGI_prevFrame;
 
 in vec2 uv;
 out vec4 frag_color;
@@ -113,9 +115,9 @@ void main() {
 		}
 	}
 	GI = (GI/float(RAYS))*INTENSITY;
-	float AO = 1.0-((float(hits)/float(RAYS))*1.5);
+	float AO = ((float(hits)/float(RAYS)));
 	AO = clamp(AO,0.2,1.0);
-	frag_color = vec4((col+GI),1.0);
+	frag_color = vec4((col+GI)*AO,1.0);
 }
 
 @end

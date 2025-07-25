@@ -1,16 +1,13 @@
 [submodule "include/sokol"]
 	path = include/sokol
-	url = https://github.com/floooh/sokol
-
+	url = https://github.com/TristanWellman/sokol
 [submodule "sokol-tools-bin"]
 	path = sokol-tools-bin
 	url = https://github.com/floooh/sokol-tools-bin
-
 [submodule "include/SDL"]
 	path = include/SDL
 	url = https://github.com/libsdl-org/SDL.git
 	branch = SDL2
-
 [submodule "include/stb"]
 	path = include/stb
 	url = https://github.com/nothings/stb.git
