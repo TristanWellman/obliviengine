@@ -279,6 +279,7 @@ void OECamSet(vec3 pos);
 
 Camera *OEGetCamera();
 Vec3 OEGetCamPos(); 
+void OECamSet(vec3 pos);
 SDL_Event OEGetEvent();
 int OEIsKeyPressed();
 int OEGetKeySym();

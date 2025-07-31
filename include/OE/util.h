@@ -45,6 +45,7 @@ typedef struct {
 #ifndef PI
 #define PI 3.14159f
 #endif
+#define INVSQRT2 0.70710678f
 #define DEG2RAD(_d) ((_d) * (PI / 180.0f))
 #define RAD2DEG(_d) ((_d) * (180.0f / PI))
 
@@ -57,6 +58,11 @@ typedef struct {
  * */
 #define WLERP(_v0,_v1,_t) \
 	((_v0)+(_t)*((_v1)-(_v0)))
+
+#define WV3LERP(_v,_v0,_v1,_t) \
+	do{(_v)[0] = WLERP((_v0)[0],(_v1)[0],_t); \
+		(_v)[1] = WLERP((_v0)[1],(_v1)[1],_t); \
+		(_v)[2] = WLERP((_v0)[2],(_v1)[2],_t);while(0);
 
 /*Helper rand range macro*/
 #define WRANDFR(_min, _max) \

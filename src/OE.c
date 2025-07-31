@@ -679,9 +679,9 @@ sg_image OEGetDefaultTexture() {
 void initBaseObjects() {
 
 	/*Create a test light*/
-	Color c = (Color){255.0f, 135.0f, 102.0f, 255.0f};
+	/*Color c = (Color){255.0f, 135.0f, 102.0f, 255.0f};
 	OEAddLight("Light1", (vec3){-5.0f, 5.0f, -5.0f},
-			RGBA255TORGBA1(c));
+			RGBA255TORGBA1(c));*/
 
 	Object test = {0};
 	test.vbuf = sg_make_buffer(&(sg_buffer_desc) {
@@ -1232,12 +1232,13 @@ void OEMoveCam(enum face direction, float len) {
 }
 
 void OECamSet(vec3 pos) {
-
+	Camera *cam = &globalRenderer->cam;
+	vec3_dup(cam->position, pos);
+	OEUpdateViewMat();
 }
 
 Camera *OEGetCamera() {
-	return &globalRenderer->cam;void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui);
-
+	return &globalRenderer->cam;
 }
 
 Vec3 OEGetCamPos() {
