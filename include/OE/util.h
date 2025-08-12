@@ -62,7 +62,11 @@ typedef struct {
 #define WV3LERP(_v,_v0,_v1,_t) \
 	do{(_v)[0] = WLERP((_v0)[0],(_v1)[0],_t); \
 		(_v)[1] = WLERP((_v0)[1],(_v1)[1],_t); \
-		(_v)[2] = WLERP((_v0)[2],(_v1)[2],_t);while(0);
+		(_v)[2] = WLERP((_v0)[2],(_v1)[2],_t);}while(0);
+
+/*Linear Interpolation for an angle*/
+#define WLERPA(_x,_y,_t) \
+	((_x)*(fmodf(_y-_x+540.0f,360.0f)-180.0f)*(_t))
 
 /*Helper rand range macro*/
 #define WRANDFR(_min, _max) \

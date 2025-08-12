@@ -52,6 +52,9 @@
 
 #define MAXOBJS 1000000
 
+#define MAXDRAWCALLS 500000
+#define DRAWCALLSTEP 10 /*This is how much we realloc to the queue*/
+
 #define OE_TEXPOS (IMG__texture)
 
 #define OE_WHITEP (0xFFFFFFFF)
@@ -119,6 +122,15 @@ typedef struct {
 
 	vec3 pos;
 } Object;
+
+struct DrawCall {
+	Object *obj;
+};
+
+typedef struct {
+	int cap, size;
+	struct DrawCall *drawCalls;
+} DrawCallQueue;
 
 /*Depth buffer and related things should not be in an SSAO struct, 
  * but I am currently too lazy to go through and fix every instance of it*/
@@ -220,6 +232,8 @@ struct renderer {
 	OEDNOISE_params_t deNoiseParams;
 
 	OELuaData luaData; 
+
+	DrawCallQueue drawQueue;
 
 	int debug;
 	float tick;

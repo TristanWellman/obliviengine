@@ -7,7 +7,16 @@
 #define igGetIO igGetIO_Nil
 #endif
 
-//#include <simple.glsl.h>
+/*
+ * Private level prototypes
+ * */
+void OEInitDrawQueue();
+void OEPushDrawCall(struct DrawCall call);
+void OEClearDrawQueue();
+
+/*
+ * OE lib functions
+ * */
 
 Object *OEGetObjectFromName(char *name) {
 	if(name==NULL) return NULL;
@@ -708,6 +717,7 @@ void initBaseObjects() {
 	test.pipe = sg_make_pipeline(&cube_pipe);
 
 
+
 	OECreateObject(test);
 
 	Object plane = {0};
@@ -733,9 +743,6 @@ void initBaseObjects() {
 	plane.defShader = globalRenderer->defCubeShader;
 	sg_pipeline_desc plane_pipe = OEGetDefaultPipe(plane.defShader, plane.name);
 	plane.pipe = sg_make_pipeline(&plane_pipe);
-
-	OECreateObject(plane);
-	
 }
 
 void OEEnableDebugInfo() {
@@ -766,6 +773,34 @@ void OEComputeRotationMatrix(mat4x4 out, vec3 front, vec3 up) {
 	out[3][0] = 0.0f; out[3][1] = 0.0f; out[3][2] = 0.0f; out[3][3] = 1.0f;
 }
 
+void OEInitDrawQueue() {
+	globalRenderer->drawQueue.size = 0;
+	globalRenderer->drawQueue.cap = DRAWCALLSTEP;
+	globalRenderer->drawQueue.drawCalls = calloc(DRAWCALLSTEP, sizeof(struct DrawCall));
+}
+
+
+void OEPushDrawCall(struct DrawCall call) {
+	struct DrawCall *queue = globalRenderer->drawQueue.drawCalls;
+	int *size = &globalRenderer->drawQueue.size;
+	int *cap = &globalRenderer->drawQueue.cap;
+	if(*size>=*cap) {
+		*cap+=DRAWCALLSTEP;
+		 queue = (struct DrawCall *)realloc(queue, sizeof(struct DrawCall)*(*cap));
+	}
+	queue[*size] = call;
+	(*size)++;
+}
+
+void OEClearDrawQueue() {
+	int *size = &globalRenderer->drawQueue.size;
+	int *cap = &globalRenderer->drawQueue.cap;
+	int i;
+	/*The obj pointers are handled by the user and do not need freed*/
+	free(globalRenderer->drawQueue.drawCalls);
+	OEInitDrawQueue();
+}
+
 void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 /*
@@ -781,6 +816,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->debug = 0;
 	globalRenderer->postPassSize = 0;
 	globalRenderer->imgui.ioptr = NULL;
+	OEInitDrawQueue();
+
 	int pp;
 	for(pp=0;pp<MAXPOSTPASS;pp++) {
 		globalRenderer->postPasses[pp] = (PostPass){0};
@@ -1032,7 +1069,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 	/*Setup Camera*/
 
-	globalRenderer->cam.oScale = 4.0f;
+	globalRenderer->cam.oScale = 3.0f;
 	float oScale = globalRenderer->cam.oScale;
 
 	mat4x4_identity(globalRenderer->cam.model);
