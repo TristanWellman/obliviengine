@@ -1577,6 +1577,7 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 	SDL_GL_SwapWindow(globalRenderer->window->window);
 
 	OEUpdateViewMat();
+	OEClearDrawQueue();
 
 	globalRenderer->frame_end = SDL_GetPerformanceCounter();
 	globalRenderer->fps =

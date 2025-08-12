@@ -245,82 +245,353 @@ struct renderer {
 static struct renderer *globalRenderer;
 
 /*objs*/
+/**
+ * @brief Get an Object's pointer by providing the ID.
+ *
+ * @param name The name/ID for the Object you are trying to retrieve.
+ * */
 Object *OEGetObjectFromName(char *name);
+/**
+ * @brief Adds a Lua script to an Object, the script will run before every frame.
+ *
+ * @param ID The name/ID for the Object you are attaching the script to.
+ * @param scriptPath The file path to the designated Lua script.
+ * */
 void OEAttachScript(char *ID, char *scriptPath);
+/**
+ * @brief Adds a new Object to Obliviengine, this Object is accessible via OEGetObjectFromName
+ *
+ * @param obj The Object at which you are adding.
+ * */
 void OECreateObject(Object obj);
+/**
+ * @brief Adds new Object to Obliviengine, this contains more customizable parameters. 
+ * This object is accessible via OEGetObjectFromName.
+ *
+ * @param name The name of the Object.
+ * @param pos The world space position of the Object.
+ * @param vbuf The vertex buffer for the Object.
+ * @param ibuf The index buffer for the Object.
+ * @param defShader The default shader to use on this Object.
+ * @param pipe The default pipeline to use on this Object.
+ * */
 void OECreateObjectEx(char *name, vec3 pos,
 		sg_buffer_desc vbuf, sg_buffer_desc ibuf, sg_shader defShader,
 		sg_pipeline_desc pipe);
 /*For now mesh objects require the default shader.
  * Hopefully I change this in the future for customization but idk :| */
+/**
+ * @brief Adds a new Object to Obliviengine by parsing a mesh (usually from an object file).
+ *
+ * @param mesh The mesh struct holding all the model data.
+ * @param pos The world space position for the Object.*/
 void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos);
 /*For loading things other than .obj files*/
+/**
+ * @brief Adds a new Object to Obliviengine via Assimp for more complex model file formats.
+ *
+ * @param name The name/ID for the Object.
+ * @param path The file path for the model file.
+ * @param pos The world space position of the Object.
+ * */
 void OECreateMeshFromAssimp(char *name, char *path, vec3 pos);
+/**
+ * @brief Sets the world space position of an existing OE Object.
+ *
+ * @param ID The name/ID of the Object you are setting the position of.
+ * @param position The world space position you'd like to move the Object to.
+ * */
 void OESetObjectPosition(char *ID, vec3 position);
+/**
+ * @brief Retrieve the current set world space position of an Object.
+ *
+ * @param ID The name/ID of the Object at which you are obtaining the position.
+ * */
 Vec3 OEGetObjectPosition(char *ID);
 /*Rotates obj around the y-axis TODO: specify axis of rotation*/
+/**
+ * @brief Set the Y-axis rotation angle of an Object.
+ *
+ * @param ID The name/ID of the Object at which you are setting the rotation.
+ * @param deg The angle in degrees that is used to set the Object's rotation.
+ * */
 void OERotateObject(char *ID, float deg);
+/**
+ * @brief Resets an Object's rotation angle to 0.
+ *
+ * @param ID The name/ID of the Object you are resetting.
+ * */
 void OEResetRotation(char *ID);
 
+/**
+ * @brief Sends a draw call to the GPU for a specified object.
+ *
+ * @param obj The Object you are drawing.
+ * */
 void OEDrawObject(Object *obj);
+/**
+ * @brief Sends a draw call to the GPU with a specified Object and texture.
+ *
+ * @param obj The Object you are drawing.
+ * @param assign The texture index for the Object.
+ * @param texture The texture image.
+ * */
 void OEDrawObjectTex(Object *obj, int assign, sg_image texture);
+/**
+ * @brief Sends a draw call to the GPU with a specified Object and custom uniform application.
+ *
+ * @param obj The Object you are drawing.
+ * @param apply_uniforms the function for applying your custom uniforms.
+ * */
 void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms);
+/**
+ * @brief Sends a draw call to the GPU with a specified Object, Texture, and uniform application.
+ *
+ * @param obj The Object you are drawing.
+ * @param assign The texture index for the Object.
+ * @param texture The texture image.
+ * @param apply_uniforms The function for applying your custom uniforms.
+ * */
 void OEDrawObjectTexEx(Object *obj, int assign,
 		sg_image texture, UNILOADER apply_uniforms); 
-
+/**
+ * @brief Gets the Sokol buffer for the OE Cube vertices.
+ * */
 sg_buffer_desc OEGetCubeVertDesc();
+/**
+ * @brief Gets the Sokol buffer for the OE Cube indices.
+ * */
 sg_buffer_desc OEGetCubeIndDesc();
+/**
+ * @brief Gets the default OE cube shader (simple.glsl)
+ * */
 sg_shader OEGetDefCubeShader();
+/**
+ * @brief Gets the OE ray tracing shader (not implemented yet).
+ * */
 sg_shader OEGetRayTracedShader();
+/**
+ * @brief Gets the OE ray tracing pipeline (not implemented yet).
+ * */
 sg_pipeline_desc OEGetRayTracedPipe();
+/**
+ * @brief Set the default OE shader, this will overrite from simple.glsl.
+ *
+ * @param shader The shader you are setting as default.
+ * */
 void OESetDefaultShader(sg_shader shader);
+/**
+ * @brief Creates and returns a new OE cube object.
+ * */
 Object OEGetDefaultCubeObj(char *name);
+/**
+ * @brief Gets the default OE texture, this is a full white image.
+ * */
 sg_image OEGetDefaultTexture(); 
 
 /*renderer*/
+/**
+ * @brief Tells if the renderer is running or not.
+ * */
 int OERendererIsRunning();
+/**
+ * @brief Get the default pipeline for OE, this is for the simple.glsl format
+ * (position, color, normal, uv).
+ *
+ * @param shader The shader you want to use in the pipeline.
+ * @param label The name/ID for the pipeline.
+ * */
 sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label);
+/**
+ * @brief The default screen pipeline (this is for things like post processing shaders).
+ *
+ * @param shader The shader you want to use in the pipeline.
+ * @param label The name/ID for the pipeline.
+ * */
 sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label);
-sg_environment OEGetEnv(void);
-sg_swapchain OEGetSwapChain(void); 
-
+/**
+ * @brief Get the Sokol/OpenGL environment.
+ * */
+sg_environment OEGetEnv();
+/**
+ * @brief Get the Sokol/OpenGL swapchain.
+ * */
+sg_swapchain OEGetSwapChain(); 
+/**
+ * @brief Internally updates the Camera's view, projection, target, etc.
+ * */
 void OEUpdateViewMat();
+/**
+ * @brief This enables debugging information onto the screen/terminal. 
+ * Shows things like FPS, FrameTime, Camera Position, etc.
+ * */
 void OEEnableDebugInfo();
+/**
+ * @brief Gets a rotation matrix from a front and up vector.
+ *
+ * @param out The 4x4 matrix to hold the output.
+ * @param front The front vector.
+ * @param up The up vector.
+ * */
 void OEComputeRotationMatrix(mat4x4 out, vec3 front, vec3 up);
+/**
+ * @brief This initializes the OE renderer (Sokol, SDL2, OpenGL), camera, and other renderer Objects.
+ *
+ * @param width The width in pixels for the window.
+ * @param height The height in pixels for the window.
+ * @param title The title of the window.
+ * @param camType The type of camera projection you want (PERSPECTIVE, ISOMETRIC).
+ * */
 void OEInitRenderer(int width, int height, char *title, enum CamType camType);
+/**
+ * @brief Move the camera Forward, Backward, Up, Down, Left, and Right.
+ *
+ * @param direction The direction of movement.
+ * @param len The distance you are moving the camera.
+ * */
 void OEMoveCam(enum face direction, float len);
+/**
+ * @brief Set the world space position of the camera.
+ *
+ * @param pos The world space position vector.
+ * */
 void OECamSet(vec3 pos);
 
+/**
+ * @brief Get the pointer to the OE camera structure.
+ * */
 Camera *OEGetCamera();
+/**
+ * @brief Get the world space position of the OE camera in a Vec3.
+ * */
 Vec3 OEGetCamPos(); 
-void OECamSet(vec3 pos);
+/**
+ * @brief Get the SDL event handler.
+ * */
 SDL_Event OEGetEvent();
+/**
+ * @brief Check if a key is being pressed.
+ * */
 int OEIsKeyPressed();
+/**
+ * @brief Get the SDL key handle.*/
 int OEGetKeySym();
+/**
+ * @brief Get the current mouse position in pixel space relative to the window.
+ *
+ * @param x A pointer to the x-axis mouse location.
+ * @param y A pointer to the y-axis mouse location.
+ * */
 void OEGetMousePos(int *x, int *y);
+/**
+ * @brief Get the structure for mouse data, the position, and the world space ray hit.
+ * */
 Mouse OEGetMouse();
+/**
+ * @brief Runs the SDL event polling loop along with a user defined key handler.
+ *
+ * @param event The user's event handling function.
+ * */
 void OEPollEvents(EVENTFUNC event);
+/**
+ * @brief Get the FPS
+ * */
 int OEGetFPS();
+/**
+ * @brief Get the frame time.
+ * */
 float OEGetFrameTime();
+/**
+ * @brief This gets the current tick, not tick speed.
+ * */
 float OEGetTick();
+/**
+ * @brief Get the pointer to the OE SDL window.
+ * */
 SDL_Window *OEGetWindow(); 
 
+/**
+ * @brief Enables the Screen Space Ambient Occlusion shader.
+ * */
 void OEEnableSSAO();
+/**
+ * @brief Disables SSAO.
+ * */
 void OEDisableSSAO();
+/**
+ * @brief Change the settings for the bloom shader (strength and threshold).
+ *
+ * @param threshold How bright something needs to be before bloom activates.
+ * @param strength How bright the bloom is.
+ * */
 void OEUpdateBloomParams(float threshold, float strength);
+/**
+ * @brief Enables the bloom shader.
+ *
+ * @param threshold How bright something needs to be before bloom activates.
+ * @param strength How bright the bloom is.
+ * */
 void OEEnableBloom(float threshold, float strength);
+/**
+ * @brief Disable the bloom shader.
+ * */
 void OEDisableBloom();
+/**
+ * @brief Enable the OE anti-aliasing shader.
+ * */
 void OEEnableFXAA();
+/**
+ * @brief Disable the FXAA shader.
+ * */
 void OEDisableFXAA();
+/**
+ * @brief Enable the OE Screen Space Global Illumination shader.
+ * */
 void OEEnableSSGI();
+/**
+ * @brief Disable the SSGI shader.
+ * */
 void OEDisableSSGI();
+/**
+ * @brief Enable the de-noising shader, this is automatically applied in the SSGI shader.
+ * */
 void OEEnableDNOISE();
+/**
+ * @brief Disable the de-noise shader.
+ * */
 void OEDisableDNOISE();
+/**
+ * @brief Add a post-pass shader, this runs a shader on the current frame.
+ *
+ * @param id The name/ID of your post-pass, I.E. Bloom.
+ * @param pipe The pipeline to use for the shader, usually can just be the OEQuad pipeline.
+ * @param loader The custom uniform loader function for your shader.
+ * */
 PostPass *OEAddPostPass(char *id, sg_pipeline pipe, UNILOADER loader);
+/**
+ * @brief Remove a post-pass shader.
+ *
+ * @param id The name/ID of the post-pass you are removing.
+ * */
 void OERemovePostPass(char *id);
+/**
+ * @brief Runs the actual rendering process, all your draw calls, UI, etc.
+ *
+ * @param drawCall The user defined function for drawing objects.
+ * @param cimgui The user defined function for rendering a cimgui UI.
+ * */
 void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui);
+/**
+ * @brief This starts the frame timer, this is useful for the OpenXR renderer or a user renderer.
+ * */
 void OERendererTimerStart();
+/**
+ * @brief Ends the frame timer.
+ * */
 void OERendererTimerEnd();
-void OECleanup(void);
+/**
+ * @brief Cleans up and Frees OE before exit.
+ * */
+void OECleanup();
 
 #endif
