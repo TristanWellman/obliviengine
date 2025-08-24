@@ -69,7 +69,7 @@ void OECreateObject(Object obj) {
 		}
 	}
 	if(globalRenderer->objSize>=globalRenderer->objCap) {
-		globalRenderer->objCap*=2;
+		globalRenderer->objCap+=OBJSTEP;
 		globalRenderer->objects =
 			(Object *)realloc(globalRenderer->objects, 
 					sizeof(Object)*globalRenderer->objCap);
@@ -1045,7 +1045,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 /*
  * Init objects
  * */
-	globalRenderer->objCap = MAXOBJS;
+	globalRenderer->objCap = OBJSTEP;
 	globalRenderer->objSize = 0;
 	globalRenderer->objects = calloc(globalRenderer->objCap, sizeof(Object));
 	
@@ -1151,9 +1151,9 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 							   globalRenderer->cam.fov,
 							   globalRenderer->cam.aspect,
 							   0.1f, 100.0f);
-			mat4x4 tmp;
-			mat4x4_mul(tmp, globalRenderer->cam.proj, globalRenderer->cam.view);
-			mat4x4_mul(globalRenderer->cam.mvp, tmp, globalRenderer->cam.model);
+
+			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.proj, globalRenderer->cam.view);
+			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.mvp, globalRenderer->cam.model);
 
 			OEComputeRotationMatrix(globalRenderer->cam.rotation,
 				globalRenderer->cam.front, 

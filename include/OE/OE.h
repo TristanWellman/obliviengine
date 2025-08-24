@@ -51,6 +51,7 @@
 #include "denoise.glsl.h"
 
 #define MAXOBJS 1000000
+#define OBJSTEP 100
 
 #define MAXDRAWCALLS 500000
 #define DRAWCALLSTEP 10 /*This is how much we realloc to the queue*/
@@ -183,8 +184,8 @@ struct renderer {
 	Window *window;
 	struct OEImgui imgui;
 	SDL_Event event;
-	int keyPressed;
-	int lastKey;
+	int keyPressed :1;
+	int lastKey :8;
 
 	Camera cam;
 	enum CamType camType;
@@ -192,8 +193,8 @@ struct renderer {
 
 	sg_bindings bindings;
 	Object *objects;
-	int objCap;
-	int objSize;
+	int objCap :20;
+	int objSize :20;
 	OEPPShaders ppshaders; /*These are the enable/disable-able post-pass shaders*/
 	sg_shader defCubeShader;
 	sg_shader rayTracedShader;
@@ -225,7 +226,7 @@ struct renderer {
 
 	/*The user's post passes (bloom, fxaa, ssao, etc.)*/
 	PostPass postPasses[MAXPOSTPASS];
-	int postPassSize;
+	int postPassSize :4;
 
 	OEBloom_params_t bloomParams;
 	OESSGI_params_t ssgiParams;
@@ -235,7 +236,7 @@ struct renderer {
 
 	DrawCallQueue drawQueue;
 
-	int debug;
+	int debug :1;
 	float tick;
 	float frameTime;
 	float fps;

@@ -1,3 +1,4 @@
+/*Edited by: Tristan Wellman (2025)*/
 #ifndef LINMATH_H
 #define LINMATH_H
 
@@ -11,8 +12,16 @@
 #define LINMATH_H_FUNC static inline
 #endif
 
+#ifdef _MSC_VER
+	#define ALIGN16 __declspec(align(16))
+#elif defined(__GNUC__) || defined(__clang__)
+	#define ALIGN16 __attribute__((aligned(16)))
+#else
+	#include <stdalign.h>
+	#define ALIGN16 _Alignas(16)
+#endif
 #define LINMATH_H_DEFINE_VEC(n) \
-typedef float vec##n[n]; \
+typedef float vec##n[n] ALIGN16; \
 LINMATH_H_FUNC void vec##n##_add(vec##n r, vec##n const a, vec##n const b) \
 { \
 	int i; \
