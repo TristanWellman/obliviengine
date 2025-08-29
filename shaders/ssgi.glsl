@@ -23,8 +23,8 @@ void main() {
 
 @fs fs_OESSGI
 
-#define RAYS 16
-#define STEPS 8
+/*#define RAYS 16
+#define STEPS 64*/
 #define RADIUS 0.25
 #define BIAS 0.05
 #define INTENSITY 2.0
@@ -57,6 +57,13 @@ vec3 WNORM(vec3 _x) {
 
 layout(binding=4) uniform OESSGI_params {
 	mat4 proj;
+	/*
+	 * low: rays = 16 steps = 64
+	 * med: rays = 32 steps = 128
+	 * high: rays = 64 steps = 256
+	 * */
+	int RAYS; 
+	int STEPS;
 };
 
 layout(binding=0) uniform sampler OESSGI_smp;

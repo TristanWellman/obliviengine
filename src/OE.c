@@ -1416,7 +1416,9 @@ void OEDisableSSAO() {
 	OERemovePostPass(OESSAO);
 }
 
-void OEEnableSSGI() {
+void OEEnableSSGI(int rays, int steps) {
+	globalRenderer->ssgiParams.RAYS = rays;
+	globalRenderer->ssgiParams.STEPS = steps;
 	OEAddPostPass(OESSGI, globalRenderer->ppshaders.ssgip, (UNILOADER)applySSGIUniforms);
 	globalRenderer->deNoiseParams.resolution[0] = globalRenderer->window->width;
 	globalRenderer->deNoiseParams.resolution[1] = globalRenderer->window->height;
@@ -1426,6 +1428,11 @@ void OEEnableSSGI() {
 void OEDisableSSGI() {
 	OERemovePostPass(OESSGI);
 	OERemovePostPass(OEDNOISE);
+}
+
+void OEUpdateSSGIParams(int rays, int steps) {
+	globalRenderer->ssgiParams.RAYS = rays;
+	globalRenderer->ssgiParams.STEPS = steps;
 }
 
 void OEEnableDNOISE() {

@@ -12,6 +12,7 @@ void OEAddLight(char *ID, vec3 pos, Color color) {
 		for(i=0;i<MAXLIGHTS;i++) {
 			vec3_dup(globalData->lights[i].pos, (vec3){0.0f,0.0f,0.0f});
 			globalData->lights[i].color = (Color){0.0f, 0.0f, 0.0f, 0.0f};
+			globalData->lights[i].ID = NULL;
 		}
 	}
 
@@ -24,6 +25,20 @@ void OEAddLight(char *ID, vec3 pos, Color color) {
 	sprintf(buf, "Created light source[%d]: %s", globalData->size, ID);
 	WLOG(INFO, buf);
 	globalData->size++;
+}
+
+void OERemoveLight(char *ID) {
+	/*I haven't done qsort with the lights yet, so this will be slow linear til' I fix that.*/
+	int i, j;
+	for(i=0;(i<MAXLIGHTS)&&(globalData->lights[i].ID!=NULL)
+			&&(!strcmp(ID, globalData->lights[i].ID));i++);
+	for(j=i,i++;i<MAXLIGHTS;i++) {
+		if(globalData->lights[i].ID!=NULL) {
+			memmove(&globalData->lights[i-1],&globalData->lights[i],
+					(globalData->size-j-1)*sizeof(*globalData->lights));
+		}
+	}
+	globalData->size--;
 }
 
 void OESetLightPosition(char *ID, vec3 pos) {

@@ -547,8 +547,21 @@ void OEEnableFXAA();
 void OEDisableFXAA();
 /**
  * @brief Enable the OE Screen Space Global Illumination shader.
+ * low: rays = 16 steps = 8
+ * med: rays = 32 steps = 16
+ * high: rays = 64 steps = 32
+ *
+ * @param rays The amount of rays to cast per pixel.
+ * @param steps The amount of steps (distance) for a ray to compute.
  * */
-void OEEnableSSGI();
+void OEEnableSSGI(int rays, int steps);
+/**
+ * @brief Update the rays and steps for SSGI without having to re-init the shader.
+ *
+ * @param rays The amount of rays to cast per pixel.
+ * @param steps The amount of steps (distance) for a ray to compute.
+ * */
+void OEUpdateSSGIParams(int rays, int steps);
 /**
  * @brief Disable the SSGI shader.
  * */
