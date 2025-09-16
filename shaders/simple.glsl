@@ -1,6 +1,7 @@
-/*
-	This is the DEFAULT shader for ObliviEngine.
-	Most default things for the engine require atleast these attributes in a shader.
+/* Copyright (c) 2025 Tristan Wellman
+ * This is the DEFAULT shader for ObliviEngine.
+ * Most default things for the engine require atleast these attributes in a shader.
+ * 08/30/35 - Changed phong lighting to mix in some pbr functionality.
 */
 
 
@@ -25,11 +26,12 @@ layout(binding=0) uniform vs_params {
 
 layout(binding=1) uniform light_params {
     vec4 positions[MAXLIGHTS]; /*[4] unused*/
-    vec4 colors[MAXLIGHTS];
+    vec4 colors[MAXLIGHTS]; /*[4] is intensity*/
 };
 
 layout(binding=3) uniform fs_params {
     vec3 camPos;
+	int numLights;
 };
 
 @end
@@ -100,47 +102,60 @@ void main() {
     vec3 norm = normalize(normal);
     vec3 viewDir = normalize(camPos - fragPos);
 
-    vec3 ambient = vec3(0.0);
-    vec3 diffuse = vec3(0.0);
-    vec3 specular = vec3(0.0);
+    vec3 ambient;
 
     float shininess = 32.0;
     vec3 materialAmbient = vec3(0.1);
     vec3 materialDiffuse = vec3(0.7);
     vec3 materialSpecular = vec3(0.5);
 
+	ambient = materialAmbient*vec3(0.02);
+	/* accumulate diffuse & specular */
+	vec3 ad = vec3(0.0);
+	vec3 as = vec3(0.0);
+
 	vec3 texcolor = texture(sampler2D(_texture, smp), texcoord).rgb;
 	
-	int al = 0;
-	for(al=0;al<MAXLIGHTS&&(colors[al]==vec4(0.0));al++);
-	float lightScale = 1.0/max(al,1);
+	int activeLight = clamp(numLights,0,MAXLIGHTS);
 	int i;
-    for(i = 0; i < MAXLIGHTS; i++) {
-		if(colors[i]==vec4(0.0)) break;
+    for(i=0;i<activeLight;i++) {
         vec3 lightPos = vec3(positions[i]);
-        vec3 lightColor = vec3(colors[i]);
+		
+
+		float range = positions[i].w;
+		if(range<=0.001) range = 10.0;
+
+        vec3 lightColor = colors[i].rgb;
+		float intensity = colors[i].a*1.5;
+		if(intensity<=0.0) intensity = 1.0;
+		lightColor *= intensity;
 
 		float d = length(lightPos-fragPos);
-		float atten = 1.0/(1.0+0.09*d+0.01*d*d);
-
-        ambient += (lightScale * atten * lightColor * materialAmbient)*2.0;
+		float invDistSq = 1.0/max(d*d,0.01);
+		float rf = clamp(1.0-(d/range),0.0,1.0);
+		float sr = pow(rf,2.0);
+		float atten = invDistSq*sr;
 
         vec3 lightDir = normalize(lightPos - fragPos);
         float diff = max(dot(norm, lightDir), 0.0);
-        diffuse += (lightScale * atten * diff * lightColor * materialDiffuse);
+        vec3 diffuse = lightColor*materialDiffuse*diff*atten;
 
-        vec3 reflectDir = reflect(-lightDir, norm);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-        specular += (lightScale * atten * spec * lightColor * materialSpecular);
+        float spec = pow(max(dot(norm, normalize(lightDir+viewDir)), 0.0), shininess);
+        vec3 specular = lightColor*materialSpecular*spec*atten*0.8;;
+		
+		ad += diffuse;
+		as += specular;
     }
+	
+	vec3 hdr = ambient+ad*texcolor+as;
+	vec3 mapped = hdr/(vec3(1.0)+hdr);
 
-    vec3 result = ambient + diffuse + specular;
-    frag_color = vec4(result*vec3(color)*vec3(texcolor), 1.0);
+    vec3 result = pow(mapped, vec3(1.0/2.2));
+    frag_color = vec4(result*vec3(color), 1.0);
 
 	depth();
 	normal_c();
 	position();
-
 }
 
 @end

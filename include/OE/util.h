@@ -86,6 +86,8 @@ typedef struct {
 	  i=(QSMAGIC-(i>>1));y=*(float*)&i; \
 	  y*=(1.5f-(0.5f*(_x)*y*y));y;})
 
+#define QSQRT(_x) ((_x)*(QISQRT(_x)))
+
 /*Normalization macro
  * takes in a Vec3 */
 #define WNORM(_x) ((__typeof__(_x)) { \

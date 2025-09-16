@@ -153,6 +153,7 @@ typedef struct {
 	char *title;
 	SDL_Window *window;
 	SDL_GLContext gl_context;
+	SDL_Cursor *cursor;
 	int running;
 } Window;
 
@@ -184,7 +185,7 @@ struct renderer {
 	Window *window;
 	struct OEImgui imgui;
 	SDL_Event event;
-	int keyPressed :1;
+	unsigned int keyPressed :1;
 	int lastKey :8;
 
 	Camera cam;
@@ -236,7 +237,7 @@ struct renderer {
 
 	DrawCallQueue drawQueue;
 
-	int debug :1;
+	unsigned int debug :1;
 	float tick;
 	float frameTime;
 	float fps;
@@ -428,6 +429,10 @@ void OEUpdateViewMat();
  * */
 void OEEnableDebugInfo();
 /**
+ * @brief This disables debugging information onto the screen/terminal.
+ * */
+void OEDisableDebugInfo();
+/**
  * @brief Gets a rotation matrix from a front and up vector.
  *
  * @param out The 4x4 matrix to hold the output.
@@ -574,6 +579,12 @@ void OEEnableDNOISE();
  * @brief Disable the de-noise shader.
  * */
 void OEDisableDNOISE();
+/**
+ * @brief Sets the image used for the Cursor
+ *
+ * @param filePath The file path to the image.
+ * */
+void OESetCursor(char *filePath);
 /**
  * @brief Add a post-pass shader, this runs a shader on the current frame.
  *

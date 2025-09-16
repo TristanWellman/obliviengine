@@ -16,15 +16,17 @@ typedef struct {
 } OELight;
 
 struct LightData {
-	OELight lights[MAXLIGHTS];
 	int size; /*Current amount of lights*/
+	OELight lights[MAXLIGHTS];
 	light_params_t uniform;
 };
 
 void OEAddLight(char *ID, vec3 pos, Color color);
+int OEDoesLightExist(char *ID);
 void OERemoveLight(char *ID);
 void OESetLightPosition(char *ID, vec3 pos);
 void OESetLightColor(char *ID, Color color); 
 light_params_t getLightUniform();
+int getNumLights();
 
 #endif

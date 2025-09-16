@@ -2,6 +2,7 @@
 #define SOKOL_IMPL
 #include <OE/OE.h>
 #include <OE/cube.h>
+#include <stb/stb_image.h>
 
 #ifndef igGetIO
 #define igGetIO igGetIO_Nil
@@ -373,7 +374,7 @@ void setObjectShader(char *name, sg_shader shd) {
 /*This is specifically for the default shader*/
 void OEApplyCurrentUniforms(Object *obj) {
 	vs_params_t vs_params = {0};
-	fs_params_t fs_params = {0};
+	fs_params_t fs_params = {.numLights = getNumLights()};
 	light_params_t light_params = getLightUniform();
 
     mat4x4 mvp, mv;
@@ -749,6 +750,10 @@ void OEEnableDebugInfo() {
 	globalRenderer->debug = 1;
 }
 
+void OEDisableDebugInfo() {
+	globalRenderer->debug = 0;
+}
+
 void computeCameraRay() {
 	Camera *cam = OEGetCamera();
 	vec3 ray_origin, ray_dir;
@@ -816,6 +821,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->debug = 0;
 	globalRenderer->postPassSize = 0;
 	globalRenderer->imgui.ioptr = NULL;
+	globalRenderer->window->cursor = NULL;
 	OEInitDrawQueue();
 
 	int pp;
@@ -1335,6 +1341,25 @@ SDL_Window *OEGetWindow() {
 	return globalRenderer->window->window;
 }
 
+void OESetCursor(char *filePath) {
+	int w, h, channels, i;
+	unsigned char *image = stbi_load(filePath, &w, &h, &channels, 4);
+	if(!image) return;
+
+	SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(image, w, h,
+			32, w*4, SDL_PIXELFORMAT_RGBA32);
+	if(!surface) {stbi_image_free(image);return;}
+
+	SDL_Cursor *cursor = SDL_CreateColorCursor(surface, 0,0);
+	if(cursor==NULL) return;
+	SDL_SetCursor(cursor);
+	SDL_ShowCursor(SDL_ENABLE);
+	globalRenderer->window->cursor = cursor;
+
+	SDL_FreeSurface(surface);
+	stbi_image_free(image);
+}
+
 /*returns the ID*/
 PostPass *OEAddPostPass(char *id, sg_pipeline pipe, UNILOADER loader) {
 	if(globalRenderer->postPassSize<MAXPOSTPASS) {
@@ -1582,6 +1607,8 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 	sg_commit();
 
 	SDL_GL_SwapWindow(globalRenderer->window->window);
+	if(globalRenderer->window->cursor!=NULL)
+		SDL_SetCursor(globalRenderer->window->cursor);
 
 	OEUpdateViewMat();
 	OEClearDrawQueue();
