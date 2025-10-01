@@ -20,11 +20,11 @@
         Uniform block 'OEBloom_params':
             C struct: OEBloom_params_t
             Bind slot: UB_OEBloom_params => 1
-        Image 'OEBTex':
+        Texture 'OEBTex':
             Image type: SG_IMAGETYPE_2D
             Sample type: SG_IMAGESAMPLETYPE_FLOAT
             Multisampled: false
-            Bind slot: IMG_OEBTex => 0
+            Bind slot: VIEW_OEBTex => 0
         Sampler 'OEBSmp':
             Type: SG_SAMPLERTYPE_FILTERING
             Bind slot: SMP_OEBSmp => 0
@@ -42,7 +42,7 @@
 #define ATTR_OEBQuad_OEBQuad_position (0)
 #define ATTR_OEBQuad_OEBQuad_texcoord (1)
 #define UB_OEBloom_params (1)
-#define IMG_OEBTex (0)
+#define VIEW_OEBTex (0)
 #define SMP_OEBSmp (0)
 #pragma pack(push,1)
 SOKOL_SHDC_ALIGN(16) typedef struct OEBloom_params_t {
@@ -194,16 +194,16 @@ static inline const sg_shader_desc* OEBQuad_shader_desc(sg_backend backend) {
             desc.uniform_blocks[1].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
             desc.uniform_blocks[1].glsl_uniforms[0].array_count = 1;
             desc.uniform_blocks[1].glsl_uniforms[0].glsl_name = "OEBloom_params";
-            desc.images[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.images[0].multisampled = false;
+            desc.views[0].texture.stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.views[0].texture.image_type = SG_IMAGETYPE_2D;
+            desc.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.views[0].texture.multisampled = false;
             desc.samplers[0].stage = SG_SHADERSTAGE_FRAGMENT;
             desc.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.image_sampler_pairs[0].image_slot = 0;
-            desc.image_sampler_pairs[0].sampler_slot = 0;
-            desc.image_sampler_pairs[0].glsl_name = "OEBTex_OEBSmp";
+            desc.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.texture_sampler_pairs[0].view_slot = 0;
+            desc.texture_sampler_pairs[0].sampler_slot = 0;
+            desc.texture_sampler_pairs[0].glsl_name = "OEBTex_OEBSmp";
             desc.label = "OEBQuad_shader";
         }
         return &desc;

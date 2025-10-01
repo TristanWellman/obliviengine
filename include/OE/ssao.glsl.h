@@ -20,21 +20,21 @@
         Uniform block 'OESSAO_params':
             C struct: OESSAO_params_t
             Bind slot: UB_OESSAO_params => 4
-        Image 'OESSAO_texture':
+        Texture 'OESSAO_texture':
             Image type: SG_IMAGETYPE_2D
             Sample type: SG_IMAGESAMPLETYPE_FLOAT
             Multisampled: false
-            Bind slot: IMG_OESSAO_texture => 0
-        Image 'OESSAO_ptexture':
+            Bind slot: VIEW_OESSAO_texture => 0
+        Texture 'OESSAO_ptexture':
             Image type: SG_IMAGETYPE_2D
             Sample type: SG_IMAGESAMPLETYPE_FLOAT
             Multisampled: false
-            Bind slot: IMG_OESSAO_ptexture => 3
-        Image 'OESSAO_ntexture':
+            Bind slot: VIEW_OESSAO_ptexture => 3
+        Texture 'OESSAO_ntexture':
             Image type: SG_IMAGETYPE_2D
             Sample type: SG_IMAGESAMPLETYPE_FLOAT
             Multisampled: false
-            Bind slot: IMG_OESSAO_ntexture => 2
+            Bind slot: VIEW_OESSAO_ntexture => 2
         Sampler 'OESSAO_smp':
             Type: SG_SAMPLERTYPE_FILTERING
             Bind slot: SMP_OESSAO_smp => 0
@@ -52,9 +52,9 @@
 #define ATTR_OESSAO_OESSAO_position (0)
 #define ATTR_OESSAO_OESSAO_texcoord (1)
 #define UB_OESSAO_params (4)
-#define IMG_OESSAO_texture (0)
-#define IMG_OESSAO_ptexture (3)
-#define IMG_OESSAO_ntexture (2)
+#define VIEW_OESSAO_texture (0)
+#define VIEW_OESSAO_ptexture (3)
+#define VIEW_OESSAO_ntexture (2)
 #define SMP_OESSAO_smp (0)
 #pragma pack(push,1)
 SOKOL_SHDC_ALIGN(16) typedef struct OESSAO_params_t {
@@ -350,32 +350,32 @@ static inline const sg_shader_desc* OESSAO_shader_desc(sg_backend backend) {
             desc.uniform_blocks[4].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
             desc.uniform_blocks[4].glsl_uniforms[0].array_count = 132;
             desc.uniform_blocks[4].glsl_uniforms[0].glsl_name = "OESSAO_params";
-            desc.images[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.images[0].multisampled = false;
-            desc.images[2].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.images[2].image_type = SG_IMAGETYPE_2D;
-            desc.images[2].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.images[2].multisampled = false;
-            desc.images[3].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.images[3].image_type = SG_IMAGETYPE_2D;
-            desc.images[3].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.images[3].multisampled = false;
+            desc.views[0].texture.stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.views[0].texture.image_type = SG_IMAGETYPE_2D;
+            desc.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.views[0].texture.multisampled = false;
+            desc.views[2].texture.stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.views[2].texture.image_type = SG_IMAGETYPE_2D;
+            desc.views[2].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.views[2].texture.multisampled = false;
+            desc.views[3].texture.stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.views[3].texture.image_type = SG_IMAGETYPE_2D;
+            desc.views[3].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.views[3].texture.multisampled = false;
             desc.samplers[0].stage = SG_SHADERSTAGE_FRAGMENT;
             desc.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.image_sampler_pairs[0].image_slot = 0;
-            desc.image_sampler_pairs[0].sampler_slot = 0;
-            desc.image_sampler_pairs[0].glsl_name = "OESSAO_texture_OESSAO_smp";
-            desc.image_sampler_pairs[1].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.image_sampler_pairs[1].image_slot = 3;
-            desc.image_sampler_pairs[1].sampler_slot = 0;
-            desc.image_sampler_pairs[1].glsl_name = "OESSAO_ptexture_OESSAO_smp";
-            desc.image_sampler_pairs[2].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.image_sampler_pairs[2].image_slot = 2;
-            desc.image_sampler_pairs[2].sampler_slot = 0;
-            desc.image_sampler_pairs[2].glsl_name = "OESSAO_ntexture_OESSAO_smp";
+            desc.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.texture_sampler_pairs[0].view_slot = 0;
+            desc.texture_sampler_pairs[0].sampler_slot = 0;
+            desc.texture_sampler_pairs[0].glsl_name = "OESSAO_texture_OESSAO_smp";
+            desc.texture_sampler_pairs[1].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.texture_sampler_pairs[1].view_slot = 3;
+            desc.texture_sampler_pairs[1].sampler_slot = 0;
+            desc.texture_sampler_pairs[1].glsl_name = "OESSAO_ptexture_OESSAO_smp";
+            desc.texture_sampler_pairs[2].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.texture_sampler_pairs[2].view_slot = 2;
+            desc.texture_sampler_pairs[2].sampler_slot = 0;
+            desc.texture_sampler_pairs[2].glsl_name = "OESSAO_ntexture_OESSAO_smp";
             desc.label = "OESSAO_shader";
         }
         return &desc;

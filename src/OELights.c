@@ -50,13 +50,6 @@ void OERemoveLight(char *ID) {
 	if(i<globalData->size-1) {
 		memmove(&globalData->lights[i], &globalData->lights[i+1],
 				(globalData->size-i-1)*sizeof(globalData->lights[0]));
-		/*for(;i<globalData->size-1;i++) {
-			vec3_dup(globalData->lights[i].pos, globalData->lights[i+1].pos);
-			globalData->lights[i].color = globalData->lights[i+1].color;
-			if(globalData->lights[i].ID==NULL&&globalData->lights[i+1].ID!=NULL) 
-				globalData->lights[i].ID = calloc(strlen(globalData->lights[i+1].ID)+1, sizeof(char));
-			strcpy(globalData->lights[i].ID, globalData->lights[i+1].ID);
-		}*/
 	}
 	char buf[strlen(ID)+256];
 	sprintf(buf, "Removed light source[%d]: %s", globalData->size, ID);

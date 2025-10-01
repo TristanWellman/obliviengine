@@ -32,10 +32,7 @@ void addTexture(char *ID, char *path) {
         		.width = w,
         		.height = h,
         		.pixel_format = SG_PIXELFORMAT_RGBA8,
-        		.data.subimage[0][0] = {
-            		.ptr = data,
-            		.size = (size_t)(w*h*4) 
-				},
+        		.data.mip_levels[0] = PTRRANGE(data, (w*h*4)),
         		.label = ID
     		});
 			stbi_image_free(data);

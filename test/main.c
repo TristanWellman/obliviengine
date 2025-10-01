@@ -76,19 +76,20 @@ int main(int argc, char **argv) {
 	meshTest();
 	//OESetDefaultShader(OEGetRayTracedShader());
 
-	OEEnableBloom(0.8, 0.5);
 	OEEnableFXAA();
-	OEEnableSSGI();
+	OEEnableSSGI(64, 8);
+	OEEnableBloom(0.8, 0.5);
 
 	makeCubes();
 
 	OESetObjectPosition("OECube", (vec3){-3.0f, 0.0f, 0.0f});
 
-	Color light1 = (Color){255.0f, 50.0f, 50.0f, 255.0f};
-	Color light2 = (Color){50.0f, 50.0f, 255.0f, 255.0f};
+	/*The alpha channel is intensity so 255*2.5 = 2.5 intensity*/
+	Color light1 = (Color){255.0f, 50.0f, 50.0f, 255.0f*30.0f};
+	Color light2 = (Color){50.0f, 50.0f, 255.0f, 255.0f*30.0f};
 
-	OEAddLight("MainLight", (vec3){3.0f, 3.0f, 3.0f}, RGBA255TORGBA1(light2));
-	OEAddLight("FillLight", (vec3){-3.0f, 3.0f, -3.0f}, RGBA255TORGBA1(light1));
+	OEAddLight("MainLight", (vec3){3.0f, 6.0f, 3.0f}, RGBA255TORGBA1(light2));
+	OEAddLight("FillLight", (vec3){-3.0f, 6.0f, -3.0f}, RGBA255TORGBA1(light1));
 
 	addTexture("test", "assets/uvtest.jpg");
 

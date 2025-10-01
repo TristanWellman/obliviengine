@@ -32,6 +32,8 @@
 #include <lua/lauxlib.h>
 #include <lua/lualib.h>
 
+#include <cware-utils/osname.h>
+
 #include "linmath.h"
 #include "util.h"
 #include "texture.h"
@@ -50,13 +52,41 @@
 #include "ssgi.glsl.h"
 #include "denoise.glsl.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*osname.h does not work with OSX 26 (Tahoe) due to a __MACH typo*/
+#ifndef OSNAME
+#	ifdef __APPLE__
+#		ifdef __MACH__
+#			define OSNAME "Mac OS X"
+#			define OSCLASS OS_UNIX
+#		endif
+#	else 
+#		define OSNAME "Unknown"
+#		define OSCLASS OS_OTHER
+#	endif
+#endif
+#define OEGETOS() (OSNAME) 
+#define OEGETOSCLASS() ({char *oc; \
+	if(OSCLASS==OS_UNIX) oc="OS-UNIX"; \
+	if(OSCLASS==OS_WINDOWS) oc="OS-WINDOWS"; \
+	if(OSCLASS==OS_DOS) oc="OS-DOS"; \
+	if(OSCLASS==OS_OS2) oc="OS-OS2"; \
+	if(OSCLASS==OS_S370) oc="OS-S370"; \
+	if(OSCLASS==OS_DEC) oc="OS-DEC"; \
+	if(OSCLASS==OS_MACINTOSH) oc="OS-MACINTOSH"; \
+	if(OSCLASS==OS_AMIGA) oc="OS-AMIGA"; \
+	if(OSCLASS==OS_OTHER) oc="OS-OTHER";oc;})
+
 #define MAXOBJS 1000000
 #define OBJSTEP 100
 
 #define MAXDRAWCALLS 500000
 #define DRAWCALLSTEP 10 /*This is how much we realloc to the queue*/
 
-#define OE_TEXPOS (IMG__texture)
+#define OE_TEXPOS (VIEW__texture)
 
 #define OE_WHITEP (0xFFFFFFFF)
 
@@ -66,6 +96,12 @@
 #define OEBLOOM "OEB"
 #define OESSGI "OESSGI"
 #define OEDNOISE "OEDNOISE"
+
+#if defined(__GNUC__) || defined(__clang__)
+#	define _OE_PRIVATE __attribute__((unused)) static
+#else
+#	define _OE_PRIVATE static
+#endif
 
 /*This is here because SG_RANGE does not work with ptr sizes.*/
 #define PTRRANGE(ptr_, size_) \
@@ -179,6 +215,17 @@ typedef struct {
 				ssgip, dnoisep;
 } OEPPShaders;
 
+typedef struct {
+	/*Color attachment views*/
+	sg_view cRenderTarget, cDepthBuffer, cNormalBuffer,
+			cPositionBuffer, cNoiseBuffer, cPrevFrameBuffer,
+			cPostTarget, cPostTargetPong;
+	/*Texture attachment views*/
+	sg_view tRenderTarget, tDepthBuffer, tNormalBuffer,
+			tPositionBuffer, tNoiseBuffer, tPrevFrameBuffer,
+			tPostTarget, tPostTargetPong;
+} OEViews;
+
 /*TODO: Seperate a lot of this into different structs so it's not so fat.*/
 struct renderer {
 
@@ -209,6 +256,7 @@ struct renderer {
 	sg_image positionBuffer;
 	sg_image noiseBuffer;
 	sg_image prevFrameBuffer;
+	OEViews views;
 
 	/*Render texture, and ssao buffer stuff*/
 	sg_image renderTarget;
@@ -241,6 +289,7 @@ struct renderer {
 	float tick;
 	float frameTime;
 	float fps;
+	char *OSInfo;
 	int frame_start, frame_end;
 };
 
@@ -441,6 +490,10 @@ void OEDisableDebugInfo();
  * */
 void OEComputeRotationMatrix(mat4x4 out, vec3 front, vec3 up);
 /**
+ * @brief Query and print the renderable pixel formats supported on a system.
+ * */
+int OEDumpSupportedPixelFormats();
+/**
  * @brief This initializes the OE renderer (Sokol, SDL2, OpenGL), camera, and other renderer Objects.
  *
  * @param width The width in pixels for the window.
@@ -514,8 +567,11 @@ float OEGetTick();
 /**
  * @brief Get the pointer to the OE SDL window.
  * */
-SDL_Window *OEGetWindow(); 
-
+SDL_Window *OEGetWindow();
+/**
+ * @brief Get the Operating System Info string.
+ * */
+char *OEQueryOSInfo();
 /**
  * @brief Enables the Screen Space Ambient Occlusion shader.
  * */
@@ -618,5 +674,101 @@ void OERendererTimerEnd();
  * @brief Cleans up and Frees OE before exit.
  * */
 void OECleanup();
+
+/*
+ * OE IML: static OE utility/debugging header functions
+ *
+ * Seems redundant when you could just put this in the C file,
+ * but it REALLY helps keep things organized with utils and helper functions.
+ * */
+
+_OE_PRIVATE void OECheckViewState(sg_view view) {
+	sg_resource_state state = sg_query_view_state(view);
+	char *buf, *stateBuf;
+	size_t size;
+	switch(state) {
+		case SG_RESOURCESTATE_INITIAL: 
+			stateBuf = "View is currently initializing [SG_RESOURCESTATE_INITIAL]";
+			size = sizeof(char)*(strlen(stateBuf)+128);
+			buf = calloc(size, sizeof(char));
+			snprintf(buf, size, "[%d]: %s", view.id, stateBuf);
+			break;
+		case SG_RESOURCESTATE_ALLOC:
+			stateBuf = "View is currently allocating [SG_RESOURCESTATE_ALLOC]";
+			size = sizeof(char)*(strlen(stateBuf)+128);
+			buf = calloc(size, sizeof(char));
+			snprintf(buf, size, "[%d]: %s", view.id, stateBuf);
+			break;
+		case SG_RESOURCESTATE_VALID:
+			stateBuf = "View is valid and ready [SG_RESOURCESTATE_VALID]";
+			size = sizeof(char)*(strlen(stateBuf)+128);
+			buf = calloc(size, sizeof(char));
+			snprintf(buf, size, "[%d]: %s", view.id, stateBuf);
+			break;
+		case SG_RESOURCESTATE_FAILED:
+			stateBuf = "View has failed initialization [SG_RESOURCESTATE_FAILED]";
+			size = sizeof(char)*(strlen(stateBuf)+128);
+			buf = calloc(size, sizeof(char));
+			snprintf(buf, size, "[%d]: %s", view.id, stateBuf);
+			break;
+		case SG_RESOURCESTATE_INVALID:
+			stateBuf = "View is invalid [SG_RESOURCESTATE_INVALID]";
+			size = sizeof(char)*(strlen(stateBuf)+128);
+			buf = calloc(size, sizeof(char));
+			snprintf(buf, size, "[%d]: %s", view.id, stateBuf);
+		case _SG_RESOURCESTATE_FORCE_U32: break;
+	};
+	if(buf) {
+		WLOG(VIEW_INFO, buf);
+		free(buf);
+	}
+}
+
+_OE_PRIVATE void OECheckOEViews(OEViews *views) {
+	if(views) {
+		OECheckViewState(views->cRenderTarget);
+		OECheckViewState(views->cDepthBuffer);
+		OECheckViewState(views->cNormalBuffer);
+		OECheckViewState(views->cPositionBuffer);
+		OECheckViewState(views->cNoiseBuffer);
+		OECheckViewState(views->cPrevFrameBuffer);
+		OECheckViewState(views->cPostTarget);
+		OECheckViewState(views->cPostTargetPong);
+		OECheckViewState(views->tRenderTarget);
+		OECheckViewState(views->tDepthBuffer);
+		OECheckViewState(views->tNormalBuffer);
+		OECheckViewState(views->tPositionBuffer);
+		OECheckViewState(views->tNoiseBuffer);
+		OECheckViewState(views->tPrevFrameBuffer);
+		OECheckViewState(views->tPostTarget);
+		OECheckViewState(views->tPostTargetPong);
+	}
+
+}
+
+_OE_PRIVATE void OEDestroyViews(OEViews *views) {
+	if(views) {
+		sg_destroy_view(views->cRenderTarget);	
+		sg_destroy_view(views->cDepthBuffer);	
+		sg_destroy_view(views->cNormalBuffer);	
+		sg_destroy_view(views->cPositionBuffer);	
+		sg_destroy_view(views->cNoiseBuffer);	
+		sg_destroy_view(views->cPrevFrameBuffer);	
+		sg_destroy_view(views->cPostTarget);	
+		sg_destroy_view(views->cPostTargetPong);	
+		sg_destroy_view(views->tRenderTarget);	
+		sg_destroy_view(views->tDepthBuffer);	
+		sg_destroy_view(views->tNormalBuffer);	
+		sg_destroy_view(views->tPositionBuffer);	
+		sg_destroy_view(views->tNoiseBuffer);	
+		sg_destroy_view(views->tPrevFrameBuffer);	
+		sg_destroy_view(views->tPostTarget);	
+		sg_destroy_view(views->tPostTargetPong);	
+	}
+}
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -17,11 +17,11 @@
             ATTR_quad_OEquad_position => 0
             ATTR_quad_OEquad_texcoord => 1
     Bindings:
-        Image 'OEquad_texture':
+        Texture 'OEquad_texture':
             Image type: SG_IMAGETYPE_2D
             Sample type: SG_IMAGESAMPLETYPE_FLOAT
             Multisampled: false
-            Bind slot: IMG_OEquad_texture => 0
+            Bind slot: VIEW_OEquad_texture => 0
         Sampler 'OEquad_smp':
             Type: SG_SAMPLERTYPE_FILTERING
             Bind slot: SMP_OEquad_smp => 0
@@ -38,7 +38,7 @@
 #endif
 #define ATTR_quad_OEquad_position (0)
 #define ATTR_quad_OEquad_texcoord (1)
-#define IMG_OEquad_texture (0)
+#define VIEW_OEquad_texture (0)
 #define SMP_OEquad_smp (0)
 /*
     #version 410
@@ -123,16 +123,16 @@ static inline const sg_shader_desc* quad_shader_desc(sg_backend backend) {
             desc.attrs[0].glsl_name = "OEquad_position";
             desc.attrs[1].base_type = SG_SHADERATTRBASETYPE_FLOAT;
             desc.attrs[1].glsl_name = "OEquad_texcoord";
-            desc.images[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.images[0].multisampled = false;
+            desc.views[0].texture.stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.views[0].texture.image_type = SG_IMAGETYPE_2D;
+            desc.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.views[0].texture.multisampled = false;
             desc.samplers[0].stage = SG_SHADERSTAGE_FRAGMENT;
             desc.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.image_sampler_pairs[0].image_slot = 0;
-            desc.image_sampler_pairs[0].sampler_slot = 0;
-            desc.image_sampler_pairs[0].glsl_name = "OEquad_texture_OEquad_smp";
+            desc.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.texture_sampler_pairs[0].view_slot = 0;
+            desc.texture_sampler_pairs[0].sampler_slot = 0;
+            desc.texture_sampler_pairs[0].glsl_name = "OEquad_texture_OEquad_smp";
             desc.label = "quad_shader";
         }
         return &desc;

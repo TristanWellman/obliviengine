@@ -1,6 +1,3 @@
-[submodule "include/sokol"]
-	path = include/sokol
-	url = https://github.com/TristanWellman/sokol
 [submodule "sokol-tools-bin"]
 	path = sokol-tools-bin
 	url = https://github.com/floooh/sokol-tools-bin
@@ -20,3 +17,9 @@
 [submodule "include/lua"]
 	path = include/lua
 	url = https://github.com/lua/lua.git
+[submodule "include/cware-utils"]
+	path = include/cware-utils
+	url = https://github.com/c-ware/cware-utils.git
+[submodule "include/sokol"]
+	path = include/sokol
+	url = https://github.com/floooh/sokol.git

@@ -28,11 +28,11 @@
         Uniform block 'light_params':
             C struct: light_params_t
             Bind slot: UB_light_params => 1
-        Image '_texture':
+        Texture '_texture':
             Image type: SG_IMAGETYPE_2D
             Sample type: SG_IMAGESAMPLETYPE_FLOAT
             Multisampled: false
-            Bind slot: IMG__texture => 3
+            Bind slot: VIEW__texture => 3
         Sampler 'smp':
             Type: SG_SAMPLERTYPE_FILTERING
             Bind slot: SMP_smp => 3
@@ -54,7 +54,7 @@
 #define UB_vs_params (0)
 #define UB_fs_params (3)
 #define UB_light_params (1)
-#define IMG__texture (3)
+#define VIEW__texture (3)
 #define SMP_smp (3)
 #pragma pack(push,1)
 SOKOL_SHDC_ALIGN(16) typedef struct vs_params_t {
@@ -443,16 +443,16 @@ static inline const sg_shader_desc* simple_shader_desc(sg_backend backend) {
             desc.uniform_blocks[3].glsl_uniforms[1].type = SG_UNIFORMTYPE_INT;
             desc.uniform_blocks[3].glsl_uniforms[1].array_count = 0;
             desc.uniform_blocks[3].glsl_uniforms[1].glsl_name = "_61.numLights";
-            desc.images[3].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.images[3].image_type = SG_IMAGETYPE_2D;
-            desc.images[3].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.images[3].multisampled = false;
+            desc.views[3].texture.stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.views[3].texture.image_type = SG_IMAGETYPE_2D;
+            desc.views[3].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.views[3].texture.multisampled = false;
             desc.samplers[3].stage = SG_SHADERSTAGE_FRAGMENT;
             desc.samplers[3].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.image_sampler_pairs[0].image_slot = 3;
-            desc.image_sampler_pairs[0].sampler_slot = 3;
-            desc.image_sampler_pairs[0].glsl_name = "_texture_smp";
+            desc.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.texture_sampler_pairs[0].view_slot = 3;
+            desc.texture_sampler_pairs[0].sampler_slot = 3;
+            desc.texture_sampler_pairs[0].glsl_name = "_texture_smp";
             desc.label = "simple_shader";
         }
         return &desc;

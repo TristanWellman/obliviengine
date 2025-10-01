@@ -20,11 +20,11 @@
         Uniform block 'OEFXAA_resolution':
             C struct: OEFXAA_resolution_t
             Bind slot: UB_OEFXAA_resolution => 1
-        Image 'OEFXAA_texture':
+        Texture 'OEFXAA_texture':
             Image type: SG_IMAGETYPE_2D
             Sample type: SG_IMAGESAMPLETYPE_FLOAT
             Multisampled: false
-            Bind slot: IMG_OEFXAA_texture => 0
+            Bind slot: VIEW_OEFXAA_texture => 0
         Sampler 'OEFXAA_sampler':
             Type: SG_SAMPLERTYPE_FILTERING
             Bind slot: SMP_OEFXAA_sampler => 0
@@ -42,7 +42,7 @@
 #define ATTR_OEFXAA_OEFXAAQuad_position (0)
 #define ATTR_OEFXAA_OEFXAAQuad_texcoord (1)
 #define UB_OEFXAA_resolution (1)
-#define IMG_OEFXAA_texture (0)
+#define VIEW_OEFXAA_texture (0)
 #define SMP_OEFXAA_sampler (0)
 #pragma pack(push,1)
 SOKOL_SHDC_ALIGN(16) typedef struct OEFXAA_resolution_t {
@@ -276,16 +276,16 @@ static inline const sg_shader_desc* OEFXAA_shader_desc(sg_backend backend) {
             desc.uniform_blocks[1].glsl_uniforms[0].type = SG_UNIFORMTYPE_FLOAT4;
             desc.uniform_blocks[1].glsl_uniforms[0].array_count = 1;
             desc.uniform_blocks[1].glsl_uniforms[0].glsl_name = "OEFXAA_resolution";
-            desc.images[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.images[0].image_type = SG_IMAGETYPE_2D;
-            desc.images[0].sample_type = SG_IMAGESAMPLETYPE_FLOAT;
-            desc.images[0].multisampled = false;
+            desc.views[0].texture.stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.views[0].texture.image_type = SG_IMAGETYPE_2D;
+            desc.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+            desc.views[0].texture.multisampled = false;
             desc.samplers[0].stage = SG_SHADERSTAGE_FRAGMENT;
             desc.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
-            desc.image_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
-            desc.image_sampler_pairs[0].image_slot = 0;
-            desc.image_sampler_pairs[0].sampler_slot = 0;
-            desc.image_sampler_pairs[0].glsl_name = "OEFXAA_texture_OEFXAA_sampler";
+            desc.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+            desc.texture_sampler_pairs[0].view_slot = 0;
+            desc.texture_sampler_pairs[0].sampler_slot = 0;
+            desc.texture_sampler_pairs[0].glsl_name = "OEFXAA_texture_OEFXAA_sampler";
             desc.label = "OEFXAA_shader";
         }
         return &desc;
