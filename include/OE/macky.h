@@ -53,6 +53,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define MAX_ARR_SIZE 1024
 
+#define _MKY_FBSTEP 1024
+
 /**
  * @typedef MKY_ARR
  * @brief void pointer to hold array data
@@ -84,8 +86,8 @@ typedef struct mky_array {
  * */
 typedef struct maky_data {
 	FILE *file;
-	char *filebuf; /* malloc to size of all data in file */
-	int fsize;
+	char *filebuf;
+	int fsize, fcap;
 } mky_data;
 
 /**
@@ -95,6 +97,12 @@ typedef struct maky_data {
  * */
 mky_data *mky_init(char *filename);
 
+/**
+ * @brief Free and close all macky data for the current file.
+ *
+ * @param data The macky file data to close.
+ * */
+void mky_close(mky_data *data);
 
 /**
  * @brief retrieves and parses int array from section in macky config file

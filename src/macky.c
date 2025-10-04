@@ -35,7 +35,11 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * */
 
+#ifdef _OE_INC
 #include <OE/macky.h>
+#else 
+#include "macky.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -44,35 +48,37 @@ mky_data globalMackyData; /* to be used as returned pointer to user. */
 mky_data *ptr;
 
 mky_data *mky_init(char *filename) {
-	if(ptr==NULL) ptr = (mky_data *)malloc(sizeof(mky_data));
+	if(ptr==NULL) ptr = calloc(1, sizeof(mky_data));
 	ptr = &globalMackyData;
 
 	/*allocates all data from config file to the file buffer*/
-	if(filename==NULL) return ptr;
+	if(filename==NULL) return NULL;
 	ptr->file = fopen(filename, "r");
 	if(ptr->file==NULL) return NULL;
-	ptr->filebuf = (char *)malloc(sizeof(char)*1024);
+	ptr->fsize = 0;
+	ptr->fcap = _MKY_FBSTEP;
+	ptr->filebuf = calloc(ptr->fcap, sizeof(char));
 	ptr->filebuf[0] = '\0';
-	int BSIZE = 1024;
-	int curSize=0;
-	char line[1024];
+	char line[_MKY_FBSTEP];
 	while(fgets(line,sizeof(line),ptr->file)!=NULL) {	
-		curSize+=strlen(line);
-		if(curSize<=BSIZE) {
+		ptr->fsize+=strlen(line);
+		if(ptr->fsize<ptr->fcap) {
 			strcat(ptr->filebuf, line);
 		} else {
-			ptr->filebuf = (char *)realloc(ptr->filebuf, (sizeof(char)*curSize)*2);
-			BSIZE=curSize*2;
+			ptr->fcap+=_MKY_FBSTEP;
+			ptr->filebuf = (char *)realloc(ptr->filebuf, sizeof(char *)*ptr->fcap);
 			strcat(ptr->filebuf, line);
 		}
 	}
-	/* Shrink down to size of text */
-	/*ptr->filebuf = (char *)realloc(ptr->filebuf, sizeof(char)*curSize);*/
-	ptr->filebuf+=6;/*skip weird characters*/
-	ptr->fsize = curSize-6;
-	/*printf("%s", ptr->filebuf);*/
-	/*fclose(ptr->file);*/
+	fclose(ptr->file);
 	return ptr;
+}
+
+void mky_close(mky_data *data) {
+	if(ptr&&data&&ptr==data) {
+		if(data->file) fclose(data->file);
+		if(data->filebuf) free(data->filebuf);
+	}
 }
 
 int checkData(char *str, char *data) {
@@ -90,7 +96,7 @@ int checkData(char *str, char *data) {
 }
 
 char *extractValue(char *fileBuffer, int index) {
-	char *buf = (char *)malloc(sizeof(char)*1025);
+	char *buf = calloc(_MKY_FBSTEP+1, sizeof(char));
 	int begin=index;
 	/*Work backward to the start of declaration*/
 	for(;begin>=0;begin--) {
@@ -179,7 +185,7 @@ mky_array mky_getArrayAt(char *section, char *itemName) {
 	}
 	data++;data[strlen(data)-1]='\0'; /*get rid of brackets*/
 	/*printf("%s\n", data);*/
-	char *arrData = (char *)malloc(sizeof(char)*MAX_ARR_SIZE);
+	char *arrData = calloc(MAX_ARR_SIZE, sizeof(char));
 	for(i=0;i<strlen(data);i++) {
 		if(data[i]==',') data++;
 		if(i>=MAX_ARR_SIZE) break;
@@ -191,7 +197,7 @@ mky_array mky_getArrayAt(char *section, char *itemName) {
 mky_array mky_getIntArrayAt(char *section, char *itemName) {
 	mky_array arr = mky_getArrayAt(section, itemName);
 	char *vars = (char *)arr.array;
-	int *final = (int *)malloc(sizeof(int)*arr.array_length);
+	int *final = calloc(arr.array_length, sizeof(int));
 	int i;
 	for(i=0;i<arr.array_length;i++) final[i] = vars[i] - '0';
 	arr.array = (void *)final;
@@ -202,6 +208,7 @@ mky_array mky_getIntArrayAt(char *section, char *itemName) {
 int mky_getIntAt(char *section, char *itemName) {
 	/*mky_getIntAt("ITEM", "Damage");*/
 	char *data = findData(section, itemName);
+	if(!data) return 0;
 	if(data==NULL) {
 		fprintf(stdout, "MKY:WARN:: Could not find data %s - %s\n", section, itemName);
 		return -1;
@@ -223,6 +230,7 @@ int mky_getIntAt(char *section, char *itemName) {
 
 float mky_getFloatAt(char *section, char *itemName) {
 	char *data = findData(section, itemName);
+	if(!data) return 0;
 	int i,item;
 	for(i=0;i<strlen(data);i++) {
 		if(checkData("VALUE", data)) {
@@ -240,6 +248,7 @@ float mky_getFloatAt(char *section, char *itemName) {
 
 char *mky_getStrAt(char *section, char *itemName) {
 	char *data = findData(section, itemName);
+	if(!data) return NULL;
 	int i,item;
 	for(i=0;i<strlen(data);i++) {
 		if(checkData("FLOAT", data)) {
@@ -258,6 +267,7 @@ char *mky_getStrAt(char *section, char *itemName) {
 #if !defined __STDBOOL_H
 MKY_BOOL mky_getBoolAt(char *section, char *itemName) {
 	char *data = findData(section, itemName);
+	if(!data) return MKY_FALSE;
 	int i,item;
 	for(i=0;i<strlen(data);i++) {
 		if(checkData("FLOAT", data)) {
@@ -277,6 +287,7 @@ MKY_BOOL mky_getBoolAt(char *section, char *itemName) {
 #else
 bool mky_getBoolAt(char *section, char *itemName) {
 	char *data = findData(section, itemName);
+	if(!data) return MKY_FALSE;
 	int i,item;
 	for(i=0;i<strlen(data);i++) {
 		if(checkData("FLOAT", data)) {
@@ -296,13 +307,14 @@ bool mky_getBoolAt(char *section, char *itemName) {
 
 
 /* This is just for testing*/
-/*
-int main() {
+
+/*int main() {
 	mky_data *data = mky_init("test.mky");
 	if(data==NULL) {
 		printf("Error loading file!\n");
 		return 0;
 	}
+	printf("- - -\n%s\n- - -\n", data->filebuf);
 
 	char *name = mky_getStrAt("ITEM", "Name");
 	int damage = mky_getIntAt("ITEM", "Damage");
@@ -321,8 +333,18 @@ int main() {
 	}
 	free(tmp.array);
 
+	mky_close(data);
+
+	data = mky_init("test.mky");
+	if(data==NULL) {
+		printf("Error loading file!\n");
+		return 0;
+	}
+	name = mky_getStrAt("ITEM", "Name");
+	printf("\nReopened file Name: %s\n", name);
+
 
 	return 0;
-}
-*/
+}*/
+
 	

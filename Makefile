@@ -1,5 +1,5 @@
 CC= gcc
-CFLAGS= -g -O2 -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include
+CFLAGS= -g -O2 -D_OE_INC -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include
 CFLAGS_DEB= -g -O2 -Iinclude -Ishaders 
 # We do not use LDFLAGS, but it is left here for lib reference.
 LDFLAGS = -lm -lpthread 
