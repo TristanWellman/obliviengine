@@ -842,6 +842,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->window->running = 1;
 	globalRenderer->debug = 0;
 	globalRenderer->postPassSize = 0;
+	globalRenderer->keyPressed = 0;
+	globalRenderer->mousePressed = 0;
 	globalRenderer->imgui.ioptr = NULL;
 	globalRenderer->window->cursor = NULL;
 	char *os = OEGETOS();
@@ -1363,6 +1365,10 @@ int OEIsKeyPressed() {
 	return globalRenderer->keyPressed;
 }
 
+int OEIsKeyRepeating() {
+	return globalRenderer->wasKeyPressed;
+}
+
 int OEGetKeySym() {
 	return globalRenderer->lastKey;
 }
@@ -1375,7 +1381,23 @@ Mouse OEGetMouse() {
 	return globalRenderer->mouse;
 }
 
+int OEIsMousePressed() {
+	return globalRenderer->mousePressed;
+}
+
+int OEIsMouseRepeating() {
+	return globalRenderer->wasMousePressed;
+}
+
+SDL_MouseButtonEvent *OEGetMouseEvent() {
+	return &globalRenderer->mouseEvent;
+}
+
+/*For mixed events use an SDL keyboard state*/
 void OEPollEvents(EVENTFUNC event) {
+	globalRenderer->wasKeyPressed = OEIsKeyPressed();
+	globalRenderer->wasMousePressed = OEIsMousePressed();
+
 	while(SDL_PollEvent(&globalRenderer->event)!=0) {
 		ImGui_ImplSDL2_ProcessEvent(&globalRenderer->event);
 		if(globalRenderer->event.type==SDL_QUIT) {
@@ -1384,8 +1406,16 @@ void OEPollEvents(EVENTFUNC event) {
 		if(globalRenderer->event.type==SDL_KEYDOWN) {
 			globalRenderer->keyPressed = 1;
 			globalRenderer->lastKey = globalRenderer->event.key.keysym.sym;
-		} else if(globalRenderer->event.type==SDL_KEYUP) globalRenderer->keyPressed = 0;
-
+		} else if(globalRenderer->event.type==SDL_KEYUP) {
+			globalRenderer->keyPressed = 0;
+		}
+		if(globalRenderer->event.type==SDL_MOUSEBUTTONDOWN) {
+			globalRenderer->mousePressed = 1;
+			globalRenderer->mouseEvent = globalRenderer->event.button;
+		} else if(globalRenderer->event.type==SDL_MOUSEBUTTONUP) {
+			globalRenderer->mousePressed = 0; 
+			globalRenderer->mouseEvent = globalRenderer->event.button;
+		}
 	}
 	event();
 }

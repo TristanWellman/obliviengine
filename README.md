@@ -1,6 +1,12 @@
 # Obliviengine
 
-My dumb little renderer.
+<div align="center">
+  <p>
+    <br> <a href="https://discord.gg/sBqBFKq3Ab"><img src="https://img.shields.io/discord/1377132755392925727?color=5865F2&logo=discord&logoColor=white" alt="MinervaWare discord server" /></a> </br>
+  </p>
+</div>
+
+3D engine used for https://github.com/MinervaWare/Bridewell
 
 --- 
 
@@ -75,7 +81,7 @@ int main(int argc, char **argv) {
 ``-Iinclude`` and ``-Llib`` can be replaced with whatever folders you are using.
 
 ```
-gcc -g -Iinclude sample.c -o sample -Llib -lOE -lSDL2 -lgdi32 -lopengl32 -lm -ldl -lpthread
+gcc -g -Iinclude sample.c -o sample -Llib -lOE -lcimgui -lassimp -llua -lSDL2 -lgdi32 -lopengl32 -lm -ldl -lpthread
 ```
 
 ## OpenXR-SDK

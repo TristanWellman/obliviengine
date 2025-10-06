@@ -232,7 +232,9 @@ struct renderer {
 	Window *window;
 	struct OEImgui imgui;
 	SDL_Event event;
-	unsigned int keyPressed :1;
+	SDL_MouseButtonEvent mouseEvent;
+	unsigned int keyPressed :1, wasKeyPressed :1;
+	unsigned int mousePressed :1, wasMousePressed :1;
 	int lastKey :8;
 
 	Camera cam;
@@ -533,6 +535,10 @@ SDL_Event OEGetEvent();
  * */
 int OEIsKeyPressed();
 /**
+ * @brief Check if key press is repeating.
+ * */
+int OEIsKeyRepeating();
+/**
  * @brief Get the SDL key handle.*/
 int OEGetKeySym();
 /**
@@ -546,6 +552,18 @@ void OEGetMousePos(int *x, int *y);
  * @brief Get the structure for mouse data, the position, and the world space ray hit.
  * */
 Mouse OEGetMouse();
+/**
+ * @brief Check if a mouse button is being pressed.
+ * */
+int OEIsMousePressed();
+/**
+ * @brief Check if the mouse press is repeating.
+ * */
+int OEIsMouseRepeating();
+/**
+ * @brief Get the SDL mouse button event.
+ * */
+SDL_MouseButtonEvent *OEGetMouseEvent();
 /**
  * @brief Runs the SDL event polling loop along with a user defined key handler.
  *
