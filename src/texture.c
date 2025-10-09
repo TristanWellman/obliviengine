@@ -28,13 +28,14 @@ void addTexture(char *ID, char *path) {
 			int w,h,c;
 			unsigned char *data = stbi_load(path, &w,&h,&c,4);
 			WASSERT(data, "Failed to load image: %s", path);
-			handle.textures[i].tex = sg_make_image(&(sg_image_desc){
-        		.width = w,
-        		.height = h,
-        		.pixel_format = SG_PIXELFORMAT_RGBA8,
-        		.data.mip_levels[0] = PTRRANGE(data, (w*h*4)),
-        		.label = ID
-    		});
+			handle.textures[i].tex = sg_make_view(&(sg_view_desc){
+					.texture.image = sg_make_image(&(sg_image_desc){
+						.width = w,
+						.height = h,
+						.pixel_format = SG_PIXELFORMAT_RGBA8,
+						.data.mip_levels[0] = PTRRANGE(data, (w*h*4)),
+						.label = ID
+    		})});
 			stbi_image_free(data);
 			handle.total++;
 			char buf[1024];
@@ -47,7 +48,7 @@ void addTexture(char *ID, char *path) {
 	}
 }
 
-sg_image getTexture(char *ID) {
+sg_view getTexture(char *ID) {
 	int i;
 	for(i=0;i<handle.total;i++) {
 		if(handle.textures[i].ID!=NULL&&!strcmp(handle.textures[i].ID,ID)) 
@@ -56,6 +57,6 @@ sg_image getTexture(char *ID) {
 	char buf[strlen(ID)+128];
 	sprintf(buf, "Failed to find image %s", ID);
 	WLOG(WARN, buf);
-	return (sg_image){0};
+	return (sg_view){0};
 }
 

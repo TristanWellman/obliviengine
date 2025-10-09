@@ -8,7 +8,7 @@
 #define MAX_TEX 10000
 
 typedef struct {
-	sg_image tex;
+	sg_view tex;
 	char *ID;
 } Texture;
 
@@ -19,7 +19,7 @@ struct textureHandle {
 };
 
 void addTexture(char *ID, char *path);
-sg_image getTexture(char *ID);
+sg_view getTexture(char *ID);
 
 #endif
 

@@ -440,18 +440,16 @@ void OEDrawObject(Object *obj) {
 	runObjLuaScript(obj);
 
     sg_apply_pipeline(obj->pipe);
-	sg_view tmpView = sg_make_view(&(sg_view_desc){.texture.image=OEGetDefaultTexture()});
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.views[OE_TEXPOS] = tmpView,
+		.views[OE_TEXPOS] = OEGetDefaultTexture(),
         .samplers[OE_TEXPOS] = globalRenderer->ssao.sampler
 
     });
 
 	OEApplyCurrentUniforms(obj);
     sg_draw(0, obj->numIndices, 1);
-	sg_destroy_view(tmpView);
 }
 
 void OEDrawObjectBind(Object *obj, sg_bindings binding) {
@@ -470,7 +468,7 @@ void OEDrawObjectBind(Object *obj, sg_bindings binding) {
 }
 
 
-void OEDrawObjectTex(Object *obj, int assign, sg_image texture) {
+void OEDrawObjectTex(Object *obj, int assign, sg_view texture) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
 		return;
@@ -478,20 +476,17 @@ void OEDrawObjectTex(Object *obj, int assign, sg_image texture) {
 
 	runObjLuaScript(obj);
 
-	const int a = 3;
     sg_apply_pipeline(obj->pipe);
-	sg_view tmpView = sg_make_view(&(sg_view_desc){.texture.image=texture});
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.views[a] = tmpView,
-        .samplers[a] = globalRenderer->ssao.sampler
+		.views[3] = texture,
+        .samplers[3] = globalRenderer->ssao.sampler
 
     });
 
 	OEApplyCurrentUniforms(obj);
     sg_draw(0, obj->numIndices, 1);
-	sg_destroy_view(tmpView);
 }
 
 void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms) {
@@ -503,22 +498,20 @@ void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms) {
 	runObjLuaScript(obj);
 
     sg_apply_pipeline(obj->pipe);
-	sg_view tmpView = sg_make_view(&(sg_view_desc){.texture.image=OEGetDefaultTexture()});
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.views[OE_TEXPOS] = tmpView,
+		.views[OE_TEXPOS] = OEGetDefaultTexture(),
         .samplers[OE_TEXPOS] = globalRenderer->ssao.sampler
     });
 
 	apply_uniforms();
 
     sg_draw(0, obj->numIndices, 1);
-	sg_destroy_view(tmpView);
 }
 
 void OEDrawObjectTexEx(Object *obj, int assign,
-		sg_image texture, UNILOADER apply_uniforms) {
+		sg_view texture, UNILOADER apply_uniforms) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
 		return;
@@ -526,20 +519,17 @@ void OEDrawObjectTexEx(Object *obj, int assign,
 
 	runObjLuaScript(obj);
 
-	const int a = 3;	
     sg_apply_pipeline(obj->pipe);
-	sg_view tmpView = sg_make_view(&(sg_view_desc){.texture.image=texture});
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.views[a] = tmpView,
-        .samplers[a] = globalRenderer->ssao.sampler
+		.views[3] = texture,
+        .samplers[3] = globalRenderer->ssao.sampler
     });
 
 	apply_uniforms();
 
     sg_draw(0, obj->numIndices, 1);
-	sg_destroy_view(tmpView);
 }
 
 int OERendererIsRunning() {
@@ -690,7 +680,7 @@ Object OEGetDefaultCubeObj(char *name) {
 	return obj;
 }
 
-sg_image OEGetDefaultTexture() {
+sg_view OEGetDefaultTexture() {
 	return globalRenderer->defTexture;
 }
 
@@ -1138,7 +1128,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
     	.label = "defTexture"
 	};
 
-	globalRenderer->defTexture = sg_make_image(&img_desc);
+	globalRenderer->defTexture = sg_make_view(&(sg_view_desc){
+			.texture.image=sg_make_image(&img_desc)});
 
 	/*Setup Camera*/
 
@@ -1745,6 +1736,7 @@ void OERendererTimerEnd() {
 
 void OECleanup(void) {
 	OEDestroyViews(&globalRenderer->views);
+	sg_destroy_view(globalRenderer->defTexture);
 	sg_shutdown();
 	SDL_DestroyWindow(globalRenderer->window->window);
 	SDL_Quit();

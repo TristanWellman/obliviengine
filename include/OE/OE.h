@@ -250,7 +250,7 @@ struct renderer {
 	sg_shader rayTracedShader;
 
 	/*This is for if you call a draw function and do not pass a texture*/
-	sg_image defTexture;
+	sg_view defTexture;
 
 	sg_image depthDummy; /*trick sokol for depth testing*/
 	sg_image depthBuffer;
@@ -389,7 +389,7 @@ void OEDrawObject(Object *obj);
  * @param assign The texture index for the Object.
  * @param texture The texture image.
  * */
-void OEDrawObjectTex(Object *obj, int assign, sg_image texture);
+void OEDrawObjectTex(Object *obj, int assign, sg_view texture);
 /**
  * @brief Sends a draw call to the GPU with a specified Object and custom uniform application.
  *
@@ -406,7 +406,7 @@ void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms);
  * @param apply_uniforms The function for applying your custom uniforms.
  * */
 void OEDrawObjectTexEx(Object *obj, int assign,
-		sg_image texture, UNILOADER apply_uniforms); 
+		sg_view texture, UNILOADER apply_uniforms); 
 /**
  * @brief Gets the Sokol buffer for the OE Cube vertices.
  * */
@@ -440,7 +440,7 @@ Object OEGetDefaultCubeObj(char *name);
 /**
  * @brief Gets the default OE texture, this is a full white image.
  * */
-sg_image OEGetDefaultTexture(); 
+sg_view OEGetDefaultTexture(); 
 
 /*renderer*/
 /**
