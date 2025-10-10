@@ -851,11 +851,11 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			"ERROR:: Failed to init SDL!");
 
 	SDL_GL_LoadLibrary(NULL);
-#if defined __APPLE__
+//#if defined __APPLE__
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); 
-#endif
+//#endif
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);	
@@ -892,6 +892,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	WLOG(INFO_VENDOR, glGetString(GL_VENDOR));
 	WLOG(INFO_GPU, glGetString(GL_RENDERER));
 	WLOG(INFO_DRIVER_VERSION, glGetString(GL_VERSION));
+	WLOG(INFO_GLMAJOR_VERSION, glGetString(GL_MAJOR_VERSION));
+	WLOG(INFO_GLMINOR_VERSION, glGetString(GL_MINOR_VERSION));
 
 /*
  * Sokol setup
