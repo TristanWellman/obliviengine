@@ -407,7 +407,7 @@ void *applyBloomUniforms() {
 }
 
 void *applySSAOUniforms() {
-	sg_apply_uniforms(UB_OESSAO_params, &SG_RANGE(globalRenderer->ssao.params));
+	sg_apply_uniforms(UB_OESSAO_params, &SG_RANGE(globalRenderer->ssaoParams));
 	return NULL;
 }
 
@@ -444,7 +444,7 @@ void OEDrawObject(Object *obj) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
 		.views[OE_TEXPOS] = OEGetDefaultTexture(),
-        .samplers[OE_TEXPOS] = globalRenderer->ssao.sampler
+        .samplers[OE_TEXPOS] = globalRenderer->sampler
 
     });
 
@@ -481,7 +481,7 @@ void OEDrawObjectTex(Object *obj, int assign, sg_view texture) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
 		.views[3] = texture,
-        .samplers[3] = globalRenderer->ssao.sampler
+        .samplers[3] = globalRenderer->sampler
 
     });
 
@@ -502,7 +502,7 @@ void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
 		.views[OE_TEXPOS] = OEGetDefaultTexture(),
-        .samplers[OE_TEXPOS] = globalRenderer->ssao.sampler
+        .samplers[OE_TEXPOS] = globalRenderer->sampler
     });
 
 	apply_uniforms();
@@ -524,7 +524,7 @@ void OEDrawObjectTexEx(Object *obj, int assign,
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
 		.views[3] = texture,
-        .samplers[3] = globalRenderer->ssao.sampler
+        .samplers[3] = globalRenderer->sampler
     });
 
 	apply_uniforms();
@@ -799,7 +799,6 @@ void OEClearDrawQueue() {
 	int *size = &globalRenderer->drawQueue.size;
 	int *cap = &globalRenderer->drawQueue.cap;
 	int i;
-	/*The obj pointers are handled by the user and do not need freed*/
 	free(globalRenderer->drawQueue.drawCalls);
 	OEInitDrawQueue();
 }
@@ -928,17 +927,11 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
  * setup Render Target & Depth Buffer
  * */
 
-	
-
-	globalRenderer->ssao.w = globalRenderer->window->width;
-	globalRenderer->ssao.h = globalRenderer->window->height;
-
 	globalRenderer->renderTarget = sg_make_image(&(sg_image_desc){
 		.usage.color_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
 		.pixel_format = SG_PIXELFORMAT_RGBA32F,
-		//.sample_count = 4,
 		.label = "render_target"
 	});
 
@@ -1066,8 +1059,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 		.colors[0] = globalRenderer->views.cPrevFrameBuffer,
 		.depth_stencil = depthDummyView};
 
-	/*the sampler is important*/
-	globalRenderer->ssao.sampler = sg_make_sampler(&(sg_sampler_desc){
+	globalRenderer->sampler = sg_make_sampler(&(sg_sampler_desc){
 		.min_filter = SG_FILTER_NEAREST,
 		.mag_filter = SG_FILTER_NEAREST,
 		.wrap_u = SG_WRAP_REPEAT,           
@@ -1131,7 +1123,9 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->defTexture = sg_make_view(&(sg_view_desc){
 			.texture.image=sg_make_image(&img_desc)});
 
-	/*Setup Camera*/
+/*
+ * Init Camera
+ * */
 
 	globalRenderer->cam.oScale = 3.0f;
 	float oScale = globalRenderer->cam.oScale;
@@ -1152,7 +1146,6 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->camType = camType;
 	switch(camType) {
 		case ISOMETRIC: {
-			//globalRenderer->cam.fov = 80.0f;
 			vec3_dup(globalRenderer->cam.position, (vec3){15.0f, 15.0f, 15.0f});
 
 			float angle_y = DEG2RAD(45.0f);
@@ -1171,7 +1164,6 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			VEC3TOVEC3F(tmp, globalRenderer->cam.right);
 			vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
 
-			//vec3_add(globalRenderer->cam.target, globalRenderer->cam.position, globalRenderer->cam.front);
 			vec3_dup(globalRenderer->cam.target, (vec3){0.0f,0.0f,0.0f});
 			mat4x4_look_at(globalRenderer->cam.view,
 			               globalRenderer->cam.position,
@@ -1522,7 +1514,7 @@ void OEEnableSSAO() {
 		/*We have to do vec4 in the shader bindings since we use glsl 4.1*/
 		vec4 final;
 		vec4_dup(final,(vec4){sample[0],sample[1],sample[2],0.0f}); 
-		vec4_dup(globalRenderer->ssao.params.kernel[i],final);
+		vec4_dup(globalRenderer->ssaoParams.kernel[i],final);
 	}
 	OEAddPostPass(OESSAO, globalRenderer->ppshaders.ssaop, (UNILOADER)applySSAOUniforms);
 }
@@ -1594,7 +1586,7 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 	sg_pass_action post_pass_action = (sg_pass_action) {
 		.colors[0].load_action = SG_LOADACTION_DONTCARE,
 		.depth = {
-			.load_action = SG_LOADACTION_CLEAR,
+			.load_action = SG_LOADACTION_DONTCARE,
 			.clear_value = 1.0f
 		}
 	};
@@ -1633,7 +1625,7 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 			.views[3] = globalRenderer->views.tPositionBuffer,
 			.views[4] = globalRenderer->views.tNoiseBuffer,
 			.views[5] = globalRenderer->views.tPrevFrameBuffer,
-			.samplers[SMP_OEquad_smp] = globalRenderer->ssao.sampler,
+			.samplers[SMP_OEquad_smp] = globalRenderer->sampler,
 		});
 		if(globalRenderer->postPasses[i].uniformBind!=NULL) 
 			globalRenderer->postPasses[i].uniformBind();
@@ -1652,7 +1644,7 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 	sg_apply_bindings(&(sg_bindings){
 		.vertex_buffers[0] = globalRenderer->renderTargetBuff,
 		.views[0] = final,
-		.samplers[0] = globalRenderer->ssao.sampler
+		.samplers[0] = globalRenderer->sampler
 	});
 	sg_draw(0,6,1);
 	sg_end_pass();
@@ -1665,7 +1657,7 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 	sg_apply_bindings(&(sg_bindings){
 		.vertex_buffers[0] = globalRenderer->renderTargetBuff,
 		.views[0] = final,
-		.samplers[0] = globalRenderer->ssao.sampler
+		.samplers[0] = globalRenderer->sampler
 	});
 	sg_draw(0,6,1);
 

@@ -13,7 +13,6 @@
 <div align="center">
   <br />
   <p>
-    <a><img src="https://github.com/TristanWellman/obliviengine/blob/main/duel.png" width="800" alt="sss" /></a>
     <a><img src="https://github.com/TristanWellman/obliviengine/blob/main/sample.png" width="800" alt="sss2" /></a>
   </p>
   <br />

@@ -169,21 +169,6 @@ typedef struct {
 	struct DrawCall *drawCalls;
 } DrawCallQueue;
 
-/*Depth buffer and related things should not be in an SSAO struct, 
- * but I am currently too lazy to go through and fix every instance of it*/
-typedef struct {
-	int w,h;
-	sg_shader depthShader;	
-
-	sg_shader ssaoShader;
-	sg_image ssaoBuffer;
-	sg_image finalImage; /*resolv*/
-	sg_pipeline pipe;
-	sg_attachments atts;
-	sg_sampler sampler;
-	OESSAO_params_t params;
-} SSAO;
-
 typedef struct {
 	int width, height;
 	char *title;
@@ -260,7 +245,7 @@ struct renderer {
 	sg_image prevFrameBuffer;
 	OEViews views;
 
-	/*Render texture, and ssao buffer stuff*/
+	/*images, atts, pipes, shaders, buffers*/
 	sg_image renderTarget;
 	sg_attachments renderTargetAtt;
 	sg_image postTarget;
@@ -268,13 +253,12 @@ struct renderer {
 	sg_attachments postTargetAtt;
 	sg_attachments postTargetAttPong;
 	sg_attachments prevFrameTarg;
+	sg_sampler sampler;
 	/*This is just a shader for the screen quad*/
 	sg_shader renderTargetShade;
 	sg_pipeline renderTargetPipe;
 	sg_buffer renderTargetBuff;
 	
-	SSAO ssao;
-
 	/*The user's post passes (bloom, fxaa, ssao, etc.)*/
 	PostPass postPasses[MAXPOSTPASS];
 	int postPassSize :4;
@@ -282,6 +266,7 @@ struct renderer {
 	OEBloom_params_t bloomParams;
 	OESSGI_params_t ssgiParams;
 	OEDNOISE_params_t deNoiseParams;
+	OESSAO_params_t ssaoParams;
 
 	OELuaData luaData; 
 
