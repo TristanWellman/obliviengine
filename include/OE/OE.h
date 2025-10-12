@@ -80,15 +80,26 @@ extern "C" {
 	if(OSCLASS==OS_AMIGA) oc="OS-AMIGA"; \
 	if(OSCLASS==OS_OTHER) oc="OS-OTHER";oc;})
 
-#define MAXOBJS 1000000
-#define OBJSTEP 100
+#define MAXOBJS (1000000)
+#define OBJSTEP (100)
 
-#define MAXDRAWCALLS 500000
-#define DRAWCALLSTEP 10 /*This is how much we realloc to the queue*/
+#define MAXDRAWCALLS (500000)
+#define DRAWCALLSTEP (10) /*This is how much we realloc to the queue*/
 
 #define OE_TEXPOS (VIEW__texture)
-
 #define OE_WHITEP (0xFFFFFFFF)
+
+/*
+ * OE Definitions
+ * */
+#ifndef OE_DEFS
+#define OE_DEFS
+#define OE_USABLE_SCREEN_SPACE (1<<1|1)
+#define OE_FULLSCREEN (1<<2|1)
+#define OE_FULLSCREEN_DESKTOP (1<<3|1)
+#define OE_BORDERLESS (1<<4|1)
+#define OE_BORDERED (1<<5|1)
+#endif
 
 #define MAXPOSTPASS 16
 #define OEFXAA "OEFXAA"
@@ -550,6 +561,32 @@ int OEIsMouseRepeating();
  * */
 SDL_MouseButtonEvent *OEGetMouseEvent();
 /**
+ * @brief Set the window to fullscreen.
+ * */
+void OESetWindowFullscreen();
+/**
+ * @brief Set the window to fake fullscreen, just takes up the desktop space.
+ * */
+void OESetWindowFullscreenDesktop();
+/**
+ * @brief Set the windw mode to borderless.
+ * */
+void OESetWindowBorderless();
+/**
+ * @brief Set window mode to bordered.
+ * */
+void OESetWindowBordered();
+/**
+ * @brief Set window size to the avaliable screen space.
+ * */
+void OESetWindowUsableScreen();
+/**
+ * @brief Set the window display mode, e.g. OE_FULLSCREEN.
+ *
+ * @param flag The setting you want to apply, e.g. OE_FULLSCREEN.
+ * */
+void OESetWindowDisplayMode(int flag);
+/**
  * @brief Runs the SDL event polling loop along with a user defined key handler.
  *
  * @param event The user's event handling function.
@@ -768,6 +805,14 @@ _OE_PRIVATE void OEDestroyViews(OEViews *views) {
 		sg_destroy_view(views->tPostTarget);	
 		sg_destroy_view(views->tPostTargetPong);	
 	}
+}
+
+_OE_PRIVATE int OECheckScreenFlag(int flag) {
+	if(flag==OE_USABLE_SCREEN_SPACE||
+			flag==OE_FULLSCREEN||
+			flag==OE_FULLSCREEN_DESKTOP||
+			flag==OE_BORDERLESS) return 1;
+	return 0;
 }
 
 #ifdef __cplusplus

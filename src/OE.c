@@ -892,8 +892,6 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	WLOG(INFO_VENDOR, glGetString(GL_VENDOR));
 	WLOG(INFO_GPU, glGetString(GL_RENDERER));
 	WLOG(INFO_DRIVER_VERSION, glGetString(GL_VERSION));
-	WLOG(INFO_GLMAJOR_VERSION, glGetString(GL_MAJOR_VERSION));
-	WLOG(INFO_GLMINOR_VERSION, glGetString(GL_MINOR_VERSION));
 
 /*
  * Sokol setup
@@ -1376,6 +1374,51 @@ int OEIsMouseRepeating() {
 
 SDL_MouseButtonEvent *OEGetMouseEvent() {
 	return &globalRenderer->mouseEvent;
+}
+
+void OESetWindowFullscreen() {
+	SDL_SetWindowFullscreen(globalRenderer->window->window, SDL_WINDOW_FULLSCREEN);
+}
+
+void OESetWindowFullscreenDesktop() {
+	SDL_SetWindowFullscreen(globalRenderer->window->window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+}
+
+void OESetWindowBorderless() {
+	SDL_SetWindowBordered(globalRenderer->window->window, SDL_FALSE);
+}
+
+void OESetWindowBordered() {
+	SDL_SetWindowBordered(globalRenderer->window->window, SDL_TRUE);
+}
+
+void OESetWindowUsableScreen() {
+	SDL_Rect ss;
+	if(!SDL_GetDisplayUsableBounds(
+				SDL_GetWindowDisplayIndex(globalRenderer->window->window), &ss)) {
+		globalRenderer->window->width = ss.w;
+		globalRenderer->window->height = ss.h;
+		SDL_SetWindowPosition(globalRenderer->window->window, 0,0);
+		SDL_SetWindowSize(globalRenderer->window->window,
+				globalRenderer->window->width,
+				globalRenderer->window->height);
+		char buf[1024];
+		snprintf(buf, sizeof(buf), "Set window size to: %d, %d", 
+				globalRenderer->window->width,
+				globalRenderer->window->height);
+		WLOG(INFO, buf);
+	}
+}
+
+void OESetWindowDisplayMode(int flag) {
+	if(!OECheckScreenFlag(flag)) return;
+	switch(flag) {
+		case OE_USABLE_SCREEN_SPACE: OESetWindowUsableScreen();break;
+		case OE_FULLSCREEN: OESetWindowFullscreen();break;
+		case OE_FULLSCREEN_DESKTOP: OESetWindowFullscreenDesktop();break;
+		case OE_BORDERLESS: OESetWindowBorderless();break;
+		case OE_BORDERED: OESetWindowBordered();break;
+	};
 }
 
 /*For mixed events use an SDL keyboard state*/

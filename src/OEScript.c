@@ -11,7 +11,7 @@
  * OE Library functions
  * */
 int LSetObjectPosition(lua_State *L) {
-	char *id = luaL_checkstring(L, 1);
+	char *id = (char *)luaL_checkstring(L, 1);
 	Object *obj = OEGetObjectFromName(id);
 	float x = luaL_checknumber(L, 2);
 	float y = luaL_checknumber(L, 3);
@@ -22,7 +22,7 @@ int LSetObjectPosition(lua_State *L) {
 }
 
 int LGetObjectPosition(lua_State *L) {
-	char *id = luaL_checkstring(L, 1);
+	char *id = (char *)luaL_checkstring(L, 1);
 	/*not calling OEGetObjectPosition saves some copy calls*/
 	Object *obj = OEGetObjectFromName(id);
 	lua_pushnumber(L, obj->pos[0]);
@@ -32,14 +32,14 @@ int LGetObjectPosition(lua_State *L) {
 }
 
 int LRotateObject(lua_State *L) {
-	char *id = luaL_checkstring(L, 1);
+	char *id = (char *)luaL_checkstring(L, 1);
 	float deg = luaL_checknumber(L, 2);
 	OERotateObject(id, deg);
 	return OENORET;
 }
 
 int LResetRotation(lua_State *L) {
-	char *id = luaL_checkstring(L, 1);
+	char *id = (char *)luaL_checkstring(L, 1);
 	OEResetRotation(id);	
 	return OENORET;
 }
