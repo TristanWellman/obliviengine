@@ -29,7 +29,6 @@ void main() {
 #define BIAS 0.05
 #define INTENSITY 2.0
 #define PI 3.1415926
-#define SCALE 43758.5453
 
 /*These macros come from include/OE/util.h*/
 #define QSMAGIC 0x5f3759df
@@ -58,9 +57,9 @@ vec3 WNORM(vec3 _x) {
 layout(binding=4) uniform OESSGI_params {
 	mat4 proj;
 	/*
-	 * low: rays = 16 steps = 64
-	 * med: rays = 32 steps = 128
-	 * high: rays = 64 steps = 256
+	 * low: rays = 16 steps = 8
+	 * med: rays = 32 steps = 8
+	 * high: rays = 64 steps = 8
 	 * */
 	int RAYS; 
 	int STEPS;
@@ -76,8 +75,18 @@ layout(binding=5) uniform texture2D OESSGI_prevFrame;
 in vec2 uv;
 out vec4 frag_color;
 
-float getRandom(vec2 uv) {
-	return fract(sin(dot(uv,vec2(12.98,78.23)))*SCALE);
+/* 
+ * https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+ * https://github.com/riccardoscalco/glsl-pcg-prng/blob/main/index.glsl
+ */
+uint pcg(uint v) {
+	uint state = v*uint(747796405)+uint(2891336453);
+	uint word = ((state>>((state>>uint(28))+uint(4)))^state)*uint(277803737);
+	return (word>>uint(22))^word;
+}
+
+float getRandom(vec2 p) {
+	return float(pcg(pcg(uint(p.x))+uint(p.y)))/float(uint(0xffffffff));
 }
 
 void main() {
@@ -91,7 +100,7 @@ void main() {
 	vec3 b = cross(ncol, t);
 	mat3 TBN = mat3(t,b,ncol);
 	vec3 GI = vec3(0.0);
-	float seed = getRandom(uv*pcol.z);
+	float seed = getRandom(uv*pcol.x*pcol.y*pcol.z);
 
 	float invSteps = 1.0/float(STEPS);
 	float tpi = PI*2;
@@ -125,6 +134,7 @@ void main() {
 	float AO = ((float(hits)/float(RAYS)));
 	AO = clamp(AO,0.2,1.0);
 	frag_color = vec4((col+GI)*AO,1.0);
+	//frag_color = vec4(getRandom(uv*pcol.x*pcol.y*pcol.z));
 }
 
 @end
