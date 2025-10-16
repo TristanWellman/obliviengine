@@ -11,7 +11,7 @@
 --- 
 
 <div align="center">
-  <br />
+  <br/>
   <p>
     <a><img src="https://github.com/TristanWellman/obliviengine/blob/main/sample.png" width="800" alt="sss2" /></a>
   </p>
@@ -22,15 +22,22 @@
 
 ## Compile OE
 
+### Linux/Windows
+
 ```
 $ git clone --recursive https://github.com/TristanWellman/obliviengine
 $ cd obliviengine
 $ make
 ```
 
+### FreeBSD
+
+* The only difference for FreeBSD is that you should use ``gmake`` rather than ``make``.
+* Make sure you have Linux enabled in your rc.conf for the shdc shader compilation.
+
 This should build the library that you can include in your project.
 
-Copy the lib (and dlls), and include folders to your project
+Copy the lib (and dlls if on Windows), and include folders to your project!
 
 
 ## Sample Cube

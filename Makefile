@@ -31,6 +31,14 @@ ifeq ($(UNAME_S),Linux)
 	CIMGUI_LDFLAGS += -ldl -lSDL2 -lcimgui -lX11 -lGL
 	CIMGUI_LOC = lib/lin/libcimgui.a
 endif
+ifeq ($(UNAME_S),FreeBSD)
+	BACKEND= -DSOKOL_GLCORE
+	LIB= lib/bsd/libOE.a
+	LDFLAGS += -ldl -lSDL2 -lcimgui -lassimp -llua -lX11 -lGL
+	SHDC= sokol-tools-bin/bin/linux/sokol-shdc 
+	CIMGUI_LDFLAGS += -ldl -lSDL2 -lcimgui -lX11 -lGL
+	CIMGUI_LOC = lib/bsd/libcimgui.a
+endif
 ifeq ($(UNAME_S),Darwin)
 	BACKEND= -DSOKOL_GLCORE
 	LIB= lib/mac/libOE.a
