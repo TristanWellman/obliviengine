@@ -874,6 +874,20 @@ void OEGLFallbackInit() {
 	WLOG(SDL_INFO, SDL_GetError());
 }
 
+void OEForceGraphicsSetting(int flag) {
+	if(!OECheckGraphicFlag(flag)) {
+		WLOG(WARN, "Invalid Graphics Setting Flag!");
+		return;
+	}
+	if(flag>OE_LOW_GRAPHICS) {
+		OESetDefaultShader(globalRenderer->cubeShader);
+		globalRenderer->graphicsSetting = flag;
+	} else {
+		OESetDefaultShader(globalRenderer->lowDefCubeShader);
+		globalRenderer->graphicsSetting = flag;
+	}
+}
+
 void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 /*
@@ -1147,10 +1161,11 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	 * */
 	//if(!globalRenderer->legacy) {
 		globalRenderer->renderTargetShade = sg_make_shader(quad_shader_desc(sg_query_backend()));
-		globalRenderer->defCubeShader = sg_make_shader(simple_shader_desc(sg_query_backend()));
+		globalRenderer->cubeShader = sg_make_shader(simple_shader_desc(sg_query_backend()));
 		globalRenderer->lowDefCubeShader = sg_make_shader(simple_low_shader_desc(sg_query_backend()));
 		if(globalRenderer->graphicsSetting<OE_HIGH_GRAPHICS)
 			OESetDefaultShader(globalRenderer->lowDefCubeShader);
+		else OESetDefaultShader(globalRenderer->cubeShader);
 
 		globalRenderer->ppshaders.fxaa = sg_make_shader(OEFXAA_shader_desc(sg_query_backend()));
 		globalRenderer->ppshaders.ssao = sg_make_shader(OESSAO_shader_desc(sg_query_backend()));
@@ -1652,14 +1667,13 @@ void OEEnableSSGI(int rays, int steps) {
 	globalRenderer->ssgiParams.RAYS = rays;
 	globalRenderer->ssgiParams.STEPS = steps;
 	OEAddPostPass(OESSGI, globalRenderer->ppshaders.ssgip, (UNILOADER)applySSGIUniforms);
-	globalRenderer->deNoiseParams.resolution[0] = globalRenderer->window->width;
-	globalRenderer->deNoiseParams.resolution[1] = globalRenderer->window->height;
-	OEAddPostPass(OEDNOISE, globalRenderer->ppshaders.dnoisep, (UNILOADER)applyDnoiseUniforms);	
+	if(rays<=10||steps<=6) OEEnableDNOISE(); 
 }
 
 void OEDisableSSGI() {
 	OERemovePostPass(OESSGI);
-	OERemovePostPass(OEDNOISE);
+	if(globalRenderer->ssgiParams.RAYS<=10||
+			globalRenderer->ssgiParams.STEPS<=6) OEDisableDNOISE();
 }
 
 void OEUpdateSSGIParams(int rays, int steps) {

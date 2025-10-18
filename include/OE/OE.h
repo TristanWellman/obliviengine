@@ -250,7 +250,7 @@ struct renderer {
 	int objSize :20;
 	OEPPShaders ppshaders; /*These are the enable/disable-able post-pass shaders*/
 	sg_shader defCubeShader;
-	sg_shader lowDefCubeShader;
+	sg_shader cubeShader, lowDefCubeShader;
 	sg_shader rayTracedShader;
 
 	/*This is for if you call a draw function and do not pass a texture*/
@@ -499,6 +499,23 @@ void OEComputeRotationMatrix(mat4x4 out, vec3 front, vec3 up);
  * @brief Query and print the renderable pixel formats supported on a system.
  * */
 int OEDumpSupportedPixelFormats();
+/**
+ * @brief Retrieve the current OpenGL version being used by OE.
+ *
+ * @param maj The major OpenGL version.
+ * @param min The minor OpenGL version.
+ * */
+void OEGetGLVersion(int *maj, int *min);
+/**
+ * @brief Deletes everything and sets OE to OpenGL 3.3
+ * */
+void OEGLFallbackInit();
+/**
+ * @brief Force the OE graphics mode for lower/higher end hardware.
+ *
+ * @param flag The OE flag for graphical setting, e.g. OE_LOW_GRAPHICS.
+ * */
+void OEForceGraphicsSetting(int flag);
 /**
  * @brief This initializes the OE renderer (Sokol, SDL2, OpenGL), camera, and other renderer Objects.
  *
@@ -820,6 +837,13 @@ _OE_PRIVATE int OECheckScreenFlag(int flag) {
 			flag==OE_FULLSCREEN||
 			flag==OE_FULLSCREEN_DESKTOP||
 			flag==OE_BORDERLESS) return 1;
+	return 0;
+}
+
+_OE_PRIVATE int OECheckGraphicFlag(int flag) {
+	if(flag==OE_LOW_GRAPHICS||
+			flag==OE_MED_GRAPHICS||
+			flag==OE_HIGH_GRAPHICS) return 1;
 	return 0;
 }
 

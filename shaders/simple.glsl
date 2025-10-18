@@ -34,6 +34,24 @@ layout(binding=3) uniform fs_params {
 	int numLights;
 };
 
+/*These macros/functions come from include/OE/util.h*/
+#define QSMAGIC 0x5f3759df
+float QISQRT(float _x) {
+	float y=_x;uint i=floatBitsToUint(y);
+	i=(QSMAGIC-(i>>1));
+	y = uintBitsToFloat(i);
+	return y*(1.5-(0.5*_x*y*y));
+}
+float QSQRT(float _x) {
+	return _x*QISQRT(_x);
+}
+vec3 WNORM(vec3 _x) {
+	return vec3(
+			_x.x*QISQRT((_x.x*_x.x)+(_x.y*_x.y)+(_x.z*_x.z)),
+			_x.y*QISQRT((_x.x*_x.x)+(_x.y*_x.y)+(_x.z*_x.z)),
+			_x.z*QISQRT((_x.x*_x.x)+(_x.y*_x.y)+(_x.z*_x.z)));
+}
+
 @end
 
 @vs vs
@@ -56,11 +74,11 @@ void main() {
     color = color0;
 
     mat3 normalMatrix = transpose(inverse(mat3(model)));
-    normal = normalize(normalMatrix * normal0);
+    normal = WNORM(normalMatrix * normal0);
 
     fragPos = vec3(model * vec4(position,1.0));
 	viewSpacePos = vec3(view*vec4(fragPos,1.0));
-	viewSpaceNorm = normalize(mat3(view) * normal);
+	viewSpaceNorm = WNORM(mat3(view) * normal);
 	texcoord = texcoord0;
 }
 
@@ -99,8 +117,8 @@ void position() {
 
 /*Phong Lighting for simple shader*/
 void main() {
-    vec3 norm = normalize(normal);
-    vec3 viewDir = normalize(camPos - fragPos);
+    vec3 norm = WNORM(normal);
+    vec3 viewDir = WNORM(camPos - fragPos);
 
     vec3 ambient;
 
@@ -121,7 +139,6 @@ void main() {
     for(i=0;i<activeLight;i++) {
         vec3 lightPos = vec3(positions[i]);
 		
-
 		float range = positions[i].w;
 		if(range<=0.001) range = 10.0;
 
@@ -130,18 +147,18 @@ void main() {
 		if(intensity<=0.0) intensity = 1.0;
 		lightColor *= intensity;
 
-		float d = length(lightPos-fragPos);
+		float d = QSQRT(dot(lightPos-fragPos,lightPos-fragPos));
 		float invDistSq = 1.0/max(d*d,0.01);
 		float rf = clamp(1.0-(d/range),0.0,1.0);
 		float sr = pow(rf,2.0);
 		float atten = invDistSq*sr;
 
-        vec3 lightDir = normalize(lightPos - fragPos);
+        vec3 lightDir = WNORM(lightPos - fragPos);
         float diff = max(dot(norm, lightDir), 0.0);
         vec3 diffuse = lightColor*materialDiffuse*diff*atten;
 
-        float spec = pow(max(dot(norm, normalize(lightDir+viewDir)), 0.0), shininess);
-        vec3 specular = lightColor*materialSpecular*spec*atten*0.8;;
+        float spec = pow(max(dot(norm, WNORM(lightDir+viewDir)), 0.0), shininess);
+        vec3 specular = lightColor*materialSpecular*spec*atten*0.8;
 		
 		ad += diffuse;
 		as += specular;
@@ -150,7 +167,7 @@ void main() {
 	vec3 hdr = ambient+ad*texcolor+as;
 	vec3 mapped = hdr/(vec3(1.0)+hdr);
 
-    vec3 result = pow(mapped, vec3(1.0/2.2));
+    vec3 result = pow(mapped, vec3(0.45));
     frag_color = vec4(result*vec3(color), 1.0);
 
 	depth();
