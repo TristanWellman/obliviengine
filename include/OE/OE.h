@@ -44,6 +44,7 @@
 #include "OEScript.h"
 
 #include "simple.glsl.h"
+#include "simple_low.glsl.h"
 #include "quad.glsl.h"
 #include "fxaa.glsl.h"
 #include "bloom.glsl.h"
@@ -99,6 +100,9 @@ extern "C" {
 #define OE_FULLSCREEN_DESKTOP (1<<3|1)
 #define OE_BORDERLESS (1<<4|1)
 #define OE_BORDERED (1<<5|1)
+#define OE_LOW_GRAPHICS (1<<6|1)
+#define OE_MED_GRAPHICS (1<<7|1)
+#define OE_HIGH_GRAPHICS (1<<8|1)
 #endif
 
 #define MAXPOSTPASS 16
@@ -231,6 +235,9 @@ struct renderer {
 	SDL_MouseButtonEvent mouseEvent;
 	unsigned int keyPressed :1, wasKeyPressed :1;
 	unsigned int mousePressed :1, wasMousePressed :1;
+	unsigned int graphicsSetting;
+	unsigned int igStat :1;
+	unsigned int legacy :1; /*If OpenGL 3.3 is required*/
 	int lastKey :8;
 
 	Camera cam;
@@ -243,6 +250,7 @@ struct renderer {
 	int objSize :20;
 	OEPPShaders ppshaders; /*These are the enable/disable-able post-pass shaders*/
 	sg_shader defCubeShader;
+	sg_shader lowDefCubeShader;
 	sg_shader rayTracedShader;
 
 	/*This is for if you call a draw function and do not pass a texture*/

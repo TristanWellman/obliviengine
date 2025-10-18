@@ -5,6 +5,7 @@
 
 #include "OE.h"
 #include "simple.glsl.h"
+#include "simple_low.glsl.h"
 
 /*This needs to be the same in the shader*/
 #define MAXLIGHTS 64

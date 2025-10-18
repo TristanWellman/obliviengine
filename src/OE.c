@@ -387,9 +387,21 @@ void OEApplyCurrentUniforms(Object *obj) {
 	memcpy(vs_params.view, cam->view, sizeof(cam->view));
 	memcpy(fs_params.camPos, cam->position, sizeof(cam->position));
 
-    sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
-	sg_apply_uniforms(UB_fs_params, &SG_RANGE(fs_params));
-	sg_apply_uniforms(UB_light_params, &SG_RANGE(light_params));
+	if(globalRenderer->graphicsSetting>OE_LOW_GRAPHICS) {
+		sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+		sg_apply_uniforms(UB_fs_params, &SG_RANGE(fs_params));
+		sg_apply_uniforms(UB_light_params, &SG_RANGE(light_params));
+	} else {
+		OELOW_vs_params_t vslow;
+		OELOW_fs_params_t fslow;
+		OELOW_light_params_t lightlow;
+		memcpy(&vslow, &vs_params, sizeof(vslow));
+		memcpy(&fslow, &fs_params, sizeof(fslow));
+		memcpy(&lightlow, &light_params, sizeof(lightlow));
+		sg_apply_uniforms(UB_OELOW_vs_params, &SG_RANGE(vslow));
+		sg_apply_uniforms(UB_OELOW_fs_params, &SG_RANGE(fslow));
+		sg_apply_uniforms(UB_OELOW_light_params, &SG_RANGE(lightlow));
+	}
 }
 
 void *applyFXAAUniforms() {
@@ -817,6 +829,51 @@ int OEDumpSupportedPixelFormats() {
 	return ret;
 }
 
+void OEGetGLVersion(int *maj, int *min) {
+	glGetIntegerv(GL_MAJOR_VERSION, maj);
+	glGetIntegerv(GL_MINOR_VERSION, min);
+}
+
+void OEGLFallbackInit() {
+	SDL_GL_DeleteContext(globalRenderer->window->gl_context);
+	SDL_DestroyWindow(globalRenderer->window->window);
+	SDL_GL_UnloadLibrary();
+	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+	SDL_Quit();
+
+	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)>=0,
+			"ERROR:: Failed to init SDL!");
+
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);	
+
+	WASSERT(SDL_GL_LoadLibrary(NULL)==0,
+			"Failed to load GL library!");
+
+	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK, "1");
+
+	globalRenderer->window->window = SDL_CreateWindow(
+			globalRenderer->window->title,
+			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+			globalRenderer->window->width, globalRenderer->window->height,
+			SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+
+	globalRenderer->window->gl_context = 
+		SDL_GL_CreateContext(globalRenderer->window->window);
+	WASSERT(globalRenderer->window->gl_context!=NULL,
+			"ERROR:: Failed to init gl context");
+	WASSERT(gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress),
+		"ERROR:: Failed to initialize GLAD!");
+	globalRenderer->legacy = 1;
+	globalRenderer->graphicsSetting = OE_LOW_GRAPHICS;
+	WLOG(SDL_INFO, SDL_GetError());
+}
+
 void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 /*
@@ -833,6 +890,8 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->postPassSize = 0;
 	globalRenderer->keyPressed = 0;
 	globalRenderer->mousePressed = 0;
+	globalRenderer->graphicsSetting = OE_HIGH_GRAPHICS;
+	globalRenderer->legacy = 0;
 	globalRenderer->imgui.ioptr = NULL;
 	globalRenderer->window->cursor = NULL;
 	char *os = OEGETOS();
@@ -850,17 +909,15 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)>=0,
 			"ERROR:: Failed to init SDL!");
 
-	SDL_GL_LoadLibrary(NULL);
-	
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); 
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3); 
 
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);	
+
+	SDL_GL_LoadLibrary(NULL);
 
 	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK, "1");
 
@@ -872,11 +929,12 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 	globalRenderer->window->gl_context = 
 		SDL_GL_CreateContext(globalRenderer->window->window);
-	WASSERT(globalRenderer->window->gl_context!=NULL,
-			"ERROR:: Failed to init gl context");
 
-	WASSERT(gladLoadGLLoader(SDL_GL_GetProcAddress),
-			"ERROR:: Failed to initialize GLAD!");
+	if(globalRenderer->window->gl_context==NULL||
+			!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+		/*fallback to gl 3.3*/
+		OEGLFallbackInit();
+	}
 
 	SDL_GL_SetSwapInterval(1);
  	glEnable(GL_DEPTH_TEST);
@@ -903,9 +961,13 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 			.environment = OEGetEnv(),
 			.logger.func = slog_func});
 
-    sdtx_setup(&(sdtx_desc_t){
-        .fonts = {[1]  = sdtx_font_oric()},
-        .logger.func = slog_func});
+	if(!globalRenderer->legacy) {
+		sdtx_setup(&(sdtx_desc_t){
+			.fonts = {[1]  = sdtx_font_oric()},
+			.logger.func = slog_func});
+	} else {
+		/*TODO: sdtx for legacy GL 3.3*/
+	}
 
 
 	if(!OEDumpSupportedPixelFormats())
@@ -921,8 +983,14 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	iotmp->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
 	ImGui_ImplSDL2_InitForOpenGL(globalRenderer->window->window, 
-			globalRenderer->window->gl_context);	
-	ImGui_ImplOpenGL3_Init("#version 410");
+			globalRenderer->window->gl_context);
+	globalRenderer->igStat = 0;
+	if(!globalRenderer->legacy)
+		globalRenderer->igStat = (int)ImGui_ImplOpenGL3_Init("#version 410");
+	else globalRenderer->igStat = (int)ImGui_ImplOpenGL3_Init("#version 330");
+
+	if(!globalRenderer->igStat) 
+		WLOG(IMGUI_INFO, "Failed to initialize Imgui!");
 
 	igStyleColorsDark(NULL);
 /*
@@ -1073,8 +1141,36 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 /*
  * Create the render targer shader and pipeline
  * */
+	/*
+	 * I know this looks sketchy to use "4.1" shaders on 3.3 as well, 
+	 * but we actually don't use any post 3.3 functions, so they work!
+	 * */
+	//if(!globalRenderer->legacy) {
+		globalRenderer->renderTargetShade = sg_make_shader(quad_shader_desc(sg_query_backend()));
+		globalRenderer->defCubeShader = sg_make_shader(simple_shader_desc(sg_query_backend()));
+		globalRenderer->lowDefCubeShader = sg_make_shader(simple_low_shader_desc(sg_query_backend()));
+		if(globalRenderer->graphicsSetting<OE_HIGH_GRAPHICS)
+			OESetDefaultShader(globalRenderer->lowDefCubeShader);
 
-	globalRenderer->renderTargetShade = sg_make_shader(quad_shader_desc(sg_query_backend()));
+		globalRenderer->ppshaders.fxaa = sg_make_shader(OEFXAA_shader_desc(sg_query_backend()));
+		globalRenderer->ppshaders.ssao = sg_make_shader(OESSAO_shader_desc(sg_query_backend()));
+		globalRenderer->ppshaders.bloom = sg_make_shader(OEBQuad_shader_desc(sg_query_backend()));
+		sg_pipeline_desc fxaapd = OEGetQuadPipeline(globalRenderer->ppshaders.fxaa, "fxaa");
+		globalRenderer->ppshaders.fxaap = sg_make_pipeline(&fxaapd);
+		sg_pipeline_desc ssaopd = OEGetQuadPipeline(globalRenderer->ppshaders.ssao, "ssao");
+		globalRenderer->ppshaders.ssaop = sg_make_pipeline(&ssaopd);
+		sg_pipeline_desc bloompd = OEGetQuadPipeline(globalRenderer->ppshaders.bloom, "bloom");
+		globalRenderer->ppshaders.bloomp = sg_make_pipeline(&bloompd);
+		globalRenderer->ppshaders.ssgi = sg_make_shader(OESSGI_shader_desc(sg_query_backend()));
+		sg_pipeline_desc ssgipd = OEGetQuadPipeline(globalRenderer->ppshaders.ssgi, "ssgi");
+		globalRenderer->ppshaders.ssgip = sg_make_pipeline(&ssgipd);
+		globalRenderer->ppshaders.dnoise = sg_make_shader(OEDNOISE_shader_desc(sg_query_backend()));
+		sg_pipeline_desc dnoisepd = OEGetQuadPipeline(globalRenderer->ppshaders.dnoise, "dnoise");
+		globalRenderer->ppshaders.dnoisep = sg_make_pipeline(&dnoisepd);
+	//} else {
+		/*TODO: Build GL 330 shaders*/
+	//	WLOG(WARN, "Using legacy fallback shaders");
+	//}
 
 	sg_pipeline_desc rtp = OEGetQuadPipeline(globalRenderer->renderTargetShade, 
 			"render_target_pipe");
@@ -1086,22 +1182,6 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 				.label = "quad_verts"
 			});
 
-	globalRenderer->ppshaders.fxaa = sg_make_shader(OEFXAA_shader_desc(sg_query_backend()));
-	globalRenderer->ppshaders.ssao = sg_make_shader(OESSAO_shader_desc(sg_query_backend()));
-	globalRenderer->ppshaders.bloom = sg_make_shader(OEBQuad_shader_desc(sg_query_backend()));
-	sg_pipeline_desc fxaapd = OEGetQuadPipeline(globalRenderer->ppshaders.fxaa, "fxaa");
-	globalRenderer->ppshaders.fxaap = sg_make_pipeline(&fxaapd);
-	sg_pipeline_desc ssaopd = OEGetQuadPipeline(globalRenderer->ppshaders.ssao, "ssao");
-	globalRenderer->ppshaders.ssaop = sg_make_pipeline(&ssaopd);
-	sg_pipeline_desc bloompd = OEGetQuadPipeline(globalRenderer->ppshaders.bloom, "bloom");
-	globalRenderer->ppshaders.bloomp = sg_make_pipeline(&bloompd);
-	globalRenderer->ppshaders.ssgi = sg_make_shader(OESSGI_shader_desc(sg_query_backend()));
-	sg_pipeline_desc ssgipd = OEGetQuadPipeline(globalRenderer->ppshaders.ssgi, "ssgi");
-	globalRenderer->ppshaders.ssgip = sg_make_pipeline(&ssgipd);
-	globalRenderer->ppshaders.dnoise = sg_make_shader(OEDNOISE_shader_desc(sg_query_backend()));
-	sg_pipeline_desc dnoisepd = OEGetQuadPipeline(globalRenderer->ppshaders.dnoise, "dnoise");
-	globalRenderer->ppshaders.dnoisep = sg_make_pipeline(&dnoisepd);
-
 /*
  * Init objects
  * */
@@ -1109,8 +1189,6 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	globalRenderer->objSize = 0;
 	globalRenderer->objects = calloc(globalRenderer->objCap, sizeof(Object));
 	
-	globalRenderer->defCubeShader = sg_make_shader(simple_shader_desc(sg_query_backend()));
-
 	initBaseObjects();
 
 	static const uint32_t white = OE_WHITEP;
@@ -1683,18 +1761,21 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 		final = src;
 	}
 	
-	/*Get the previous frame into it's buffer*/
-	post_pass_action.depth.load_action = SG_LOADACTION_DONTCARE;
-	sg_begin_pass(&(sg_pass){ .action = post_pass_action,
-			.attachments = globalRenderer->prevFrameTarg});
-	sg_apply_pipeline(globalRenderer->renderTargetPipe);
-	sg_apply_bindings(&(sg_bindings){
-		.vertex_buffers[0] = globalRenderer->renderTargetBuff,
-		.views[0] = final,
-		.samplers[0] = globalRenderer->sampler
-	});
-	sg_draw(0,6,1);
-	sg_end_pass();
+	/*Get the previous frame into it's buffer
+	 * Previous frame storage is only on higher end graphics*/
+	if(globalRenderer->graphicsSetting>OE_LOW_GRAPHICS) {
+		post_pass_action.depth.load_action = SG_LOADACTION_DONTCARE;
+		sg_begin_pass(&(sg_pass){ .action = post_pass_action,
+				.attachments = globalRenderer->prevFrameTarg});
+		sg_apply_pipeline(globalRenderer->renderTargetPipe);
+		sg_apply_bindings(&(sg_bindings){
+			.vertex_buffers[0] = globalRenderer->renderTargetBuff,
+			.views[0] = final,
+			.samplers[0] = globalRenderer->sampler
+		});
+		sg_draw(0,6,1);
+		sg_end_pass();
+	}
 
 	/*On-Screen main pass*/
 	sg_begin_pass(&(sg_pass){ .action = pass_action,
@@ -1708,7 +1789,7 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 	});
 	sg_draw(0,6,1);
 
-	if(globalRenderer->debug) {
+	if(globalRenderer->debug&&!globalRenderer->legacy) {
 		sdtx_canvas(globalRenderer->window->width * 0.5f, 
 				globalRenderer->window->height * 0.5f);
     	sdtx_origin(1.0f, 1.0f);
@@ -1725,7 +1806,7 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 		sdtx_draw();
 	}
 
-	if(cimgui!=NULL) {
+	if(cimgui!=NULL&&globalRenderer->igStat) {
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		igNewFrame();
@@ -1777,6 +1858,9 @@ void OECleanup(void) {
 	OEDestroyViews(&globalRenderer->views);
 	sg_destroy_view(globalRenderer->defTexture);
 	sg_shutdown();
+	if(globalRenderer->igStat) ImGui_ImplOpenGL3_Shutdown();
+	SDL_GL_DeleteContext(globalRenderer->window->gl_context);
+	SDL_GL_UnloadLibrary();
 	SDL_DestroyWindow(globalRenderer->window->window);
 	SDL_Quit();
 }

@@ -111,7 +111,8 @@ clean_cimgui:
 	rm $(CIMGUI_OBJS) $(CIMGUI_LOC)
 
 shaders:
-	$(SHDC) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS) 
+	$(SHDC) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/simple_low.glsl --output include/OE/simple_low.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/rayTracer.glsl --output include/OE/rayTracer.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/fxaa.glsl --output include/OE/fxaa.glsl.h $(SHADER_ARGS)
