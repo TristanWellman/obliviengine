@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#include "util.h"
+#include <OE/util.h>
 
 #define MAXDATA 100000
 

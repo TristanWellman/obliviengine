@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 		OEPollEvents((EVENTFUNC)event);
 		//OEPollXREvents();
 		//OERenderXRFrame((RENDFUNC)draw);
-		OERenderFrame((RENDFUNC)draw, NULL);
+		OERenderFrame((RENDFUNC)draw, NULL, NULL);
 	}
 	
 	return 0;

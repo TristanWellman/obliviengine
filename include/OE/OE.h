@@ -112,10 +112,24 @@ extern "C" {
 #define OESSGI "OESSGI"
 #define OEDNOISE "OEDNOISE"
 
+/*OE compiler definitions*/
+#define _OE_NONE
 #if defined(__GNUC__) || defined(__clang__)
 #	define _OE_PRIVATE __attribute__((unused)) static
+#	define _OE_NTHROW __attribute__((nothrow))
+#	define _OE_HOT __attribute__((hot))
+#	define _OE_COLD __attribute__((cold))
+#	define _OE_PURE __attribute__((pure))
+#	if defined(__STDC_VERSION__) && (__STDC_VERSION__)>=199901L /*C99*/
+#		define _OE_RESTRICT restrict
+#	endif
 #else
 #	define _OE_PRIVATE static
+#	define _OE_NTHROW _OE_NONE
+#	define _OE_HOT _OE_NONE
+#	define _OE_COLD _OE_NONE
+#	define _OE_PURE _OE_NONE
+#	define _OE_RESTRICT _OE_NONE
 #endif
 
 /*This is here because SG_RANGE does not work with ptr sizes.*/
@@ -307,7 +321,7 @@ static struct renderer *globalRenderer;
  *
  * @param name The name/ID for the Object you are trying to retrieve.
  * */
-Object *OEGetObjectFromName(char *name);
+_OE_HOT Object *OEGetObjectFromName(char *name);
 /**
  * @brief Adds a Lua script to an Object, the script will run before every frame.
  *
@@ -364,7 +378,7 @@ void OESetObjectPosition(char *ID, vec3 position);
  *
  * @param ID The name/ID of the Object at which you are obtaining the position.
  * */
-Vec3 OEGetObjectPosition(char *ID);
+_OE_HOT Vec3 OEGetObjectPosition(char *ID);
 /*Rotates obj around the y-axis TODO: specify axis of rotation*/
 /**
  * @brief Set the Y-axis rotation angle of an Object.
@@ -385,7 +399,7 @@ void OEResetRotation(char *ID);
  *
  * @param obj The Object you are drawing.
  * */
-void OEDrawObject(Object *obj);
+_OE_HOT void OEDrawObject(Object *obj);
 /**
  * @brief Sends a draw call to the GPU with a specified Object and texture.
  *
@@ -393,7 +407,7 @@ void OEDrawObject(Object *obj);
  * @param assign The texture index for the Object.
  * @param texture The texture image.
  * */
-void OEDrawObjectTex(Object *obj, int assign, sg_view texture);
+_OE_HOT void OEDrawObjectTex(Object *obj, int assign, sg_view texture);
 /**
  * @brief Sends a draw call to the GPU with a specified Object and custom uniform application.
  *
@@ -444,13 +458,13 @@ Object OEGetDefaultCubeObj(char *name);
 /**
  * @brief Gets the default OE texture, this is a full white image.
  * */
-sg_view OEGetDefaultTexture(); 
+_OE_PURE sg_view OEGetDefaultTexture(); 
 
 /*renderer*/
 /**
  * @brief Tells if the renderer is running or not.
  * */
-int OERendererIsRunning();
+_OE_PURE int OERendererIsRunning();
 /**
  * @brief Get the default pipeline for OE, this is for the simple.glsl format
  * (position, color, normal, uv).
@@ -469,24 +483,24 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label);
 /**
  * @brief Get the Sokol/OpenGL environment.
  * */
-sg_environment OEGetEnv();
+_OE_PURE _OE_COLD sg_environment OEGetEnv();
 /**
  * @brief Get the Sokol/OpenGL swapchain.
  * */
-sg_swapchain OEGetSwapChain(); 
+_OE_COLD sg_swapchain OEGetSwapChain(); 
 /**
  * @brief Internally updates the Camera's view, projection, target, etc.
  * */
-void OEUpdateViewMat();
+_OE_HOT void OEUpdateViewMat();
 /**
  * @brief This enables debugging information onto the screen/terminal. 
  * Shows things like FPS, FrameTime, Camera Position, etc.
  * */
-void OEEnableDebugInfo();
+_OE_COLD void OEEnableDebugInfo();
 /**
  * @brief This disables debugging information onto the screen/terminal.
  * */
-void OEDisableDebugInfo();
+_OE_COLD void OEDisableDebugInfo();
 /**
  * @brief Gets a rotation matrix from a front and up vector.
  *
@@ -505,17 +519,17 @@ int OEDumpSupportedPixelFormats();
  * @param maj The major OpenGL version.
  * @param min The minor OpenGL version.
  * */
-void OEGetGLVersion(int *maj, int *min);
+_OE_COLD void OEGetGLVersion(int *_OE_RESTRICT maj, int *_OE_RESTRICT min);
 /**
  * @brief Deletes everything and sets OE to OpenGL 3.3
  * */
-void OEGLFallbackInit();
+_OE_COLD void OEGLFallbackInit();
 /**
  * @brief Force the OE graphics mode for lower/higher end hardware.
  *
  * @param flag The OE flag for graphical setting, e.g. OE_LOW_GRAPHICS.
  * */
-void OEForceGraphicsSetting(int flag);
+_OE_COLD void OEForceGraphicsSetting(int flag);
 /**
  * @brief This initializes the OE renderer (Sokol, SDL2, OpenGL), camera, and other renderer Objects.
  *
@@ -524,7 +538,7 @@ void OEForceGraphicsSetting(int flag);
  * @param title The title of the window.
  * @param camType The type of camera projection you want (PERSPECTIVE, ISOMETRIC).
  * */
-void OEInitRenderer(int width, int height, char *title, enum CamType camType);
+_OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType camType);
 /**
  * @brief Move the camera Forward, Backward, Up, Down, Left, and Right.
  *
@@ -542,49 +556,49 @@ void OECamSet(vec3 pos);
 /**
  * @brief Get the pointer to the OE camera structure.
  * */
-Camera *OEGetCamera();
+_OE_PURE Camera *OEGetCamera();
 /**
  * @brief Get the world space position of the OE camera in a Vec3.
  * */
-Vec3 OEGetCamPos(); 
+_OE_PURE Vec3 OEGetCamPos(); 
 /**
  * @brief Get the SDL event handler.
  * */
-SDL_Event OEGetEvent();
+_OE_PURE SDL_Event OEGetEvent();
 /**
  * @brief Check if a key is being pressed.
  * */
-int OEIsKeyPressed();
+_OE_PURE int OEIsKeyPressed();
 /**
  * @brief Check if key press is repeating.
  * */
-int OEIsKeyRepeating();
+_OE_PURE int OEIsKeyRepeating();
 /**
  * @brief Get the SDL key handle.*/
-int OEGetKeySym();
+_OE_PURE int OEGetKeySym();
 /**
  * @brief Get the current mouse position in pixel space relative to the window.
  *
  * @param x A pointer to the x-axis mouse location.
  * @param y A pointer to the y-axis mouse location.
  * */
-void OEGetMousePos(int *x, int *y);
+void OEGetMousePos(int *_OE_RESTRICT x, int *_OE_RESTRICT y);
 /**
  * @brief Get the structure for mouse data, the position, and the world space ray hit.
  * */
-Mouse OEGetMouse();
+_OE_PURE Mouse OEGetMouse();
 /**
  * @brief Check if a mouse button is being pressed.
  * */
-int OEIsMousePressed();
+_OE_PURE int OEIsMousePressed();
 /**
  * @brief Check if the mouse press is repeating.
  * */
-int OEIsMouseRepeating();
+_OE_PURE int OEIsMouseRepeating();
 /**
  * @brief Get the SDL mouse button event.
  * */
-SDL_MouseButtonEvent *OEGetMouseEvent();
+_OE_PURE SDL_MouseButtonEvent *OEGetMouseEvent();
 /**
  * @brief Set the window to fullscreen.
  * */
@@ -620,23 +634,23 @@ void OEPollEvents(EVENTFUNC event);
 /**
  * @brief Get the FPS
  * */
-int OEGetFPS();
+_OE_PURE int OEGetFPS();
 /**
  * @brief Get the frame time.
  * */
-float OEGetFrameTime();
+_OE_PURE float OEGetFrameTime();
 /**
  * @brief This gets the current tick, not tick speed.
  * */
-float OEGetTick();
+_OE_PURE float OEGetTick();
 /**
  * @brief Get the pointer to the OE SDL window.
  * */
-SDL_Window *OEGetWindow();
+_OE_PURE SDL_Window *OEGetWindow();
 /**
  * @brief Get the Operating System Info string.
  * */
-char *OEQueryOSInfo();
+_OE_PURE char *OEQueryOSInfo();
 /**
  * @brief Enables the Screen Space Ambient Occlusion shader.
  * */
@@ -725,8 +739,9 @@ void OERemovePostPass(char *id);
  *
  * @param drawCall The user defined function for drawing objects.
  * @param cimgui The user defined function for rendering a cimgui UI.
+ * @param OEUI The user defined function for rendering a custom OEUI 
  * */
-void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui);
+_OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI);
 /**
  * @brief This starts the frame timer, this is useful for the OpenXR renderer or a user renderer.
  * */

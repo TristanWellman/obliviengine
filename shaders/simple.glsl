@@ -148,9 +148,9 @@ void main() {
 		lightColor *= intensity;
 
 		float d = QSQRT(dot(lightPos-fragPos,lightPos-fragPos));
-		float invDistSq = 1.0/max(d*d,0.01);
-		float rf = clamp(1.0-(d/range),0.0,1.0);
-		float sr = pow(rf,2.0);
+		lowp float invDistSq = 1.0/max(d*d,0.01);
+		lowp float rf = clamp(1.0-(d/range),0.0,1.0);
+		lowp float sr = pow(rf,2.0);
 		float atten = invDistSq*sr;
 
         vec3 lightDir = WNORM(lightPos - fragPos);

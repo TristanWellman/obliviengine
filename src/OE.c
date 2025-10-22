@@ -19,7 +19,7 @@ void OEClearDrawQueue();
  * OE lib functions
  * */
 
-Object *OEGetObjectFromName(char *name) {
+_OE_HOT Object *OEGetObjectFromName(char *name) {
 	if(name==NULL) return NULL;
 	int i;
 	for(i=0;i<globalRenderer->objSize;i++) {
@@ -337,7 +337,7 @@ void OESetObjectPosition(char *ID, vec3 position) {
 	}
 }
 
-Vec3 OEGetObjectPosition(char *ID) {
+_OE_HOT Vec3 OEGetObjectPosition(char *ID) {
 	Object *obj = OEGetObjectFromName(ID);
 	Vec3 ret = {0, 0, 0};
 	if(obj!=NULL) {
@@ -443,7 +443,7 @@ void runObjLuaScript(Object *obj) {
 	}
 }
 
-void OEDrawObject(Object *obj) {
+_OE_HOT void OEDrawObject(Object *obj) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
 		return;
@@ -480,7 +480,7 @@ void OEDrawObjectBind(Object *obj, sg_bindings binding) {
 }
 
 
-void OEDrawObjectTex(Object *obj, int assign, sg_view texture) {
+_OE_HOT void OEDrawObjectTex(Object *obj, int assign, sg_view texture) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
 		return;
@@ -544,7 +544,7 @@ void OEDrawObjectTexEx(Object *obj, int assign,
     sg_draw(0, obj->numIndices, 1);
 }
 
-int OERendererIsRunning() {
+_OE_PURE int OERendererIsRunning() {
 	return globalRenderer->window->running;
 }
 
@@ -563,7 +563,7 @@ sg_buffer_desc OEGetCubeIndDesc() {
 			};
 }
 
-sg_environment OEGetEnv(void) {
+_OE_PURE _OE_COLD sg_environment OEGetEnv() {
 	return (sg_environment) {
 		.defaults = {
 			.color_format = SG_PIXELFORMAT_RGBA32F,
@@ -573,7 +573,7 @@ sg_environment OEGetEnv(void) {
 	};
 }
 
-sg_swapchain OEGetSwapChain(void) {
+_OE_COLD sg_swapchain OEGetSwapChain() {
 	int w = globalRenderer->window->width;
 	int h = globalRenderer->window->height;
 	return (sg_swapchain) {
@@ -692,7 +692,7 @@ Object OEGetDefaultCubeObj(char *name) {
 	return obj;
 }
 
-sg_view OEGetDefaultTexture() {
+_OE_PURE sg_view OEGetDefaultTexture() {
 	return globalRenderer->defTexture;
 }
 
@@ -756,11 +756,11 @@ void initBaseObjects() {
 	plane.pipe = sg_make_pipeline(&plane_pipe);
 }
 
-void OEEnableDebugInfo() {
+_OE_COLD void OEEnableDebugInfo() {
 	globalRenderer->debug = 1;
 }
 
-void OEDisableDebugInfo() {
+_OE_COLD void OEDisableDebugInfo() {
 	globalRenderer->debug = 0;
 }
 
@@ -829,12 +829,12 @@ int OEDumpSupportedPixelFormats() {
 	return ret;
 }
 
-void OEGetGLVersion(int *maj, int *min) {
+_OE_COLD void OEGetGLVersion(int *_OE_RESTRICT maj, int *_OE_RESTRICT min) {
 	glGetIntegerv(GL_MAJOR_VERSION, maj);
 	glGetIntegerv(GL_MINOR_VERSION, min);
 }
 
-void OEGLFallbackInit() {
+_OE_COLD void OEGLFallbackInit() {
 	SDL_GL_DeleteContext(globalRenderer->window->gl_context);
 	SDL_DestroyWindow(globalRenderer->window->window);
 	SDL_GL_UnloadLibrary();
@@ -874,7 +874,7 @@ void OEGLFallbackInit() {
 	WLOG(SDL_INFO, SDL_GetError());
 }
 
-void OEForceGraphicsSetting(int flag) {
+_OE_COLD void OEForceGraphicsSetting(int flag) {
 	if(!OECheckGraphicFlag(flag)) {
 		WLOG(WARN, "Invalid Graphics Setting Flag!");
 		return;
@@ -888,7 +888,7 @@ void OEForceGraphicsSetting(int flag) {
 	}
 }
 
-void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
+_OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 /*
  * GlobalRenderer & OpenGL/SDL setup
@@ -1322,7 +1322,7 @@ void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 	for(i=0;i<globalRenderer->objSize;i++) globalRenderer->objects[i].script.filePath = NULL;
 }
 
-void OEUpdateViewMat() {
+_OE_HOT void OEUpdateViewMat() {
 	Camera *cam = &globalRenderer->cam;
 	vec3_add(globalRenderer->cam.target, 
 				globalRenderer->cam.position, globalRenderer->cam.front);
@@ -1425,49 +1425,49 @@ void OECamSet(vec3 pos) {
 	OEUpdateViewMat();
 }
 
-Camera *OEGetCamera() {
+_OE_PURE Camera *OEGetCamera() {
 	return &globalRenderer->cam;
 }
 
-Vec3 OEGetCamPos() {
+_OE_PURE Vec3 OEGetCamPos() {
 	return (Vec3){globalRenderer->cam.position[0],
 				globalRenderer->cam.position[1],
 				globalRenderer->cam.position[2]};
 }
 
-SDL_Event OEGetEvent() {
+_OE_PURE SDL_Event OEGetEvent() {
 	return globalRenderer->event;
 }
 
-int OEIsKeyPressed() {
+_OE_PURE int OEIsKeyPressed() {
 	return globalRenderer->keyPressed;
 }
 
-int OEIsKeyRepeating() {
+_OE_PURE int OEIsKeyRepeating() {
 	return globalRenderer->wasKeyPressed;
 }
 
-int OEGetKeySym() {
+_OE_PURE int OEGetKeySym() {
 	return globalRenderer->lastKey;
 }
 
-void OEGetMousePos(int *x, int *y) {
+void OEGetMousePos(int *_OE_RESTRICT x, int *_OE_RESTRICT y) {
 	SDL_GetMouseState(x,y);
 }
 
-Mouse OEGetMouse() {
+_OE_PURE Mouse OEGetMouse() {
 	return globalRenderer->mouse;
 }
 
-int OEIsMousePressed() {
+_OE_PURE int OEIsMousePressed() {
 	return globalRenderer->mousePressed;
 }
 
-int OEIsMouseRepeating() {
+_OE_PURE int OEIsMouseRepeating() {
 	return globalRenderer->wasMousePressed;
 }
 
-SDL_MouseButtonEvent *OEGetMouseEvent() {
+_OE_PURE SDL_MouseButtonEvent *OEGetMouseEvent() {
 	return &globalRenderer->mouseEvent;
 }
 
@@ -1543,23 +1543,23 @@ void OEPollEvents(EVENTFUNC event) {
 	event();
 }
 
-int OEGetFPS() {
+_OE_PURE int OEGetFPS() {
 	return (int)globalRenderer->fps;
 }
 
-float OEGetFrameTime() {
+_OE_PURE float OEGetFrameTime() {
 	return globalRenderer->frameTime;
 }
 
-float OEGetTick() {
+_OE_PURE float OEGetTick() {
 	return globalRenderer->tick;
 }
 
-SDL_Window *OEGetWindow() {
+_OE_PURE SDL_Window *OEGetWindow() {
 	return globalRenderer->window->window;
 }
 
-char *OEQueryOSInfo() {
+_OE_PURE char *OEQueryOSInfo() {
 	return globalRenderer->OSInfo;
 }
 
@@ -1691,13 +1691,13 @@ void OEDisableDNOISE() {
 	OERemovePostPass(OEDNOISE);
 }
 
-void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
+_OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
 	SDL_GetWindowSize(globalRenderer->window->window,
 			&globalRenderer->window->width,
 			&globalRenderer->window->height);
 	OEGetMousePos(&globalRenderer->mouse.posx, &globalRenderer->mouse.posy);
-	//globalRenderer->frameTime = sapp_frame_duration() * 1000.0;
+
 	sg_pass_action pass_action = (sg_pass_action) {
        	.colors[0] = {
            	.load_action = SG_LOADACTION_CLEAR,
@@ -1788,6 +1788,22 @@ void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui) {
 			.samplers[0] = globalRenderer->sampler
 		});
 		sg_draw(0,6,1);
+		sg_end_pass();
+	}
+
+	/*OEUI pass*/
+	if(OEUI!=NULL) {
+		uint32_t finalImg = sg_query_view_image(final).id;
+		sg_attachments uiAtt;
+		if(finalImg==sg_query_view_image(globalRenderer->views.tRenderTarget).id)
+			uiAtt = globalRenderer->renderTargetAtt;
+		else if(finalImg==sg_query_view_image(globalRenderer->views.tPostTarget).id)
+			uiAtt = globalRenderer->postTargetAtt;
+		else if(finalImg==sg_query_view_image(globalRenderer->views.tPostTargetPong).id)
+			uiAtt = globalRenderer->postTargetAttPong;
+		sg_begin_pass(&(sg_pass){ .action = post_pass_action,
+				.attachments = uiAtt});
+		OEUI();
 		sg_end_pass();
 	}
 
