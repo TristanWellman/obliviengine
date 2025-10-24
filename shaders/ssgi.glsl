@@ -125,6 +125,7 @@ void main() {
 	GI = (GI/float(RAYS))*INTENSITY;
 	lowp float AO = ((float(hits)/float(RAYS)));
 	frag_color = vec4((col+GI)*AO,1.0);
+	//frag_color = vec4(col*AO, 1.0);
 	//frag_color = vec4(getRandom(uv*pcol.x*pcol.y*pcol.z));
 }
 

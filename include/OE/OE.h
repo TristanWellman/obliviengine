@@ -33,6 +33,7 @@
 #include <lua/lualib.h>
 
 #include <cware-utils/osname.h>
+#include <pthread.h>
 
 #include "linmath.h"
 #include "util.h"
@@ -42,6 +43,7 @@
 #include "OELights.h"
 #include "log.h"
 #include "OEScript.h"
+#include "threadpool.h"
 
 #include "simple.glsl.h"
 #include "simple_low.glsl.h"
@@ -95,6 +97,7 @@ extern "C" {
  * */
 #ifndef OE_DEFS
 #define OE_DEFS
+#define OEThreadPool threadpool_t
 #define OE_USABLE_SCREEN_SPACE (1<<1|1)
 #define OE_FULLSCREEN (1<<2|1)
 #define OE_FULLSCREEN_DESKTOP (1<<3|1)
@@ -309,6 +312,7 @@ struct renderer {
 	float tick;
 	float frameTime;
 	float fps;
+	unsigned int frame :1; /*frame swap ticker*/
 	char *OSInfo;
 	int frame_start, frame_end;
 };
@@ -640,6 +644,10 @@ _OE_PURE int OEGetFPS();
  * */
 _OE_PURE float OEGetFrameTime();
 /**
+ * @brieg Get the frame swap index (0 or 1).
+ * */
+_OE_PURE unsigned int OEGetFrameSwap();
+/**
  * @brief This gets the current tick, not tick speed.
  * */
 _OE_PURE float OEGetTick();
@@ -652,7 +660,7 @@ _OE_PURE SDL_Window *OEGetWindow();
  * */
 _OE_PURE char *OEQueryOSInfo();
 /**
- * @brief Enables the Screen Space Ambient Occlusion shader.
+ * @brief Enable the OE Screen Space Ambient Occlusion shader.
  * */
 void OEEnableSSAO();
 /**
@@ -860,6 +868,56 @@ _OE_PRIVATE int OECheckGraphicFlag(int flag) {
 			flag==OE_MED_GRAPHICS||
 			flag==OE_HIGH_GRAPHICS) return 1;
 	return 0;
+}
+
+_OE_PRIVATE void OEInitThreadPool(OEThreadPool **pool) {
+	*pool = threadpool_create(1, MAX_QUEUE, 0);
+	WASSERT(pool!=NULL, "Failed to init threadpool!");
+}
+
+_OE_PRIVATE void OEDispatchThread(OEThreadPool *pool, 
+		void(*thread)(void *), void *arg, char *ID) {
+	if(!pool||!thread) return;
+	WASSERT(threadpool_add(pool,thread,arg,0,ID)==0,
+			"Failed to dispatch thread!");
+	WLOG(INFO_THREAD, "Thread successfully dispatched");
+}
+
+_OE_PRIVATE int OEGetThreadState(OEThreadPool *pool, char *ID) {
+	if(!pool||!ID) return -1;
+	int i, res=-1;
+	pthread_mutex_lock(&pool->lock);
+	for(i=0;i<pool->thread_count&&strcmp(pool->queue[i].ID, ID);i++);
+	res = pool->queue[i].thread_state;
+	pthread_mutex_unlock(&pool->lock);
+	return res;
+}
+
+_OE_PRIVATE void OESetThreadState(OEThreadPool *pool, char *ID, int state) {
+	if(!pool||!ID) return;
+	int i;
+	pthread_mutex_lock(&pool->lock);
+	for(i=0;i<pool->thread_count&&strcmp(pool->queue[i].ID, ID);i++);
+	pool->queue[i].thread_state = state;
+	pthread_cond_broadcast(&pool->notify);
+	pthread_mutex_unlock(&pool->lock);
+}
+
+_OE_PRIVATE void OEWaitThread(OEThreadPool *pool, char *ID, int waitFor) {
+	if(!pool||!ID) return;
+	int i;
+	pthread_mutex_lock(&pool->lock);
+	for(i=0;i<pool->thread_count&&strcmp(pool->queue[i].ID, ID);i++);
+
+	while(pool->queue[i].thread_state!=waitFor) 
+		pthread_cond_wait(&pool->notify, &pool->lock);
+
+	pthread_mutex_unlock(&pool->lock);
+}
+
+_OE_PRIVATE void OEDestroyThreadPool(OEThreadPool *pool) {
+	if(!pool) return;
+	threadpool_destroy(pool, 0);
 }
 
 #ifdef __cplusplus

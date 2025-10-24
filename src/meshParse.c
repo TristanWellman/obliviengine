@@ -5,7 +5,7 @@
  * */
 
 #include <OE/meshParse.h>
-#include <OE/bridethread.h>
+#include <OE/OE.h>
 
 int checkObjNorm(char *line, OEMesh *mesh) {
 	if(line==NULL) return 0;

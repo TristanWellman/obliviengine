@@ -419,6 +419,8 @@ void *applyBloomUniforms() {
 }
 
 void *applySSAOUniforms() {
+	memcpy(globalRenderer->ssaoParams.proj, 
+			globalRenderer->cam.proj, sizeof(globalRenderer->ssgiParams.proj));
 	sg_apply_uniforms(UB_OESSAO_params, &SG_RANGE(globalRenderer->ssaoParams));
 	return NULL;
 }
@@ -908,6 +910,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->legacy = 0;
 	globalRenderer->imgui.ioptr = NULL;
 	globalRenderer->window->cursor = NULL;
+	globalRenderer->frame = 0;
 	char *os = OEGETOS();
 	char *osclass = OEGETOSCLASS();
 	globalRenderer->OSInfo = calloc(strlen(os)+strlen(osclass)+128, sizeof(char));
@@ -950,7 +953,8 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		OEGLFallbackInit();
 	}
 
-	SDL_GL_SetSwapInterval(1);
+	//SDL_GL_SetSwapInterval(1); /*VSYNC=on*/
+	SDL_GL_SetSwapInterval(0); /*VSYNC=off*/
  	glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK); 
@@ -1551,6 +1555,10 @@ _OE_PURE float OEGetFrameTime() {
 	return globalRenderer->frameTime;
 }
 
+_OE_PURE unsigned int OEGetFrameSwap() {
+	return globalRenderer->frame;
+}
+
 _OE_PURE float OEGetTick() {
 	return globalRenderer->tick;
 }
@@ -1638,24 +1646,6 @@ void OEDisableBloom() {
 }
 
 void OEEnableSSAO() {
-	srand((unsigned)time(NULL));
-	int i;
-	for(i=0;i<128;i++) {
-		Vec3 Vsample = (Vec3){
-			WRANDFR(-1.0f,1.0f),
-			WRANDFR(-1.0f,1.0f),
-			WRANDFR(-1.0f,1.0f)};
-		Vsample = WNORM(Vsample);
-		vec3 sample;
-		vec3_dup(sample, (vec3){Vsample.x,Vsample.y,Vsample.z});
-		float scale = (float)i/128.0f;
-		scale = WLERP(0.1f,1.0f,scale*scale);
-		vec3_scale(sample,sample,scale);
-		/*We have to do vec4 in the shader bindings since we use glsl 4.1*/
-		vec4 final;
-		vec4_dup(final,(vec4){sample[0],sample[1],sample[2],0.0f}); 
-		vec4_dup(globalRenderer->ssaoParams.kernel[i],final);
-	}
 	OEAddPostPass(OESSAO, globalRenderer->ppshaders.ssaop, (UNILOADER)applySSAOUniforms);
 }
 
@@ -1862,6 +1852,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 		(float)SDL_GetPerformanceFrequency());
 	globalRenderer->frameTime = 1.0f/globalRenderer->fps;
 	globalRenderer->tick+=globalRenderer->frameTime;
+	globalRenderer->frame = !globalRenderer->frame;
 }
 
 /*These functions are pretty much just for the openxr stuff but,
