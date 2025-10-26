@@ -102,9 +102,17 @@ layout(location=1) out vec4 depth_color;
 layout(location=2) out vec4 normal_color;
 layout(location=3) out vec4 position_color;
 
+float near = 0.1;
+float far = 100.0;
+float linearizeDepth(float depth) {
+	float z = depth*2.0-1.0;
+	return (2.0*near*far)/(far+near-z*(far-near));
+}
+
 void depth() {
-	float depth = gl_FragCoord.z;
-	depth_color = vec4(vec3(depth),1.0);
+	//float depth = linearizeDepth(gl_FragCoord.z)/far;
+	//depth_color = vec4(vec3(depth),1.0);
+	depth_color = vec4(vec3(gl_FragCoord.z),1.0);
 }
 
 void normal_c() {
