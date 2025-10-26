@@ -96,16 +96,16 @@ extern "C" {
  * OE Definitions
  * */
 #ifndef OE_DEFS
-#define OE_DEFS
-#define OEThreadPool threadpool_t
-#define OE_USABLE_SCREEN_SPACE (1<<1|1)
-#define OE_FULLSCREEN (1<<2|1)
-#define OE_FULLSCREEN_DESKTOP (1<<3|1)
-#define OE_BORDERLESS (1<<4|1)
-#define OE_BORDERED (1<<5|1)
-#define OE_LOW_GRAPHICS (1<<6|1)
-#define OE_MED_GRAPHICS (1<<7|1)
-#define OE_HIGH_GRAPHICS (1<<8|1)
+#	define OE_DEFS
+#	define OEThreadPool threadpool_t
+#	define OE_USABLE_SCREEN_SPACE (1<<1|1)
+#	define OE_FULLSCREEN (1<<2|1)
+#	define OE_FULLSCREEN_DESKTOP (1<<3|1)
+#	define OE_BORDERLESS (1<<4|1)
+#	define OE_BORDERED (1<<5|1)
+#	define OE_LOW_GRAPHICS (1<<6|1)
+#	define OE_MED_GRAPHICS (1<<7|1)
+#	define OE_HIGH_GRAPHICS (1<<8|1)
 #endif
 
 #define MAXPOSTPASS 16
