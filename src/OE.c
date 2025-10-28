@@ -698,6 +698,10 @@ _OE_PURE sg_view OEGetDefaultTexture() {
 	return globalRenderer->defTexture;
 }
 
+_OE_PURE sg_sampler OEGetSampler() {
+	return globalRenderer->sampler;
+}
+
 void initBaseObjects() {
 
 	/*Create a test light*/
@@ -1324,6 +1328,11 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	OEInitLua(&globalRenderer->luaData);
 	int i;
 	for(i=0;i<globalRenderer->objSize;i++) globalRenderer->objects[i].script.filePath = NULL;
+
+	/*
+	 * Init OEUI
+	 * */
+	OEUIInit(&globalRenderer->oeuiData, __FILE__);
 }
 
 _OE_HOT void OEUpdateViewMat() {
@@ -1567,6 +1576,15 @@ _OE_PURE SDL_Window *OEGetWindow() {
 	return globalRenderer->window->window;
 }
 
+void OEGetWindowResolution(int *x, int *y) {
+	*x = globalRenderer->window->width;
+	*y = globalRenderer->window->height;
+}
+
+_OE_PURE OEUIData *OEGetOEUIData() {
+	return &globalRenderer->oeuiData;
+}
+
 _OE_PURE char *OEQueryOSInfo() {
 	return globalRenderer->OSInfo;
 }
@@ -1783,6 +1801,13 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 
 	/*OEUI pass*/
 	if(OEUI!=NULL) {
+		sg_pass_action ui_pass_action = (sg_pass_action) {
+			.colors[0].load_action = SG_LOADACTION_LOAD,
+			.depth = {
+				.load_action = SG_LOADACTION_LOAD,
+				.clear_value = 1.0f
+			}
+		};
 		uint32_t finalImg = sg_query_view_image(final).id;
 		sg_attachments uiAtt;
 		if(finalImg==sg_query_view_image(globalRenderer->views.tRenderTarget).id)
@@ -1791,7 +1816,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 			uiAtt = globalRenderer->postTargetAtt;
 		else if(finalImg==sg_query_view_image(globalRenderer->views.tPostTargetPong).id)
 			uiAtt = globalRenderer->postTargetAttPong;
-		sg_begin_pass(&(sg_pass){ .action = post_pass_action,
+		sg_begin_pass(&(sg_pass){ .action = ui_pass_action,
 				.attachments = uiAtt});
 		OEUI();
 		sg_end_pass();

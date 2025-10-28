@@ -2,12 +2,18 @@
 
 #ifndef OEUI_H
 #define OEUI_H
-#include <OE/OE.h>
+#include <OE/util.h>
+
+/*sokol defs*/
+typedef struct OEUI_view {uint32_t id;} OEUI_view;
+typedef struct OEUI_buffer {uint32_t id;} OEUI_buffer;
+typedef struct OEUI_shader {uint32_t id;} OEUI_shader;
+typedef struct OEUI_pipeline {uint32_t id;} OEUI_pipeline;
 
 #ifndef OEUI_DEFS
 #	define OEUI_DEFS
 #	define OEUI_STBGLYPHSIZE 95
-#	define OEUI_DEFFONTSIZE 14
+#	define OEUI_DEFFONTSIZE 48
 #	define OEUI_ATLASWID 512
 #	define OEUI_ATLASHEI 512
 #	define OEUI_ATLASSIZE \
@@ -16,6 +22,7 @@
 #	define OEUI_FENDCHR 96
 #	define OEUI_FATTRPOS 0
 #	define OEUI_FATTRTCOORD 1
+#	define OEUI_STBGL 1 /*stb_truetype.h: 1=opengl & d3d10+,0=d3d9*/
 #endif
 
 /*This is a clone of stbtt_bakedchar*/
@@ -27,11 +34,21 @@ typedef struct {
 typedef struct {
 	char *ID;
 	OEUI_bakedchar *glyph;
-	sg_view atlasTex;
-	int fontSize :8;
+	OEUI_view atlasTex;
+	unsigned int fontSize :8;
 } OEUIFont;
 
-sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label);
+typedef struct {
+	OEUIFont *defaultFont;
+	OEUI_shader fontShader;
+	OEUI_pipeline fontPipeline;
+	OEUI_buffer fontVbuf, fontIbuf;
+	char *prevText;
+} OEUIData;
+
+//sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label);
+void OEUIInit(OEUIData *data, char *file);
 OEUIFont *OEUILoadFont(char *filePath, char *ID);
+void OEUIRenderText(OEUIFont *font, char *input, int x, int y);
 
 #endif

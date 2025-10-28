@@ -44,6 +44,7 @@
 #include "log.h"
 #include "OEScript.h"
 #include "threadpool.h"
+#include "OEUI.h"
 
 #include "simple.glsl.h"
 #include "simple_low.glsl.h"
@@ -248,6 +249,8 @@ struct renderer {
 
 	Window *window;
 	struct OEImgui imgui;
+	OEUIData oeuiData;
+
 	SDL_Event event;
 	SDL_MouseButtonEvent mouseEvent;
 	unsigned int keyPressed :1, wasKeyPressed :1;
@@ -462,7 +465,11 @@ Object OEGetDefaultCubeObj(char *name);
 /**
  * @brief Gets the default OE texture, this is a full white image.
  * */
-_OE_PURE sg_view OEGetDefaultTexture(); 
+_OE_PURE sg_view OEGetDefaultTexture();
+/**
+ * Get the Sokol sampler used for the OE bindings/shaders.
+ * */
+_OE_PURE sg_sampler OEGetSampler();
 
 /*renderer*/
 /**
@@ -655,6 +662,17 @@ _OE_PURE float OEGetTick();
  * @brief Get the pointer to the OE SDL window.
  * */
 _OE_PURE SDL_Window *OEGetWindow();
+/**
+ * @brief Get the current main frame buffer(window) resolution.
+ *
+ * @param x The width
+ * @param y The height
+ * */
+void OEGetWindowResolution(int *x, int *y);
+/**
+ * @brief Get the pointer to the OEUI data struct.
+ * */
+_OE_PURE OEUIData *OEGetOEUIData();
 /**
  * @brief Get the Operating System Info string.
  * */
