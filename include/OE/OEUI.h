@@ -13,7 +13,8 @@ typedef struct OEUI_pipeline {uint32_t id;} OEUI_pipeline;
 #ifndef OEUI_DEFS
 #	define OEUI_DEFS
 #	define OEUI_STBGLYPHSIZE 95
-#	define OEUI_DEFFONTSIZE 48
+#	define OEUI_DEFFONTSIZE 28
+#	define OEUI_DEFFONTRESSCALE 40 /*window width / OEUI_DEFFONTSIZE*/
 #	define OEUI_ATLASWID 512
 #	define OEUI_ATLASHEI 512
 #	define OEUI_ATLASSIZE \
@@ -25,10 +26,11 @@ typedef struct OEUI_pipeline {uint32_t id;} OEUI_pipeline;
 #	define OEUI_STBGL 1 /*stb_truetype.h: 1=opengl & d3d10+,0=d3d9*/
 #endif
 
-/*This is a clone of stbtt_bakedchar*/
+/*This is a clone of stbtt_packedchar*/
 typedef struct {
 	unsigned short x0,y0,x1,y1; /*coordinates of bbox in bitmap*/
 	float xoff,yoff,xadvance;
+	float xoff2,yoff2;
 } OEUI_bakedchar;
 
 typedef struct {
@@ -43,7 +45,6 @@ typedef struct {
 	OEUI_shader fontShader;
 	OEUI_pipeline fontPipeline;
 	OEUI_buffer fontVbuf, fontIbuf;
-	char *prevText;
 } OEUIData;
 
 //sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label);
