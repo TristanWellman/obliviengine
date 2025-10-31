@@ -56,41 +56,88 @@ void OEUIInit(OEUIData *data, char *file) {
 	data->fontIbuf.id = 0;
 }
 
+void OEUIDestroyTTFBuffer(OEUIFont *font) {
+	if(font&&font->fb) free(font->fb);
+}
+
 void OEUISetFontSize(OEUIFont *font, int size) {
 	if(!font) return;
 	if(size>256) size = 256;
 	if(size==font->fontSize) return;
 
-	
+	if(font->glyph) {
+		free(font->glyph);
+		font->glyph = calloc(OEUI_STBGLYPHSIZE, sizeof(stbtt_packedchar));
+	}
+	font->fontSize = size;
+
+	if(!font->fb) {
+		FILE *file = fopen(font->path, "rb");
+		if(!file) {
+			WLOG(WARN, "Failed to open .ttf file, skipping!");
+			return;
+		}
+		font->fb = calloc(1<<20, sizeof(unsigned char));
+		fread(font->fb, 1, 1<<20, file);
+		fclose(file);
+	}
+	unsigned char *atlas = calloc(OEUI_ATLASSIZE, sizeof(unsigned char));
+	float *scaledAtlas = calloc(OEUI_ATLASSIZE*4, sizeof(float));
+	stbtt_pack_context pc;
+	stbtt_pack_range pr;
+	memset(&pr, 0, sizeof(pr));
+	stbtt_PackBegin(&pc, atlas, OEUI_ATLASWID, OEUI_ATLASHEI, 0, 3, NULL);
+	stbtt_PackSetOversampling(&pc, 3,3);
+	pr.chardata_for_range = (stbtt_packedchar *)font->glyph;
+	pr.font_size = font->fontSize;
+	pr.first_unicode_codepoint_in_range = OEUI_FSTCHR;
+	pr.num_chars = (OEUI_FENDCHR-OEUI_FSTCHR);
+	stbtt_PackFontRanges(&pc, font->fb, 0, &pr, 1);
+	stbtt_PackEnd(&pc);
+
+	int i;
+	for(i=0;i<OEUI_ATLASSIZE;i++) {
+		scaledAtlas[i*4] = 1.0f;
+		scaledAtlas[i*4+1] = 1.0f;
+		scaledAtlas[i*4+2] = 1.0f;
+		scaledAtlas[i*4+3] = (float)atlas[i]/255.0f;
+	}
+	sg_image img = sg_query_view_image((sg_view){font->atlasTex.id});
+	sg_update_image(img, &(sg_image_data){
+			.mip_levels[0]=PTRRANGE(scaledAtlas, OEUI_ATLASSIZE*4)});
+	free(atlas);
+	free(scaledAtlas);
 }
 
-OEUIFont *OEUILoadFont(char *filePath, char *ID) {
+OEUIFont *OEUILoadFont(char *filePath, char *ID, int flag) {
 	if(!filePath) return NULL;
 	OEUIFont *res = calloc(1, sizeof(OEUIFont));
 	res->ID = calloc(strlen(ID)+1, sizeof(char));
+	res->path = calloc(strlen(filePath)+1, sizeof(char));
 	strcpy(res->ID, ID);
+	strcpy(res->path, filePath);
 	res->glyph = calloc(OEUI_STBGLYPHSIZE, sizeof(stbtt_packedchar));	
 	res->fontSize = OEUI_DEFFONTSIZE;
-
+	
 	FILE *file = fopen(filePath, "rb");
 	if(!file) {
 		WLOG(WARN, "Failed to open .ttf file, skipping!");
 		return NULL;
 	}
-	unsigned char *fb = calloc(1<<20, sizeof(unsigned char));
-	fread(fb, 1, 1<<20, file);
+	res->fb = calloc(1<<20, sizeof(unsigned char));
+	fread(res->fb, 1, 1<<20, file);
 	fclose(file);
 	unsigned char *atlas = calloc(OEUI_ATLASSIZE, sizeof(unsigned char));
 	float *scaledAtlas = calloc(OEUI_ATLASSIZE*4, sizeof(float));
 	stbtt_pack_context pc;
 	stbtt_pack_range pr;
-	stbtt_PackBegin(&pc, atlas, OEUI_ATLASWID, OEUI_ATLASHEI, 0, 1, NULL);
+	stbtt_PackBegin(&pc, atlas, OEUI_ATLASWID, OEUI_ATLASHEI, 0, 3, NULL);
 	stbtt_PackSetOversampling(&pc, 3,3);
 	pr.chardata_for_range = (stbtt_packedchar *)res->glyph;
 	pr.font_size = res->fontSize;
 	pr.first_unicode_codepoint_in_range = OEUI_FSTCHR;
 	pr.num_chars = (OEUI_FENDCHR-OEUI_FSTCHR);
-	stbtt_PackFontRanges(&pc, fb, 0, &pr, 1);
+	stbtt_PackFontRanges(&pc, res->fb, 0, &pr, 1);
 	stbtt_PackEnd(&pc);
 
 	int i;
@@ -102,13 +149,17 @@ OEUIFont *OEUILoadFont(char *filePath, char *ID) {
 	}
 	sg_view atlasTmp = sg_make_view(&(sg_view_desc){
 			.texture.image = sg_make_image(&(sg_image_desc){
+					.usage.immutable = false,
+					.usage.stream_update = true,
 					.width = OEUI_ATLASWID, .height = OEUI_ATLASHEI,
 					.pixel_format = SG_PIXELFORMAT_RGBA32F,
-					.data.mip_levels[0] = PTRRANGE(scaledAtlas, OEUI_ATLASSIZE*4),
 					.label = ID
 	})});
+	sg_image img = sg_query_view_image((sg_view){res->atlasTex.id});
+	sg_update_image(img, &(sg_image_data){
+			.mip_levels[0]=PTRRANGE(scaledAtlas, OEUI_ATLASSIZE*4)});
 	res->atlasTex.id = atlasTmp.id;
-	free(fb);
+	if(flag!=OEUI_KEEPFBMEM) {free(res->fb);res->fb=NULL;}
 	free(atlas);
 	free(scaledAtlas);
 	return res;
