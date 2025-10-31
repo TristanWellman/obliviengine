@@ -89,11 +89,10 @@ void main() {
 	lowp mat3 TBN = mat3(t,b,ncol);
 
 	lowp float tpi = PI*2;
-	lowp float hits = 0.38;
-	lowp vec3 hitCol = vec3(0.0);
+	lowp float hits = 0.35;
 
 	lowp float phi = tpi*getRandom(vec2(0.0,2026));
-	lowp float cosT = 0.4;//getRandom(vec2(seed,0.0));
+	lowp float cosT = 0.4;
 	lowp float sinT = (1.0-cosT*cosT)*QISQRT(1.0-cosT*cosT);
 	lowp vec3 dirVS = vec3(cos(phi)*sinT, sin(phi)*sinT, cosT);
 	lowp vec3 rayDir = TBN*dirVS/3.5;
@@ -101,13 +100,9 @@ void main() {
 	lowp vec4 clip = proj*vec4(samplePos,1.0);
 	lowp vec2 suv = (clip.xy/clip.w)*0.5+0.5;
 	lowp vec3 hitPos = texture(sampler2D(OESSAO_ptexture, OESSAO_smp), suv).xyz;
-	if(hitPos.z<samplePos.z-aBias) {
-		/* gives a small GI effect
-		 * This is good for low-end systems that cannot use the SSGI shader.*/
-		hitCol = texture(sampler2D(OESSAO_texture, OESSAO_smp), suv).rgb;
-		hits=1.0;
-	}
-	lowp vec3 sum = (col.rgb+(hitCol*0.6))*hits;
+	if(hitPos.z<samplePos.z-aBias) hits=1.0;
+
+	lowp vec3 sum = (col.rgb+(col.rgb*0.6))*hits;
 	frag_color = vec4(sum,1.0);
 }
 

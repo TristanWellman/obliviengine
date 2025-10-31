@@ -114,7 +114,7 @@ void position() {
 
 /*Phong Lighting for simple shader*/
 void main() {
-    lowp vec3 norm = WNORM(normal);
+    lowp vec3 norm = normal;
     lowp vec3 viewDir = WNORM(camPos - fragPos);
 
 	vec3 ad = vec3(0.0);
@@ -135,7 +135,7 @@ void main() {
 		ad += diffuse;
     }
 	lowp vec3 hdr = (AMB+ad*texcolor);
-    frag_color = vec4(pow(hdr/(vec3(1.0)+hdr),vec3(0.45))*vec3(color), 1.0);
+    frag_color = vec4(pow(hdr/(vec3(1.0)+hdr),vec3(0.5))*vec3(color), 1.0);
 
 	depth();
 	normal_c();
