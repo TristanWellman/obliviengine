@@ -880,6 +880,144 @@ _OE_COLD void OEGLFallbackInit() {
 	WLOG(SDL_INFO, SDL_GetError());
 }
 
+void OESetRenderResolution(int w, int h) {
+	sg_destroy_image(globalRenderer->renderTarget);
+	sg_destroy_image(globalRenderer->postTarget);
+	sg_destroy_image(globalRenderer->postTargetPong);
+	sg_destroy_image(globalRenderer->depthDummy);
+	sg_destroy_image(globalRenderer->depthBuffer);
+	sg_destroy_image(globalRenderer->normalBuffer);
+	sg_destroy_image(globalRenderer->positionBuffer);
+	sg_destroy_image(globalRenderer->noiseBuffer);
+	sg_destroy_image(globalRenderer->prevFrameBuffer);
+	OEDestroyViews(&globalRenderer->views);
+	globalRenderer->renderTarget = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+		.width = w,
+		.height = h,
+		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.label = "render_target"
+	});
+	globalRenderer->postTarget = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+		.width = w,
+		.height = h,
+		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.label = "post_target"
+	});
+	globalRenderer->postTargetPong = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+		.width = w,
+		.height = h,
+		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.label = "post_target_p"
+	});
+	globalRenderer->depthDummy = sg_make_image(&(sg_image_desc){
+		.usage.depth_stencil_attachment = true,
+    	.width = w, 
+    	.height = h, 
+    	.pixel_format = SG_PIXELFORMAT_DEPTH,
+		.sample_count = 1,
+		.label = "depthd_image"
+	});
+	globalRenderer->depthBuffer = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+    	.width = w, 
+    	.height = h, 
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.sample_count = 1,
+		.label = "depth_image"
+	});
+	globalRenderer->normalBuffer = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+    	.width = w, 
+    	.height = h, 
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.sample_count = 1,
+		.label = "normal_image"
+	});
+	globalRenderer->positionBuffer = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+    	.width = w, 
+    	.height = h, 
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.sample_count = 1,
+		.label = "position_image"
+	});
+	globalRenderer->noiseBuffer = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+    	.width = w, 
+    	.height = h, 
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.sample_count = 1,
+		.label = "noise_image"
+	});
+	globalRenderer->prevFrameBuffer = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+    	.width = w, 
+    	.height = h, 
+    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.sample_count = 1,
+		.label = "previous_frame"
+	});
+
+	/*Color views init*/
+	globalRenderer->views.cRenderTarget = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->renderTarget});
+	globalRenderer->views.cDepthBuffer = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->depthBuffer});
+	globalRenderer->views.cNormalBuffer = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->normalBuffer});
+	globalRenderer->views.cPositionBuffer = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->positionBuffer});
+	globalRenderer->views.cNoiseBuffer = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->noiseBuffer});
+	globalRenderer->views.cPrevFrameBuffer = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->prevFrameBuffer});
+	globalRenderer->views.cPostTarget = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->postTarget});
+	globalRenderer->views.cPostTargetPong = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->postTargetPong});
+
+	/*Texture views init*/
+	globalRenderer->views.tRenderTarget = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->renderTarget});
+	globalRenderer->views.tDepthBuffer = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->depthBuffer});
+	globalRenderer->views.tNormalBuffer = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->normalBuffer});
+	globalRenderer->views.tPositionBuffer = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->positionBuffer});
+	globalRenderer->views.tNoiseBuffer = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->noiseBuffer});
+	globalRenderer->views.tPrevFrameBuffer = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->prevFrameBuffer});
+	globalRenderer->views.tPostTarget = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->postTarget});
+	globalRenderer->views.tPostTargetPong = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->postTargetPong});
+	sg_view depthDummyView = sg_make_view(&(sg_view_desc){
+				.depth_stencil_attachment.image=globalRenderer->depthDummy});
+	globalRenderer->renderTargetAtt = (sg_attachments){
+		.colors[0] = globalRenderer->views.cRenderTarget,
+		.colors[1] = globalRenderer->views.cDepthBuffer,
+		.colors[2] = globalRenderer->views.cNormalBuffer,
+		.colors[3] = globalRenderer->views.cPositionBuffer,
+		.colors[4] = globalRenderer->views.cNoiseBuffer,
+		.colors[5] = globalRenderer->views.cPrevFrameBuffer,
+		.depth_stencil = depthDummyView};
+	
+	globalRenderer->postTargetAtt = (sg_attachments){
+		.colors[0] = globalRenderer->views.cPostTarget,
+		.depth_stencil = depthDummyView};
+	globalRenderer->postTargetAttPong = (sg_attachments){
+		.colors[0] = globalRenderer->views.cPostTargetPong,
+		.depth_stencil = depthDummyView};
+	globalRenderer->prevFrameTarg = (sg_attachments){
+		.colors[0] = globalRenderer->views.cPrevFrameBuffer,
+		.depth_stencil = depthDummyView};
+}
+
 _OE_COLD void OEForceGraphicsSetting(int flag) {
 	if(!OECheckGraphicFlag(flag)) {
 		WLOG(WARN, "Invalid Graphics Setting Flag!");

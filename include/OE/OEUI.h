@@ -12,15 +12,15 @@ typedef struct OEUI_pipeline {uint32_t id;} OEUI_pipeline;
 
 #ifndef OEUI_DEFS
 #	define OEUI_DEFS
-#	define OEUI_STBGLYPHSIZE 95
-#	define OEUI_DEFFONTSIZE 28
+#	define OEUI_DEFFONTSIZE 32
 #	define OEUI_DEFFONTRESSCALE 40 /*window width / OEUI_DEFFONTSIZE*/
 #	define OEUI_ATLASWID 512
 #	define OEUI_ATLASHEI 512
 #	define OEUI_ATLASSIZE \
 		(OEUI_ATLASWID*OEUI_ATLASHEI)
 #	define OEUI_FSTCHR 32
-#	define OEUI_FENDCHR 96
+#	define OEUI_FENDCHR 127
+#	define OEUI_STBGLYPHSIZE (OEUI_FENDCHR-OEUI_FSTCHR)
 #	define OEUI_FATTRPOS 0
 #	define OEUI_FATTRTCOORD 1
 #	define OEUI_STBGL 1 /*stb_truetype.h: 1=opengl & d3d10+,0=d3d9*/

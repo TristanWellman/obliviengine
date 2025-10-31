@@ -536,6 +536,13 @@ _OE_COLD void OEGetGLVersion(int *_OE_RESTRICT maj, int *_OE_RESTRICT min);
  * */
 _OE_COLD void OEGLFallbackInit();
 /**
+ * @brief Set the render resolution.
+ *
+ * @param w The width in pixels.
+ * @param h The height in pixels.
+ * */
+void OESetRenderResolution(int w, int h);
+/**
  * @brief Force the OE graphics mode for lower/higher end hardware.
  *
  * @param flag The OE flag for graphical setting, e.g. OE_LOW_GRAPHICS.
