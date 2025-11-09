@@ -37,6 +37,7 @@ typedef struct {
 typedef struct {
 	char *ID, *path;
 	unsigned char *fb; /*This is only kept if the user specifies OEUI_KEEPFBMEM*/ 
+	long fbSize;
 	OEUI_bakedchar *glyph;
 	OEUI_view atlasTex;
 	unsigned int fontSize :8;
@@ -47,6 +48,7 @@ typedef struct {
 	OEUI_shader fontShader;
 	OEUI_pipeline fontPipeline;
 	OEUI_buffer fontVbuf, fontIbuf;
+	OEUI_buffer imageBuf;
 } OEUIData;
 
 //sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label);
@@ -55,5 +57,6 @@ void OEUIDestroyTTFBuffer(OEUIFont *font);
 void OEUISetFontSize(OEUIFont *font, int size);
 OEUIFont *OEUILoadFont(char *filePath, char *ID, int flag);
 void OEUIRenderText(OEUIFont *font, char *input, int x, int y);
+void OEUIDrawImage(OEUI_view image);
 
 #endif

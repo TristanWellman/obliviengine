@@ -9,13 +9,6 @@
 #endif
 
 /*
- * Private level prototypes
- * */
-void OEInitDrawQueue();
-void OEPushDrawCall(struct DrawCall call);
-void OEClearDrawQueue();
-
-/*
  * OE lib functions
  * */
 
@@ -546,6 +539,11 @@ void OEDrawObjectTexEx(Object *obj, int assign,
     sg_draw(0, obj->numIndices, 1);
 }
 
+/*Instancing*/
+void OEDrawInstanceBatchTex(OEInstanceBatch *batch) {
+
+}
+
 _OE_PURE int OERendererIsRunning() {
 	return globalRenderer->window->running;
 }
@@ -636,6 +634,7 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
 		},
 		.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
 		.index_type = SG_INDEXTYPE_NONE,
+		.color_count = 1,
 		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
         .depth = {
 			.compare = SG_COMPAREFUNC_ALWAYS,
@@ -700,6 +699,10 @@ _OE_PURE sg_view OEGetDefaultTexture() {
 
 _OE_PURE sg_sampler OEGetSampler() {
 	return globalRenderer->sampler;
+}
+
+_OE_PURE sg_pipeline OEGetRTP() {
+	return globalRenderer->renderTargetPipe;
 }
 
 void initBaseObjects() {
@@ -770,6 +773,10 @@ _OE_COLD void OEDisableDebugInfo() {
 	globalRenderer->debug = 0;
 }
 
+_OE_COLD void OEDisableSdtx() {
+	globalRenderer->disablesdtx = 1;
+}
+
 void computeCameraRay() {
 	Camera *cam = OEGetCamera();
 	vec3 ray_origin, ray_dir;
@@ -792,33 +799,6 @@ void OEComputeRotationMatrix(mat4x4 out, vec3 front, vec3 up) {
 	out[1][0] = u[0]; out[1][1] = u[1]; out[1][2] = u[2]; out[1][3] = 0.0f;
 	out[2][0] = -f[0]; out[2][1] = -f[1]; out[2][2] = -f[2]; out[2][3] = 0.0f;
 	out[3][0] = 0.0f; out[3][1] = 0.0f; out[3][2] = 0.0f; out[3][3] = 1.0f;
-}
-
-void OEInitDrawQueue() {
-	globalRenderer->drawQueue.size = 0;
-	globalRenderer->drawQueue.cap = DRAWCALLSTEP;
-	globalRenderer->drawQueue.drawCalls = calloc(DRAWCALLSTEP, sizeof(struct DrawCall));
-}
-
-
-void OEPushDrawCall(struct DrawCall call) {
-	struct DrawCall *queue = globalRenderer->drawQueue.drawCalls;
-	int *size = &globalRenderer->drawQueue.size;
-	int *cap = &globalRenderer->drawQueue.cap;
-	if(*size>=*cap) {
-		*cap+=DRAWCALLSTEP;
-		 queue = (struct DrawCall *)realloc(queue, sizeof(struct DrawCall)*(*cap));
-	}
-	queue[*size] = call;
-	(*size)++;
-}
-
-void OEClearDrawQueue() {
-	int *size = &globalRenderer->drawQueue.size;
-	int *cap = &globalRenderer->drawQueue.cap;
-	int i;
-	free(globalRenderer->drawQueue.drawCalls);
-	OEInitDrawQueue();
 }
 
 int OEDumpSupportedPixelFormats() {
@@ -881,6 +861,8 @@ _OE_COLD void OEGLFallbackInit() {
 }
 
 void OESetRenderResolution(int w, int h) {
+	if(w==globalRenderer->window->renderWidth&&
+			h==globalRenderer->window->renderHeight) return;
 	sg_destroy_image(globalRenderer->renderTarget);
 	sg_destroy_image(globalRenderer->postTarget);
 	sg_destroy_image(globalRenderer->postTargetPong);
@@ -1016,6 +998,8 @@ void OESetRenderResolution(int w, int h) {
 	globalRenderer->prevFrameTarg = (sg_attachments){
 		.colors[0] = globalRenderer->views.cPrevFrameBuffer,
 		.depth_stencil = depthDummyView};
+	globalRenderer->window->renderWidth = w;
+	globalRenderer->window->renderHeight = h;
 }
 
 _OE_COLD void OEForceGraphicsSetting(int flag) {
@@ -1042,6 +1026,8 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->window = calloc(1, sizeof(Window));
 	globalRenderer->window->width = width;
 	globalRenderer->window->height = height;
+	globalRenderer->window->renderWidth = width;
+	globalRenderer->window->renderHeight = height;
 	globalRenderer->window->title = strdup(title);
 	globalRenderer->window->running = 1;
 	globalRenderer->debug = 0;
@@ -1053,11 +1039,11 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->imgui.ioptr = NULL;
 	globalRenderer->window->cursor = NULL;
 	globalRenderer->frame = 0;
+	globalRenderer->disablesdtx = 0;
 	char *os = OEGETOS();
 	char *osclass = OEGETOSCLASS();
 	globalRenderer->OSInfo = calloc(strlen(os)+strlen(osclass)+128, sizeof(char));
 	snprintf(globalRenderer->OSInfo, sizeof(char)*(strlen(os)+strlen(osclass)+128), "%s: %s", osclass, os);
-	OEInitDrawQueue();
 
 	int pp;
 	for(pp=0;pp<MAXPOSTPASS;pp++) {
@@ -1972,7 +1958,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	});
 	sg_draw(0,6,1);
 
-	if(globalRenderer->debug&&!globalRenderer->legacy) {
+	if(globalRenderer->debug&&!globalRenderer->legacy&&!globalRenderer->disablesdtx) {
 		sdtx_canvas(globalRenderer->window->width * 0.5f, 
 				globalRenderer->window->height * 0.5f);
     	sdtx_origin(1.0f, 1.0f);
@@ -2007,7 +1993,6 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 		SDL_SetCursor(globalRenderer->window->cursor);
 
 	OEUpdateViewMat();
-	OEClearDrawQueue();
 
 	globalRenderer->frame_end = SDL_GetPerformanceCounter();
 	globalRenderer->fps =

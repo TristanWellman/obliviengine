@@ -2,6 +2,7 @@
 
 #include <OE/OE.h>
 #include <OE/OEUI.h>
+#include <OE/cube.h>
 #include <OE/font.glsl.h>
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <stb/stb_truetype.h>
@@ -54,6 +55,10 @@ void OEUIInit(OEUIData *data, char *file) {
 	data->fontPipeline.id = tmpFPipe.id;
 	data->fontVbuf.id = 0;
 	data->fontIbuf.id = 0;
+	sg_buffer imgTmp = sg_make_buffer(&(sg_buffer_desc) {
+				.data = SG_RANGE(quadVertices),
+				.label = "quadVerts"});
+	data->imageBuf.id = imgTmp.id;
 }
 
 void OEUIDestroyTTFBuffer(OEUIFont *font) {
@@ -124,13 +129,18 @@ OEUIFont *OEUILoadFont(char *filePath, char *ID, int flag) {
 		WLOG(WARN, "Failed to open .ttf file, skipping!");
 		return NULL;
 	}
-	res->fb = calloc(1<<20, sizeof(unsigned char));
-	fread(res->fb, 1, 1<<20, file);
+	fseek(file, 0, SEEK_END);
+	res->fbSize = ftell(file);
+	rewind(file);
+	res->fb = calloc(res->fbSize, sizeof(unsigned char));
+	fread(res->fb, 1, res->fbSize, file);
 	fclose(file);
 	unsigned char *atlas = calloc(OEUI_ATLASSIZE, sizeof(unsigned char));
 	float *scaledAtlas = calloc(OEUI_ATLASSIZE*4, sizeof(float));
 	stbtt_pack_context pc;
 	stbtt_pack_range pr;
+	memset(&pr, 0, sizeof(pr));
+	memset(&pc, 0, sizeof(pc));
 	stbtt_PackBegin(&pc, atlas, OEUI_ATLASWID, OEUI_ATLASHEI, 0, 3, NULL);
 	stbtt_PackSetOversampling(&pc, 3,3);
 	pr.chardata_for_range = (stbtt_packedchar *)res->glyph;
@@ -258,4 +268,23 @@ void OEUIRenderText(OEUIFont *font, char *input, int x, int y) {
 
 	sg_destroy_buffer(vBuf);
 	sg_destroy_buffer(iBuf);
+}
+
+void OEUIDrawImage(OEUI_view image) {
+	if(image.id==SG_INVALID_ID) {
+		WLOG(WARN, "Invalid image view, skipping draw!");
+		return;
+	}
+	OEUIData *data = OEGetOEUIData();
+	sg_apply_pipeline(OEGetRTP());
+	sg_apply_bindings(&(sg_bindings){
+		.vertex_buffers[0] = (sg_buffer){data->imageBuf.id},
+		.views[0] = (sg_view){image.id},
+		.samplers[0] = OEGetSampler()
+	});
+	sg_draw(0,6,1);
+}
+
+void OEUIRotateImage(OEUI_view image, float deg) {
+	
 }

@@ -193,22 +193,19 @@ typedef struct {
 	vec3 pos;
 } Object;
 
-struct DrawCall {
-	Object *obj;
-};
-
 typedef struct {
-	int cap, size;
-	struct DrawCall *drawCalls;
-} DrawCallQueue;
+	mat4x4 *models;
+	vec3 *positions;
+} OEInstanceBatch;
 
 typedef struct {
 	int width, height;
+	int renderWidth, renderHeight;
 	char *title;
 	SDL_Window *window;
 	SDL_GLContext gl_context;
 	SDL_Cursor *cursor;
-	int running;
+	unsigned int running;
 } Window;
 
 typedef struct {
@@ -258,6 +255,7 @@ struct renderer {
 	unsigned int graphicsSetting;
 	unsigned int igStat :1;
 	unsigned int legacy :1; /*If OpenGL 3.3 is required*/
+	unsigned int disablesdtx :1;
 	int lastKey :8;
 
 	Camera cam;
@@ -308,8 +306,6 @@ struct renderer {
 	OESSAO_params_t ssaoParams;
 
 	OELuaData luaData; 
-
-	DrawCallQueue drawQueue;
 
 	unsigned int debug :1;
 	float tick;
@@ -470,7 +466,10 @@ _OE_PURE sg_view OEGetDefaultTexture();
  * Get the Sokol sampler used for the OE bindings/shaders.
  * */
 _OE_PURE sg_sampler OEGetSampler();
-
+/**
+ * @brief Retrieve the main render target pipeline, this uses the quad shader. Good for drawing images.
+ * */
+_OE_PURE sg_pipeline OEGetRTP();
 /*renderer*/
 /**
  * @brief Tells if the renderer is running or not.
@@ -512,6 +511,10 @@ _OE_COLD void OEEnableDebugInfo();
  * @brief This disables debugging information onto the screen/terminal.
  * */
 _OE_COLD void OEDisableDebugInfo();
+/**
+ * @brief disables the sdtx debug info rendering.
+ * */
+_OE_COLD void OEDisableSdtx();
 /**
  * @brief Gets a rotation matrix from a front and up vector.
  *

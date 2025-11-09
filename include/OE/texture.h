@@ -18,7 +18,7 @@ struct textureHandle {
 	int total;
 };
 
-void addTexture(char *ID, char *path);
+void addTexture(char *ID, char *path, int fv);
 sg_view getTexture(char *ID);
 
 #endif
