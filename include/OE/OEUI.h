@@ -44,6 +44,11 @@ typedef struct {
 } OEUIFont;
 
 typedef struct {
+	int w, h; /*width/height of rect*/
+	int x0, x1, y0, y1; /*corner locations of the rect*/
+} OEUIRect;
+
+typedef struct {
 	OEUIFont *defaultFont;
 	OEUI_shader fontShader;
 	OEUI_pipeline fontPipeline;
@@ -58,5 +63,6 @@ void OEUISetFontSize(OEUIFont *font, int size);
 OEUIFont *OEUILoadFont(char *filePath, char *ID, int flag);
 void OEUIRenderText(OEUIFont *font, char *input, int x, int y);
 void OEUIDrawImage(OEUI_view image);
+void OEUIDrawImageEx(OEUI_view image, int x, int y, int w, int h);
 
 #endif

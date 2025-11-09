@@ -285,6 +285,40 @@ void OEUIDrawImage(OEUI_view image) {
 	sg_draw(0,6,1);
 }
 
-void OEUIRotateImage(OEUI_view image, float deg) {
-	
+void OEUIDrawImageEx(OEUI_view image, int x, int y, int w, int h) {
+	if(image.id==SG_INVALID_ID) {
+		WLOG(WARN, "Invalid image view, skipping draw!");
+		return;
+	}
+	int sx=0, sy=0;
+	OEGetWindowResolution(&sx, &sy);
+	OEUIData *data = OEGetOEUIData();
+
+	float x0 = ((float)x/(float)sx)*2.0f-1.0f;
+	float y0 = 1.0f-((float)y/(float)sy)*2.0f;
+	float x1 = (((float)x+(float)w)/(float)sx)*2.0f-1.0f;
+	float y1 = 1.0f-(((float)y+(float)h)/(float)sy)*2.0f;
+	float imgQuadVertices[] = {
+		x0, y0, 0.0f, 0.0f, 
+		x1, y0, 1.0f, 0.0f,  
+		x0, y1, 0.0f, 1.0f, 
+		x0, y1, 0.0f, 1.0f, 
+		x1, y0, 1.0f, 0.0f, 
+		x1, y1, 1.0f, 1.0f, 
+	};
+
+	sg_buffer imgBuf = sg_make_buffer(&(sg_buffer_desc) {
+				.data = SG_RANGE(imgQuadVertices),
+				.label = "imgQuadVerts"});
+
+	sg_apply_pipeline(OEGetRTP());
+	sg_apply_bindings(&(sg_bindings){
+		.vertex_buffers[0] = imgBuf,
+		.views[0] = (sg_view){image.id},
+		.samplers[0] = OEGetSampler()
+	});
+	sg_draw(0,6,1);
+	sg_destroy_buffer(imgBuf);
 }
+
+

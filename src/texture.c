@@ -25,16 +25,18 @@ void addTexture(char *ID, char *path, int fv) {
 			handle.textures[i].ID = calloc(strlen(ID)+1, sizeof(char));
 			strcpy(handle.textures[i].ID, ID);
 			/*Load stb_image to sg_image*/
-			int w,h,c;
+			int *w,*h,c=0;
+			w = &handle.textures[i].width;
+			h = &handle.textures[i].height;
 			if(fv) stbi_set_flip_vertically_on_load(1);
-			unsigned char *data = stbi_load(path, &w,&h,&c,4);
+			unsigned char *data = stbi_load(path, w,h,&c,4);
 			WASSERT(data, "Failed to load image: %s", path);
 			handle.textures[i].tex = sg_make_view(&(sg_view_desc){
 					.texture.image = sg_make_image(&(sg_image_desc){
-						.width = w,
-						.height = h,
+						.width = *w,
+						.height = *h,
 						.pixel_format = SG_PIXELFORMAT_RGBA8,
-						.data.mip_levels[0] = PTRRANGE(data, (w*h*4)),
+						.data.mip_levels[0] = PTRRANGE(data, ((*w)*(*h)*4)),
 						.label = ID
     		})});
 			stbi_image_free(data);
@@ -60,5 +62,18 @@ sg_view getTexture(char *ID) {
 	sprintf(buf, "Failed to find image %s", ID);
 	WLOG(WARN, buf);
 	return (sg_view){0};
+}
+
+void OEGetTextureSize(char *ID, int *x, int *y) {
+	int i;
+	for(i=0;i<handle.total;i++) {
+		if(handle.textures[i].ID!=NULL&&!strcmp(handle.textures[i].ID,ID)) { 
+			*x = handle.textures[i].width;
+			*y = handle.textures[i].height;
+		}
+	}
+	char buf[strlen(ID)+128];
+	sprintf(buf, "Failed to find image %s", ID);
+	WLOG(WARN, buf);
 }
 
