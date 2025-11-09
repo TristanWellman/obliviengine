@@ -10,6 +10,7 @@
 typedef struct {
 	sg_view tex;
 	char *ID;
+	int width, height;
 } Texture;
 
 struct textureHandle {
@@ -18,8 +19,9 @@ struct textureHandle {
 	int total;
 };
 
-void addTexture(char *ID, char *path);
+void addTexture(char *ID, char *path, int fv);
 sg_view getTexture(char *ID);
+void OEGetTextureSize(char *ID, int *x, int *y);
 
 #endif
 

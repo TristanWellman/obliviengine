@@ -33,6 +33,7 @@
 #include <lua/lualib.h>
 
 #include <cware-utils/osname.h>
+#include <pthread.h>
 
 #include "linmath.h"
 #include "util.h"
@@ -42,6 +43,8 @@
 #include "OELights.h"
 #include "log.h"
 #include "OEScript.h"
+#include "threadpool.h"
+#include "OEUI.h"
 
 #include "simple.glsl.h"
 #include "simple_low.glsl.h"
@@ -94,15 +97,16 @@ extern "C" {
  * OE Definitions
  * */
 #ifndef OE_DEFS
-#define OE_DEFS
-#define OE_USABLE_SCREEN_SPACE (1<<1|1)
-#define OE_FULLSCREEN (1<<2|1)
-#define OE_FULLSCREEN_DESKTOP (1<<3|1)
-#define OE_BORDERLESS (1<<4|1)
-#define OE_BORDERED (1<<5|1)
-#define OE_LOW_GRAPHICS (1<<6|1)
-#define OE_MED_GRAPHICS (1<<7|1)
-#define OE_HIGH_GRAPHICS (1<<8|1)
+#	define OE_DEFS
+#	define OEThreadPool threadpool_t
+#	define OE_USABLE_SCREEN_SPACE (1<<1|1)
+#	define OE_FULLSCREEN (1<<2|1)
+#	define OE_FULLSCREEN_DESKTOP (1<<3|1)
+#	define OE_BORDERLESS (1<<4|1)
+#	define OE_BORDERED (1<<5|1)
+#	define OE_LOW_GRAPHICS (1<<6|1)
+#	define OE_MED_GRAPHICS (1<<7|1)
+#	define OE_HIGH_GRAPHICS (1<<8|1)
 #endif
 
 #define MAXPOSTPASS 16
@@ -189,22 +193,19 @@ typedef struct {
 	vec3 pos;
 } Object;
 
-struct DrawCall {
-	Object *obj;
-};
-
 typedef struct {
-	int cap, size;
-	struct DrawCall *drawCalls;
-} DrawCallQueue;
+	mat4x4 *models;
+	vec3 *positions;
+} OEInstanceBatch;
 
 typedef struct {
 	int width, height;
+	int renderWidth, renderHeight;
 	char *title;
 	SDL_Window *window;
 	SDL_GLContext gl_context;
 	SDL_Cursor *cursor;
-	int running;
+	unsigned int running;
 } Window;
 
 typedef struct {
@@ -245,6 +246,8 @@ struct renderer {
 
 	Window *window;
 	struct OEImgui imgui;
+	OEUIData oeuiData;
+
 	SDL_Event event;
 	SDL_MouseButtonEvent mouseEvent;
 	unsigned int keyPressed :1, wasKeyPressed :1;
@@ -252,6 +255,7 @@ struct renderer {
 	unsigned int graphicsSetting;
 	unsigned int igStat :1;
 	unsigned int legacy :1; /*If OpenGL 3.3 is required*/
+	unsigned int disablesdtx :1;
 	int lastKey :8;
 
 	Camera cam;
@@ -303,12 +307,11 @@ struct renderer {
 
 	OELuaData luaData; 
 
-	DrawCallQueue drawQueue;
-
 	unsigned int debug :1;
 	float tick;
 	float frameTime;
 	float fps;
+	unsigned int frame :1; /*frame swap ticker*/
 	char *OSInfo;
 	int frame_start, frame_end;
 };
@@ -458,8 +461,15 @@ Object OEGetDefaultCubeObj(char *name);
 /**
  * @brief Gets the default OE texture, this is a full white image.
  * */
-_OE_PURE sg_view OEGetDefaultTexture(); 
-
+_OE_PURE sg_view OEGetDefaultTexture();
+/**
+ * Get the Sokol sampler used for the OE bindings/shaders.
+ * */
+_OE_PURE sg_sampler OEGetSampler();
+/**
+ * @brief Retrieve the main render target pipeline, this uses the quad shader. Good for drawing images.
+ * */
+_OE_PURE sg_pipeline OEGetRTP();
 /*renderer*/
 /**
  * @brief Tells if the renderer is running or not.
@@ -502,6 +512,10 @@ _OE_COLD void OEEnableDebugInfo();
  * */
 _OE_COLD void OEDisableDebugInfo();
 /**
+ * @brief disables the sdtx debug info rendering.
+ * */
+_OE_COLD void OEDisableSdtx();
+/**
  * @brief Gets a rotation matrix from a front and up vector.
  *
  * @param out The 4x4 matrix to hold the output.
@@ -524,6 +538,13 @@ _OE_COLD void OEGetGLVersion(int *_OE_RESTRICT maj, int *_OE_RESTRICT min);
  * @brief Deletes everything and sets OE to OpenGL 3.3
  * */
 _OE_COLD void OEGLFallbackInit();
+/**
+ * @brief Set the render resolution.
+ *
+ * @param w The width in pixels.
+ * @param h The height in pixels.
+ * */
+void OESetRenderResolution(int w, int h);
 /**
  * @brief Force the OE graphics mode for lower/higher end hardware.
  *
@@ -640,6 +661,10 @@ _OE_PURE int OEGetFPS();
  * */
 _OE_PURE float OEGetFrameTime();
 /**
+ * @brieg Get the frame swap index (0 or 1).
+ * */
+_OE_PURE unsigned int OEGetFrameSwap();
+/**
  * @brief This gets the current tick, not tick speed.
  * */
 _OE_PURE float OEGetTick();
@@ -648,11 +673,22 @@ _OE_PURE float OEGetTick();
  * */
 _OE_PURE SDL_Window *OEGetWindow();
 /**
+ * @brief Get the current main frame buffer(window) resolution.
+ *
+ * @param x The width
+ * @param y The height
+ * */
+void OEGetWindowResolution(int *x, int *y);
+/**
+ * @brief Get the pointer to the OEUI data struct.
+ * */
+_OE_PURE OEUIData *OEGetOEUIData();
+/**
  * @brief Get the Operating System Info string.
  * */
 _OE_PURE char *OEQueryOSInfo();
 /**
- * @brief Enables the Screen Space Ambient Occlusion shader.
+ * @brief Enable the OE Screen Space Ambient Occlusion shader.
  * */
 void OEEnableSSAO();
 /**
@@ -860,6 +896,56 @@ _OE_PRIVATE int OECheckGraphicFlag(int flag) {
 			flag==OE_MED_GRAPHICS||
 			flag==OE_HIGH_GRAPHICS) return 1;
 	return 0;
+}
+
+_OE_PRIVATE void OEInitThreadPool(OEThreadPool **pool) {
+	*pool = threadpool_create(1, MAX_QUEUE, 0);
+	WASSERT(pool!=NULL, "Failed to init threadpool!");
+}
+
+_OE_PRIVATE void OEDispatchThread(OEThreadPool *pool, 
+		void(*thread)(void *), void *arg, char *ID) {
+	if(!pool||!thread) return;
+	WASSERT(threadpool_add(pool,thread,arg,0,ID)==0,
+			"Failed to dispatch thread!");
+	WLOG(INFO_THREAD, "Thread successfully dispatched");
+}
+
+_OE_PRIVATE int OEGetThreadState(OEThreadPool *pool, char *ID) {
+	if(!pool||!ID) return -1;
+	int i, res=-1;
+	pthread_mutex_lock(&pool->lock);
+	for(i=0;i<pool->thread_count&&strcmp(pool->queue[i].ID, ID);i++);
+	res = pool->queue[i].thread_state;
+	pthread_mutex_unlock(&pool->lock);
+	return res;
+}
+
+_OE_PRIVATE void OESetThreadState(OEThreadPool *pool, char *ID, int state) {
+	if(!pool||!ID) return;
+	int i;
+	pthread_mutex_lock(&pool->lock);
+	for(i=0;i<pool->thread_count&&strcmp(pool->queue[i].ID, ID);i++);
+	pool->queue[i].thread_state = state;
+	pthread_cond_broadcast(&pool->notify);
+	pthread_mutex_unlock(&pool->lock);
+}
+
+_OE_PRIVATE void OEWaitThread(OEThreadPool *pool, char *ID, int waitFor) {
+	if(!pool||!ID) return;
+	int i;
+	pthread_mutex_lock(&pool->lock);
+	for(i=0;i<pool->thread_count&&strcmp(pool->queue[i].ID, ID);i++);
+
+	while(pool->queue[i].thread_state!=waitFor) 
+		pthread_cond_wait(&pool->notify, &pool->lock);
+
+	pthread_mutex_unlock(&pool->lock);
+}
+
+_OE_PRIVATE void OEDestroyThreadPool(OEThreadPool *pool) {
+	if(!pool) return;
+	threadpool_destroy(pool, 0);
 }
 
 #ifdef __cplusplus

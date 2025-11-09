@@ -59,6 +59,7 @@ layout(binding=4) uniform OESSGI_params {
 
 layout(binding=0) uniform sampler OESSGI_smp;
 layout(binding=0) uniform texture2D OESSGI_texture;
+layout(binding=1) uniform texture2D OESSGI_dtexture;
 layout(binding=2) uniform texture2D OESSGI_ntexture;
 layout(binding=3) uniform texture2D OESSGI_ptexture;
 layout(binding=4) uniform texture2D OESSGI_noiseTexture;
@@ -92,18 +93,17 @@ void main() {
 	vec3 b = cross(ncol, t);
 	mat3 TBN = mat3(t,b,ncol);
 	vec3 GI = vec3(0.0);
-	lowp float seed = getRandom(uv*pcol.x*pcol.y*pcol.z);
 
 	lowp float invSteps = 1.0/float(STEPS);
 	lowp float tpi = PI*2;
 
 	int i=0, hits=0;
 	for(;i<RAYS;i++) {
-		lowp float phi = tpi*getRandom(vec2(i,seed));
-		lowp float cosT = getRandom(vec2(seed,i));
+		lowp float phi = tpi*getRandom(vec2(i,2025));
+		lowp float cosT = getRandom(vec2(2025,i));
 		lowp float sinT = (1.0-cosT*cosT)*QISQRT(1.0-cosT*cosT);
 		lowp vec3 dirVS = vec3(cos(phi)*sinT, sin(phi)*sinT, cosT);
-		vec3 rayDir = TBN*dirVS;
+		vec3 rayDir = WNORM(TBN*dirVS);
 		int j = 1;
 		for(;j<=STEPS;j++) {
 			lowp float ta = (float(j)*invSteps)*RADIUS;
@@ -114,9 +114,9 @@ void main() {
 			vec3 hitPos = texture(sampler2D(OESSGI_ptexture, OESSGI_smp), suv).xyz;
 			if(QSQRT(dot(hitPos,hitPos))<0.001) continue;
 			if(hitPos.z<samplePos.z-BIAS) {
-				vec3 hitColor = texture(sampler2D(OESSGI_texture, OESSGI_smp), suv).rgb;
-				lowp float wei = max(dot(ncol,rayDir), 0.0)*(1.0-ta/RADIUS);
-				GI += hitColor*wei; 
+				lowp vec3 hitColor = texture(sampler2D(OESSGI_texture, OESSGI_smp), suv).rgb;
+				//lowp float wei = max(dot(ncol,rayDir), 0.0)*(1.0-ta/RADIUS);
+				GI += hitColor*0.4;//*wei; 
 				hits++;
 				break;
 			}
@@ -125,7 +125,9 @@ void main() {
 	GI = (GI/float(RAYS))*INTENSITY;
 	lowp float AO = ((float(hits)/float(RAYS)));
 	frag_color = vec4((col+GI)*AO,1.0);
-	//frag_color = vec4(getRandom(uv*pcol.x*pcol.y*pcol.z));
+	//frag_color = vec4(col*AO, 1.0);
+	//frag_color = vec4(vec3(dcol),1.0);
+	//frag_color = vec4(vec3(tpi*getRandom(vec2(i,seed))),1.0);
 }
 
 @end
