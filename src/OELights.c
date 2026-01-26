@@ -4,6 +4,17 @@
 
 struct LightData *globalData = NULL;
 
+int OELightCmpName(const void *a, const void *b) {
+	const OELight *la = (const OELight *)a;
+	const OELight *lb = (const OELight *)b;
+	if(!la->ID||!lb->ID) return 1;
+	return strcmp(la->ID, lb->ID);
+}
+
+void OEQSortLights() {
+	qsort(&globalData->lights[0], globalData->size, sizeof(OELight), OELightCmpName);
+}
+
 void OEAddLight(char *ID, vec3 pos, Color color) {
 	if(globalData==NULL) {
 		globalData = calloc(1, sizeof(struct LightData));
@@ -15,7 +26,7 @@ void OEAddLight(char *ID, vec3 pos, Color color) {
 			globalData->lights[i].ID = NULL;
 		}
 	}
-	if(OEDoesLightExist(ID)) return;
+	if(OEDoesLightExist(ID)) return;
 	int size = globalData->size;
 	if(size>=MAXLIGHTS) {
 		WLOG(WARN, "Too many lights, not adding.");
@@ -25,22 +36,25 @@ void OEAddLight(char *ID, vec3 pos, Color color) {
 	memcpy(&globalData->lights[size].color, &color, sizeof(color));
 	globalData->lights[size].ID = calloc(strlen(ID)+1, sizeof(char));
 	strcpy(globalData->lights[size].ID, ID);
-	char buf[strlen(ID)+256];
+	/*char buf[strlen(ID)+256];
 	sprintf(buf, "Created light source[%d]: %s", globalData->size, ID);
-	WLOG(INFO, buf);
+	WLOG(INFO, buf);*/
 	globalData->size++;
+	OEQSortLights();
 }
 
 int OEDoesLightExist(char *ID) {
 	if(globalData==NULL) return 0;
-	int i, size = globalData->size;
-	for(i=0;i<size&&globalData->lights[i].ID;i++) 
-		if(!strcmp(globalData->lights[i].ID, ID)) return 1;
-	return 0;
+	OELight key = (OELight){.ID = calloc(strlen(ID)+1, sizeof(char))};
+	strcpy(key.ID, ID);
+	OELight *res = (OELight *)bsearch(&key, &globalData->lights, globalData->size, 
+			sizeof(OELight), OELightCmpName);
+	free(key.ID);
+	key.ID = NULL;
+	return (res!=NULL);
 }
 
 void OERemoveLight(char *ID) {
-	/*I haven't done qsort with the lights yet, so this will be slow linear til' I fix that.*/
 	int i, j;
 	for(i=0;(i<globalData->size)&&(globalData->lights[i].ID!=NULL)
 			&&(strcmp(ID, globalData->lights[i].ID)!=0);i++);
@@ -51,9 +65,9 @@ void OERemoveLight(char *ID) {
 		memmove(&globalData->lights[i], &globalData->lights[i+1],
 				(globalData->size-i-1)*sizeof(globalData->lights[0]));
 	}
-	char buf[strlen(ID)+256];
+	/*char buf[strlen(ID)+256];
 	sprintf(buf, "Removed light source[%d]: %s", globalData->size, ID);
-	WLOG(INFO, buf);
+	WLOG(INFO, buf);*/
 
 	globalData->size--;
 	globalData->lights[globalData->size].ID = NULL;
@@ -101,6 +115,3 @@ int getNumLights() {
 	if(globalData==NULL) return 0;
 	return globalData->size;
 }
-
-
-

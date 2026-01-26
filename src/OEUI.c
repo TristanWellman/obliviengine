@@ -13,8 +13,6 @@ void OEUIApplyFontUniforms();
 
 /*All these font rendering functions should be using the quad.glsl shader*/
 sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label) {
-	char *_label = calloc(strlen(label)+1, sizeof(char));
-	strcpy(_label, label);
 	return (sg_pipeline_desc) {
 		.shader = shader,
 		.layout = {
@@ -39,7 +37,7 @@ sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label) {
 			.compare = SG_COMPAREFUNC_ALWAYS,
 			.write_enabled = false,
         },
-		.label = _label
+		.label = label
 	};
 }
 
@@ -62,7 +60,7 @@ void OEUIInit(OEUIData *data, char *file) {
 }
 
 void OEUIDestroyTTFBuffer(OEUIFont *font) {
-	if(font&&font->fb) free(font->fb);
+	if(font&&font->fb) {free(font->fb); font->fb = NULL;}
 }
 
 void OEUISetFontSize(OEUIFont *font, int size) {
@@ -71,7 +69,7 @@ void OEUISetFontSize(OEUIFont *font, int size) {
 	if(size==font->fontSize) return;
 
 	if(font->glyph) {
-		free(font->glyph);
+		free(font->glyph); font->glyph = NULL;
 		font->glyph = calloc(OEUI_STBGLYPHSIZE, sizeof(stbtt_packedchar));
 	}
 	font->fontSize = size;
@@ -110,8 +108,8 @@ void OEUISetFontSize(OEUIFont *font, int size) {
 	sg_image img = sg_query_view_image((sg_view){font->atlasTex.id});
 	sg_update_image(img, &(sg_image_data){
 			.mip_levels[0]=PTRRANGE(scaledAtlas, OEUI_ATLASSIZE*4)});
-	free(atlas);
-	free(scaledAtlas);
+	free(atlas); atlas = NULL;
+	free(scaledAtlas); scaledAtlas = NULL;
 }
 
 OEUIFont *OEUILoadFont(char *filePath, char *ID, int flag) {
@@ -170,8 +168,8 @@ OEUIFont *OEUILoadFont(char *filePath, char *ID, int flag) {
 			.mip_levels[0]=PTRRANGE(scaledAtlas, OEUI_ATLASSIZE*4)});
 	res->atlasTex.id = atlasTmp.id;
 	if(flag!=OEUI_KEEPFBMEM) {free(res->fb);res->fb=NULL;}
-	free(atlas);
-	free(scaledAtlas);
+	free(atlas); atlas = NULL;
+	free(scaledAtlas); scaledAtlas = NULL;
 	return res;
 }
 
@@ -252,8 +250,8 @@ void OEUIRenderText(OEUIFont *font, char *input, int x, int y) {
 	sg_update_buffer(vBuf, &PTRRANGE(verts, vSize));
 	sg_update_buffer(iBuf, &PTRRANGE(inds, iSize));
 
-	free(verts);
-	free(inds);
+	free(verts); verts = NULL;
+	free(inds); inds = NULL;
 	sg_view atlasTmp = (sg_view){font->atlasTex.id};
 	sg_pipeline pipeTmp = (sg_pipeline){data->fontPipeline.id};
 	sg_apply_pipeline(pipeTmp);
@@ -320,5 +318,4 @@ void OEUIDrawImageEx(OEUI_view image, int x, int y, int w, int h) {
 	sg_draw(0,6,1);
 	sg_destroy_buffer(imgBuf);
 }
-
 

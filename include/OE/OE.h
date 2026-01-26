@@ -47,6 +47,7 @@
 #include "OEUI.h"
 
 #include "simple.glsl.h"
+#include "simpleInst.glsl.h"
 #include "simple_low.glsl.h"
 #include "quad.glsl.h"
 #include "fxaa.glsl.h"
@@ -86,6 +87,7 @@ extern "C" {
 
 #define MAXOBJS (1000000)
 #define OBJSTEP (100)
+#define INSTMAX (5000)
 
 #define MAXDRAWCALLS (500000)
 #define DRAWCALLSTEP (10) /*This is how much we realloc to the queue*/
@@ -194,9 +196,16 @@ typedef struct {
 } Object;
 
 typedef struct {
-	mat4x4 *models;
+	Object *obj; 
+	unsigned int size;
 	vec3 *positions;
-} OEInstanceBatch;
+	vec4 *instModelsr0;
+	vec4 *instModelsr1;
+	vec4 *instModelsr2;
+	vec4 *instModelsr3;
+	sg_buffer vbuf;
+	sg_buffer mbuf0, mbuf1, mbuf2, mbuf3;
+} OEInstanceBatch; 
 
 typedef struct {
 	int width, height;
@@ -252,6 +261,7 @@ struct renderer {
 	SDL_MouseButtonEvent mouseEvent;
 	unsigned int keyPressed :1, wasKeyPressed :1;
 	unsigned int mousePressed :1, wasMousePressed :1;
+	unsigned int mouseScrollUp :1, mouseScrollDown :1;
 	unsigned int graphicsSetting;
 	unsigned int igStat :1;
 	unsigned int legacy :1; /*If OpenGL 3.3 is required*/
@@ -264,8 +274,13 @@ struct renderer {
 
 	sg_bindings bindings;
 	Object *objects;
+	OEInstanceBatch *iBatches;
+	sg_pipeline iBatchPipe;
 	int objCap :20;
 	int objSize :20;
+	unsigned int iBatchCap;
+	unsigned int iBatchSize;
+
 	OEPPShaders ppshaders; /*These are the enable/disable-able post-pass shaders*/
 	sg_shader defCubeShader;
 	sg_shader cubeShader, lowDefCubeShader;
@@ -326,12 +341,31 @@ static struct renderer *globalRenderer;
  * */
 _OE_HOT Object *OEGetObjectFromName(char *name);
 /**
+ * @brief Get an OEInstanceBatch pointer by providing the Object ID.
+ *
+ * @param name The name/ID for the Object batch you are trying to retrieve.
+ * */
+_OE_HOT OEInstanceBatch *OEGetInstanceBatchFromName(char *name);
+/**
  * @brief Adds a Lua script to an Object, the script will run before every frame.
  *
  * @param ID The name/ID for the Object you are attaching the script to.
  * @param scriptPath The file path to the designated Lua script.
  * */
 void OEAttachScript(char *ID, char *scriptPath);
+/**
+ * @brief Adds a new Instance Batch to Obliviengine, this IB is accessible via OEGetInstanceBatch.
+ *
+ * @param obj The Object at which you are using to batch.
+ * */
+_OE_HOT void OECreateInstanceBatch(Object *obj);
+/**
+ * @brief Pushes a new positioned obj to an instance batch.
+ *
+ * @param batch The instance batch to push the data to.
+ * @param pos The new position to push.
+ * */
+_OE_HOT void OEPushInstanceBatchData(OEInstanceBatch *batch, vec3 pos);
 /**
  * @brief Adds a new Object to Obliviengine, this Object is accessible via OEGetObjectFromName
  *
@@ -396,7 +430,21 @@ void OERotateObject(char *ID, float deg);
  * @param ID The name/ID of the Object you are resetting.
  * */
 void OEResetRotation(char *ID);
+/**
+ * @brief Sends a draw call to the GPU for a specified object batch.
+ *
+ * @param batch The instance batch you are drawing.
+ * */
 
+_OE_HOT void OEDrawInstanceBatch(OEInstanceBatch *batch);
+/**
+ * @brief Sends a draw call to the GPU with a specified obj batch and custom texture application.
+ *
+ * @param batch The batch you are drawing.
+ * @param texture The texture.
+ * */
+_OE_HOT void OEDrawInstanceBatchTex(OEInstanceBatch *batch,
+		int assign, sg_view texture);
 /**
  * @brief Sends a draw call to the GPU for a specified object.
  *
@@ -483,6 +531,14 @@ _OE_PURE int OERendererIsRunning();
  * @param label The name/ID for the pipeline.
  * */
 sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label);
+/**
+ * @brief Get the default instancing pipeline for OE, this is for the simple.glsl format
+ * (position, color, normal, uv).
+ *
+ * @param shader The shader you want to use in the pipeline.
+ * @param label The name/ID for the pipeline.
+ * */
+sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label);
 /**
  * @brief The default screen pipeline (this is for things like post processing shaders).
  *
@@ -647,6 +703,14 @@ void OESetWindowUsableScreen();
  * */
 void OESetWindowDisplayMode(int flag);
 /**
+ * @brief Get the scroll up event.
+ * */
+unsigned int OEGetMouseScrollDown();
+/**
+ * @brief Get the scroll down event.
+ * */
+unsigned int OEGetMouseScrollUp();
+/**
  * @brief Runs the SDL event polling loop along with a user defined key handler.
  *
  * @param event The user's event handling function.
@@ -679,6 +743,13 @@ _OE_PURE SDL_Window *OEGetWindow();
  * @param y The height
  * */
 void OEGetWindowResolution(int *x, int *y);
+/**
+ * @brief Get the current main frame render buffer resolution.
+ *
+ * @param x The width
+ * @param y The height
+ * */
+void OEGetRenderResolution(int *x, int *y);
 /**
  * @brief Get the pointer to the OEUI data struct.
  * */
@@ -923,8 +994,8 @@ _OE_PRIVATE int OEGetThreadState(OEThreadPool *pool, char *ID) {
 
 _OE_PRIVATE void OESetThreadState(OEThreadPool *pool, char *ID, int state) {
 	if(!pool||!ID) return;
-	int i;
 	pthread_mutex_lock(&pool->lock);
+	int i;
 	for(i=0;i<pool->thread_count&&strcmp(pool->queue[i].ID, ID);i++);
 	pool->queue[i].thread_state = state;
 	pthread_cond_broadcast(&pool->notify);
@@ -947,6 +1018,48 @@ _OE_PRIVATE void OEDestroyThreadPool(OEThreadPool *pool) {
 	if(!pool) return;
 	threadpool_destroy(pool, 0);
 }
+
+_OE_PRIVATE int OEObjectCmpName(const void *a, const void *b) {
+	const Object *oa = (const Object *)a;
+	const Object *ob = (const Object *)b;
+	if(!oa->name||!ob->name) return 1;
+	return strcmp(oa->name, ob->name);
+}
+
+_OE_PRIVATE void OEQSortObjects() {
+	qsort(&globalRenderer->objects[0], globalRenderer->objSize, sizeof(Object), OEObjectCmpName);
+}
+
+_OE_PRIVATE int OEIBatchCmpName(const void *a, const void *b) {
+	const OEInstanceBatch *oa = (const OEInstanceBatch *)a;
+	const OEInstanceBatch *ob = (const OEInstanceBatch *)b;
+	if(!oa->obj||!ob->obj) return 1;
+	if(!oa->obj->name||!ob->obj->name) return 1;
+	return strcmp(oa->obj->name, ob->obj->name);
+}
+
+_OE_PRIVATE void OEQSortIBatch() {
+	qsort(&globalRenderer->iBatches[0], globalRenderer->iBatchSize, 
+			sizeof(OEInstanceBatch), OEIBatchCmpName);
+}
+
+_OE_PRIVATE void OEClearInstanceBatchData() {
+	int i;
+	for(i=0;i<globalRenderer->iBatchSize;i++) {
+		free(globalRenderer->iBatches[i].positions);
+		free(globalRenderer->iBatches[i].instModelsr0);
+		free(globalRenderer->iBatches[i].instModelsr1);
+		free(globalRenderer->iBatches[i].instModelsr2);
+		free(globalRenderer->iBatches[i].instModelsr3);
+		globalRenderer->iBatches[i].positions = calloc(INSTMAX, sizeof(vec3));
+		globalRenderer->iBatches[i].instModelsr0 = calloc(INSTMAX, sizeof(mat4x4));
+		globalRenderer->iBatches[i].instModelsr1 = calloc(INSTMAX, sizeof(mat4x4));
+		globalRenderer->iBatches[i].instModelsr2 = calloc(INSTMAX, sizeof(mat4x4));
+		globalRenderer->iBatches[i].instModelsr3 = calloc(INSTMAX, sizeof(mat4x4));
+		globalRenderer->iBatches[i].size = 0;
+	}
+}
+
 
 #ifdef __cplusplus
 }

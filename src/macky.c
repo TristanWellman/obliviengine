@@ -71,6 +71,7 @@ mky_data *mky_init(char *filename) {
 		}
 	}
 	fclose(ptr->file);
+	ptr->file = NULL;
 	return ptr;
 }
 
@@ -171,7 +172,7 @@ char *findData (char *section, char *itemName) {
 }
 
 mky_array mky_getArrayAt(char *section, char *itemName) {
-	char *data = findData(section, itemName); 
+	char *data = findData(section, itemName);
 	int i;
 	/*Move up to array data*/
 	for(i=0;i<strlen(data);i++) {
@@ -208,6 +209,7 @@ mky_array mky_getIntArrayAt(char *section, char *itemName) {
 int mky_getIntAt(char *section, char *itemName) {
 	/*mky_getIntAt("ITEM", "Damage");*/
 	char *data = findData(section, itemName);
+	char *dataptr = data; /*for free later*/
 	if(!data) return 0;
 	if(data==NULL) {
 		fprintf(stdout, "MKY:WARN:: Could not find data %s - %s\n", section, itemName);
@@ -225,11 +227,14 @@ int mky_getIntAt(char *section, char *itemName) {
 		}
 		data++;
 	}
-	return atoi(data);
+	int res = atoi(data);
+	free(dataptr); dataptr = NULL;
+	return res;
 }
 
 float mky_getFloatAt(char *section, char *itemName) {
 	char *data = findData(section, itemName);
+	char *dataptr = data;
 	if(!data) return 0;
 	int i,item;
 	for(i=0;i<strlen(data);i++) {
@@ -243,7 +248,9 @@ float mky_getFloatAt(char *section, char *itemName) {
 		}
 		data++;
 	}
-	return atof(data);
+	float res = atof(data);
+	free(dataptr); dataptr = NULL;
+	return res;
 }
 
 char *mky_getStrAt(char *section, char *itemName) {
@@ -277,11 +284,13 @@ MKY_BOOL mky_getBoolAt(char *section, char *itemName) {
 		if(checkData(itemName,data))
 			data+=strlen(itemName)+1;
 
-		if(checkData("TRUE", data)) return MKY_TRUE;
-
+		if(checkData("TRUE", data)) {
+			free(data); data = NULL;
+			return MKY_TRUE;
+		}
 		data++;
 	}
-
+	free(data); data = NULL;
 	return MKY_FALSE;
 }
 #else
@@ -297,10 +306,13 @@ bool mky_getBoolAt(char *section, char *itemName) {
 		if(checkData(itemName,data))
 			data+=strlen(itemName)+1;
 
-		if(checkData("TRUE", data)) return true;
+		if(checkData("TRUE", data)) {
+			free(data); data = NULL;
+			return true;
+		}
 		data++;
 	}
-
+	free(data); data = NULL;
 	return false;
 }
 #endif

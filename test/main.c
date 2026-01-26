@@ -13,12 +13,15 @@ void draw() {
 	OEDrawObjectTex(OEGetObjectFromName("OECube"), OE_TEXPOS, getTexture("test"));
 	OEDrawObjectTex(OEGetObjectFromName("Plane"), OE_TEXPOS, getTexture("test"));
 
-	int i;
-	for(i=0;i<15;i++) {
-		char buf[256];
-		snprintf(buf, sizeof(buf), "%s%d", "OECube", i);
-		OEDrawObject(OEGetObjectFromName(buf));
-	}
+	OEInstanceBatch *batch = OEGetInstanceBatchFromName("OECube");
+
+	OEPushInstanceBatchData(batch, (vec3){0, 3, 2});
+	OEPushInstanceBatchData(batch, (vec3){1, 2, 1});
+	OEPushInstanceBatchData(batch, (vec3){3, 1, 2});
+	OEPushInstanceBatchData(batch, (vec3){-4, 5, -5});
+	OEPushInstanceBatchData(batch, (vec3){-10, 5, -2});
+	OEPushInstanceBatchData(batch, (vec3){6, 3, 12});
+	OEDrawInstanceBatchTex(batch, OE_TEXPOS, getTexture("test"));
 }
 
 void event() {
@@ -44,7 +47,7 @@ void colorTest() {
 	Color res = RGBA255TORGBA1(test);
 	printf("(%f, %f, %f, %f)\n", res.r, res.g, res.b, res.a);
 }
-
+ 
 void meshTest() {
 	OEMesh mesh, plane;
 	OEParseObj("Cube", "./assets/models/cube.obj", &mesh);
@@ -55,7 +58,7 @@ void meshTest() {
 	OEAttachScript("Cube", "./test/scripts/test.lua");
 }
 
-void makeCubes() {
+/*void makeCubes() {
 	int i;
 	srand(pow(clock(),10));
 	for(i=0;i<15;i++) {
@@ -66,7 +69,7 @@ void makeCubes() {
 				OEGetCubeVertDesc(),OEGetCubeIndDesc(), s, OEGetDefaultPipe(s,buf));
 	}
 
-}
+}*/
 
 int main(int argc, char **argv) {
 	
@@ -77,22 +80,26 @@ int main(int argc, char **argv) {
 	//OESetDefaultShader(OEGetRayTracedShader());
 
 	OEEnableFXAA();
-	OEEnableSSGI(64, 8);
+	//OEEnableSSGI(64, 8);
 	//OEEnableSSAO();
 	OEEnableBloom(0.8, 0.5);
 
-	makeCubes();
+	//makeCubes();
 
 	OESetObjectPosition("OECube", (vec3){-3.0f, 0.0f, 0.0f});
 
 	/*The alpha channel is intensity so 255*2.5 = 2.5 intensity*/
 	Color light1 = (Color){255.0f, 50.0f, 50.0f, 255.0f*30.0f};
 	Color light2 = (Color){50.0f, 50.0f, 255.0f, 255.0f*30.0f};
+	Color light3 = (Color){50.0f, 50.0f, 255.0f, 255.0f*3000.0f};
 
 	OEAddLight("MainLight", (vec3){3.0f, 6.0f, 3.0f}, RGBA255TORGBA1(light2));
 	OEAddLight("FillLight", (vec3){-3.0f, 6.0f, -3.0f}, RGBA255TORGBA1(light1));
+	OEAddLight("bright", (vec3){0.0f,8.0f,0.0f}, RGBA255TORGBA1(light3));
 
-	addTexture("test", "assets/uvtest.jpg");
+	addTexture("test", "assets/uvtest.jpg",1);
+
+	OECreateInstanceBatch(OEGetObjectFromName("OECube"));
 
 	while(OERendererIsRunning()) {
 		OEPollEvents((EVENTFUNC)event);

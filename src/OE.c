@@ -14,13 +14,28 @@
 
 _OE_HOT Object *OEGetObjectFromName(char *name) {
 	if(name==NULL) return NULL;
-	int i;
-	for(i=0;i<globalRenderer->objSize;i++) {
-		if(globalRenderer->objects[i].name==NULL) continue;
-		if(!strcmp(globalRenderer->objects[i].name, name))
-			return &globalRenderer->objects[i];
-	}
-	return NULL;
+	Object key = (Object){.name = calloc(strlen(name)+1, sizeof(char))};
+	strcpy(key.name, name);
+	Object *res = (Object *)bsearch(&key, globalRenderer->objects,
+			globalRenderer->objSize, sizeof(Object), OEObjectCmpName);
+	free(key.name);
+	key.name = NULL;
+	return res;
+}
+
+_OE_HOT OEInstanceBatch *OEGetInstanceBatchFromName(char *name) {
+	if(name==NULL) return NULL;
+	OEInstanceBatch key;
+	key.obj = calloc(1, sizeof(Object));
+	key.obj->name = calloc(strlen(name)+1, sizeof(char));
+	strcpy(key.obj->name, name);
+	OEInstanceBatch *res = (OEInstanceBatch *)bsearch(&key, globalRenderer->iBatches,
+			globalRenderer->iBatchSize, sizeof(OEInstanceBatch), OEIBatchCmpName);
+	free(key.obj->name);
+	key.obj->name = NULL;
+	free(key.obj);
+	key.obj = NULL;
+	return res;
 }
 
 void OEAttachScript(char *ID, char *scriptPath) {
@@ -30,7 +45,7 @@ void OEAttachScript(char *ID, char *scriptPath) {
 		char *buf = calloc(ssize, sizeof(char));
 		snprintf(buf, sizeof(char)*ssize, "Failed to open Lua script: %s", scriptPath);
 		WLOG(WARN, buf);
-		free(buf);
+		free(buf); buf = NULL;
 		fclose(test);
 		return;
 	}
@@ -50,18 +65,87 @@ void preFrameScriptExecute() {
 	}
 }
 
+_OE_HOT void OECreateInstanceBatch(Object *obj) {
+	if(obj==NULL) return;
+	if(obj->name==NULL) return;
+	if(OEGetInstanceBatchFromName(obj->name)) {
+		char buf[strlen(obj->name)+128];
+		sprintf(buf, "Duplicate Instance Batch: %s. Not adding.", obj->name);
+		WLOG(WARN, buf);
+		return;
+	}
+
+	if(globalRenderer->iBatchSize>=globalRenderer->iBatchCap) {
+		globalRenderer->iBatchCap += OBJSTEP;
+		globalRenderer->iBatches = 
+			(OEInstanceBatch *)realloc(globalRenderer->iBatches, 
+					sizeof(OEInstanceBatch)*globalRenderer->iBatchCap);
+	}
+	
+	globalRenderer->iBatches[globalRenderer->iBatchSize].obj = obj;
+	globalRenderer->iBatches[globalRenderer->iBatchSize].size = 0;
+	globalRenderer->iBatches[globalRenderer->iBatchSize].positions = calloc(INSTMAX, sizeof(vec3));
+	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr0 = calloc(INSTMAX, sizeof(vec4));
+	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr1 = calloc(INSTMAX, sizeof(vec4));
+	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr2 = calloc(INSTMAX, sizeof(vec4));
+	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr3 = calloc(INSTMAX, sizeof(vec4));
+	globalRenderer->iBatches[globalRenderer->iBatchSize].vbuf = sg_make_buffer(&(sg_buffer_desc){
+				.size = INSTMAX*sizeof(vec3),
+				.usage.stream_update = true,
+				.label = obj->name
+			});
+	globalRenderer->iBatches[globalRenderer->iBatchSize].mbuf0 = sg_make_buffer(&(sg_buffer_desc){
+				.size = INSTMAX*sizeof(vec4),
+				.usage.stream_update = true,
+				.label = obj->name
+			});
+	globalRenderer->iBatches[globalRenderer->iBatchSize].mbuf1 = sg_make_buffer(&(sg_buffer_desc){
+				.size = INSTMAX*sizeof(vec4),
+				.usage.stream_update = true,
+				.label = obj->name
+			});
+	globalRenderer->iBatches[globalRenderer->iBatchSize].mbuf2 = sg_make_buffer(&(sg_buffer_desc){
+				.size = INSTMAX*sizeof(vec4),
+				.usage.stream_update = true,
+				.label = obj->name
+			});
+	globalRenderer->iBatches[globalRenderer->iBatchSize].mbuf3 = sg_make_buffer(&(sg_buffer_desc){
+				.size = INSTMAX*sizeof(vec4),
+				.usage.stream_update = true,
+				.label = obj->name
+			});
+	globalRenderer->iBatchSize++;
+	OEQSortIBatch();
+}
+
+_OE_HOT void OEPushInstanceBatchData(OEInstanceBatch *batch, vec3 pos) {
+	if(batch==NULL) return;
+	if(batch->size>=INSTMAX) {
+		WLOG(WARN, "Instance Batch too large, not adding.");
+		return;
+	}
+	vec3_dup(batch->positions[batch->size], pos);
+	mat4x4 objModel;
+	mat4x4_identity(objModel);
+	mat4x4_translate(objModel, pos[0], pos[1], pos[2]);
+	vec4_dup(batch->instModelsr0[batch->size], objModel[0]);
+	vec4_dup(batch->instModelsr1[batch->size], objModel[1]);
+	vec4_dup(batch->instModelsr2[batch->size], objModel[2]);
+	vec4_dup(batch->instModelsr3[batch->size], objModel[3]);
+	batch->size++;
+}
+
 void OECreateObject(Object obj) {
 	if(obj.name==NULL) return;
 	int i;
 	/*Check for dups*/
-	for(i=0;i<globalRenderer->objSize;i++) {
-		if(!strcmp(obj.name, globalRenderer->objects[i].name)) {
-			char buf[strlen(obj.name)+128];
-			sprintf(buf, "Duplicate object names: %s. Not adding.", obj.name);
-			WLOG(WARN, buf);
-			return;
-		}
+	if(OEGetObjectFromName(obj.name)) {
+		char buf[strlen(obj.name)+128];
+		sprintf(buf, "Duplicate object names: %s. Not adding.", obj.name);
+		WLOG(WARN, buf);
+		return;
 	}
+
 	if(globalRenderer->objSize>=globalRenderer->objCap) {
 		globalRenderer->objCap+=OBJSTEP;
 		globalRenderer->objects =
@@ -89,6 +173,7 @@ void OECreateObject(Object obj) {
 
 	globalRenderer->objects[pos].numID = globalRenderer->objSize;
 	globalRenderer->objSize++;
+	OEQSortObjects();
 
 	char buf[strlen(globalRenderer->objects[pos].name)+256];
 	sprintf(buf, "OBJ[%zu]: %s Created", pos, globalRenderer->objects[pos].name);
@@ -120,7 +205,7 @@ void OECreateObjectEx(char *name, vec3 pos,
 	mat4x4_dup(obj.originalModel, obj.model);
 
 	OECreateObject(obj);
-	free(obj.name);
+	free(obj.name); obj.name = NULL;
 }
 
 void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
@@ -218,9 +303,9 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 	mat4x4_dup(obj.originalModel, obj.model);
 
 	OECreateObject(obj);
-	free(obj.name);
-	free(finalVerts);
-	free(finalInds);
+	free(obj.name); obj.name = NULL;
+	free(finalVerts); finalVerts = NULL;
+	free(finalInds); finalInds = NULL;
 }
 
 /*This should be used over the OECreateObjectFromMesh since my .obj parser is "ok"*/
@@ -235,7 +320,7 @@ void OECreateMeshFromAssimp(char *name, char *path, vec3 pos) {
 		char *buf = calloc(128+strlen(path), sizeof(char));
 		snprintf(buf,sizeof(buf),"Failed to load FBX file: %s", path);
 		WLOG(ERROR,buf)
-		free(buf);
+		free(buf); buf = NULL;
 		return;
 	}
 	struct aiMesh *mesh = scene->mMeshes[0];
@@ -309,8 +394,8 @@ void OECreateMeshFromAssimp(char *name, char *path, vec3 pos) {
 	mat4x4_dup(obj.originalModel, obj.model);
 
 	OECreateObject(obj);
-	free(finalVerts);
-	free(finalInds);
+	free(finalVerts); finalVerts = NULL;
+	free(finalInds); finalInds = NULL;
 	aiReleaseImport(scene);
 }
 
@@ -366,7 +451,7 @@ void setObjectShader(char *name, sg_shader shd) {
 
 /*This is specifically for the default shader*/
 void OEApplyCurrentUniforms(Object *obj) {
-	vs_params_t vs_params = {0};
+	vs_params_t vs_params = {.tick = OEGetTick()};
 	fs_params_t fs_params = {.numLights = getNumLights()};
 	light_params_t light_params = getLightUniform();
 
@@ -375,9 +460,10 @@ void OEApplyCurrentUniforms(Object *obj) {
     mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
 
 	Camera *cam = OEGetCamera();
-    memcpy(vs_params.mvp, mvp, sizeof(mvp));
+    //memcpy(vs_params.mvp, mvp, sizeof(mvp));
 	memcpy(vs_params.model, obj->model, sizeof(obj->model));
 	memcpy(vs_params.view, cam->view, sizeof(cam->view));
+	memcpy(vs_params.proj, cam->proj, sizeof(cam->proj));
 	memcpy(fs_params.camPos, cam->position, sizeof(cam->position));
 
 	if(globalRenderer->graphicsSetting>OE_LOW_GRAPHICS) {
@@ -438,6 +524,96 @@ void runObjLuaScript(Object *obj) {
 	}
 }
 
+_OE_HOT void OEDrawInstanceBatch(OEInstanceBatch *batch) {
+	if(batch==NULL) {
+		WLOG(ERROR, "NULL instance batch passed to drawInstanceBatch");
+		return;
+	}
+
+	sg_update_buffer(batch->vbuf, &(sg_range){
+				.ptr = batch->positions,
+				.size = (size_t)batch->size*sizeof(vec3)
+	});
+	sg_update_buffer(batch->mbuf0, &(sg_range){
+				.ptr = batch->instModelsr0,
+				.size = (size_t)batch->size*sizeof(vec4)
+	});
+	sg_update_buffer(batch->mbuf1, &(sg_range){
+				.ptr = batch->instModelsr1,
+				.size = (size_t)batch->size*sizeof(vec4)
+	});
+	sg_update_buffer(batch->mbuf2, &(sg_range){
+				.ptr = batch->instModelsr2,
+				.size = (size_t)batch->size*sizeof(vec4)
+	});
+	sg_update_buffer(batch->mbuf3, &(sg_range){
+				.ptr = batch->instModelsr3,
+				.size = (size_t)batch->size*sizeof(vec4)
+	});
+
+	sg_apply_pipeline(globalRenderer->iBatchPipe);
+    sg_apply_bindings(&(sg_bindings){
+        .vertex_buffers[0] = batch->obj->vbuf,
+		.vertex_buffers[1] = batch->vbuf,
+		.vertex_buffers[2] = batch->mbuf0,
+		.vertex_buffers[3] = batch->mbuf1,
+		.vertex_buffers[4] = batch->mbuf2,
+		.vertex_buffers[5] = batch->mbuf3,
+        .index_buffer = batch->obj->ibuf,
+		.views[OE_TEXPOS] = OEGetDefaultTexture(),
+        .samplers[OE_TEXPOS] = globalRenderer->sampler
+    });
+
+	OEApplyCurrentUniforms(batch->obj);
+    sg_draw(0, batch->obj->numIndices, (int)batch->size);
+}
+
+_OE_HOT void OEDrawInstanceBatchTex(OEInstanceBatch *batch,
+		int assign, sg_view texture) {
+	if(batch==NULL) {
+		WLOG(ERROR, "NULL instance batch passed to drawInstanceBatch");
+		return;
+	}
+
+	sg_update_buffer(batch->vbuf, &(sg_range){
+				.ptr = batch->positions,
+				.size = (size_t)batch->size*sizeof(vec3)
+	});
+	sg_update_buffer(batch->mbuf0, &(sg_range){
+				.ptr = batch->instModelsr0,
+				.size = (size_t)batch->size*sizeof(vec4)
+	});
+	sg_update_buffer(batch->mbuf1, &(sg_range){
+				.ptr = batch->instModelsr1,
+				.size = (size_t)batch->size*sizeof(vec4)
+	});
+	sg_update_buffer(batch->mbuf2, &(sg_range){
+				.ptr = batch->instModelsr2,
+				.size = (size_t)batch->size*sizeof(vec4)
+	});
+	sg_update_buffer(batch->mbuf3, &(sg_range){
+				.ptr = batch->instModelsr3,
+				.size = (size_t)batch->size*sizeof(vec4)
+	});
+
+	sg_apply_pipeline(globalRenderer->iBatchPipe);
+    sg_apply_bindings(&(sg_bindings){
+		.vertex_buffers[0] = batch->obj->vbuf,
+		.vertex_buffers[1] = batch->vbuf,
+		.vertex_buffers[2] = batch->mbuf0,
+		.vertex_buffers[3] = batch->mbuf1,
+		.vertex_buffers[4] = batch->mbuf2,
+		.vertex_buffers[5] = batch->mbuf3,
+        .index_buffer = batch->obj->ibuf,
+		.views[3] = texture,
+        .samplers[3] = globalRenderer->sampler
+    });
+
+	OEApplyCurrentUniforms(batch->obj);
+    sg_draw(0, batch->obj->numIndices, (int)batch->size);
+}
+
+
 _OE_HOT void OEDrawObject(Object *obj) {
 	if(obj==NULL) {
 		WLOG(ERROR, "NULL object passed to drawObject");
@@ -489,7 +665,6 @@ _OE_HOT void OEDrawObjectTex(Object *obj, int assign, sg_view texture) {
         .index_buffer = obj->ibuf,
 		.views[3] = texture,
         .samplers[3] = globalRenderer->sampler
-
     });
 
 	OEApplyCurrentUniforms(obj);
@@ -539,11 +714,6 @@ void OEDrawObjectTexEx(Object *obj, int assign,
     sg_draw(0, obj->numIndices, 1);
 }
 
-/*Instancing*/
-void OEDrawInstanceBatchTex(OEInstanceBatch *batch) {
-
-}
-
 _OE_PURE int OERendererIsRunning() {
 	return globalRenderer->window->running;
 }
@@ -587,8 +757,6 @@ _OE_COLD sg_swapchain OEGetSwapChain() {
 }
 
 sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
-	char *_label = calloc(strlen(label)+1, sizeof(char));
-	strcpy(_label, label);
 	return (sg_pipeline_desc){
 			.shader = shader,
 			.layout = {
@@ -612,18 +780,89 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Noise Buffer*/
 				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Previous Frame Buffer*/
 			},
+			.colors[0].blend = (sg_blend_state){
+				.enabled = true,
+				.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+				.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+				.op_rgb = SG_BLENDOP_ADD,
+				.src_factor_alpha = SG_BLENDFACTOR_ONE,
+				.dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+				.op_alpha = SG_BLENDOP_ADD,
+			},
         	.depth = {
 				.compare = SG_COMPAREFUNC_LESS_EQUAL,
 				.pixel_format = SG_PIXELFORMAT_DEPTH,
 				.write_enabled = true
         	},
-			.label = _label
+			.label = label
+		};
+}
+
+sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label) {
+	return (sg_pipeline_desc){
+			.shader = shader,
+			.layout = {
+				.buffers = {
+					[0] = {.step_func=SG_VERTEXSTEP_PER_VERTEX},
+					[1] = {.step_func=SG_VERTEXSTEP_PER_INSTANCE},
+					[2] = {.step_func=SG_VERTEXSTEP_PER_INSTANCE},
+					[3] = {.step_func=SG_VERTEXSTEP_PER_INSTANCE},
+					[4] = {.step_func=SG_VERTEXSTEP_PER_INSTANCE}, 
+					[5] = {.step_func=SG_VERTEXSTEP_PER_INSTANCE}
+				},
+            	.attrs = {
+                	[ATTR_simpleInst_position] = 
+						{.format=SG_VERTEXFORMAT_FLOAT3,.buffer_index=0},
+					[ATTR_simple_color0] = 
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=0},
+					[ATTR_simple_normal0] = 
+						{.format=SG_VERTEXFORMAT_FLOAT3,.buffer_index=0},
+					[ATTR_simple_texcoord0] = 
+						{.format=SG_VERTEXFORMAT_FLOAT2,.buffer_index=0},
+					[ATTR_simpleInst_instPos] =
+						{.format=SG_VERTEXFORMAT_FLOAT3,.buffer_index=1},
+					[ATTR_simpleInst_instModelr0] =
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=2},
+            		[ATTR_simpleInst_instModelr1] =
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=3},
+					[ATTR_simpleInst_instModelr2] =
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=4},
+					[ATTR_simpleInst_instModelr3] =
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=5},
+				}
+        	},
+			.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
+			.index_type = SG_INDEXTYPE_UINT16,
+        	.cull_mode = SG_CULLMODE_BACK,
+			.sample_count = 1,
+			.color_count = 6,
+			.colors = {
+				[0] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Color Buffer*/
+				[1] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Depth Buffer*/
+				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Normal Buffer*/
+				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Position Buffer*/
+				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Noise Buffer*/
+				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Previous Frame Buffer*/
+			},
+			.colors[0].blend = (sg_blend_state){
+				.enabled = true,
+				.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+				.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+				.op_rgb = SG_BLENDOP_ADD,
+				.src_factor_alpha = SG_BLENDFACTOR_ONE,
+				.dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+				.op_alpha = SG_BLENDOP_ADD,
+			},
+        	.depth = {
+				.compare = SG_COMPAREFUNC_LESS_EQUAL,
+				.pixel_format = SG_PIXELFORMAT_DEPTH,
+				.write_enabled = true
+        	},
+			.label = label
 		};
 }
 
 sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
-	char *_label = calloc(strlen(label)+1, sizeof(char));
-	strcpy(_label, label);
 	return (sg_pipeline_desc) {
 		.shader = shader,
 		.layout = {
@@ -636,11 +875,20 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
 		.index_type = SG_INDEXTYPE_NONE,
 		.color_count = 1,
 		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.colors[0].blend = (sg_blend_state){
+			.enabled = true,
+			.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+			.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+			.op_rgb = SG_BLENDOP_ADD,
+			.src_factor_alpha = SG_BLENDFACTOR_ONE,
+			.dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+			.op_alpha = SG_BLENDOP_ADD,
+		},
         .depth = {
 			.compare = SG_COMPAREFUNC_ALWAYS,
 			.write_enabled = false,
         },
-		.label = _label
+		.label = label
 	};
 }
 
@@ -1040,6 +1288,9 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->window->cursor = NULL;
 	globalRenderer->frame = 0;
 	globalRenderer->disablesdtx = 0;
+	globalRenderer->iBatchCap = OBJSTEP;
+	globalRenderer->iBatchSize = 0;
+	globalRenderer->iBatches = calloc(globalRenderer->iBatchCap, sizeof(OEInstanceBatch));
 	char *os = OEGETOS();
 	char *osclass = OEGETOSCLASS();
 	globalRenderer->OSInfo = calloc(strlen(os)+strlen(osclass)+128, sizeof(char));
@@ -1051,9 +1302,13 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		globalRenderer->postPasses[pp].ID = NULL;
 	}
 
+	if(OSCLASS!=OS_WINDOWS) {
+		setenv("MESA_GL_VERSION_OVERRIDE", "4.1", 0);
+	}
+	
 	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)>=0,
 			"ERROR:: Failed to init SDL!");
-
+	
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); 
@@ -1081,8 +1336,8 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		OEGLFallbackInit();
 	}
 
-	//SDL_GL_SetSwapInterval(1); /*VSYNC=on*/
-	SDL_GL_SetSwapInterval(0); /*VSYNC=off*/
+	SDL_GL_SetSwapInterval(1); /*VSYNC=on*/
+	//SDL_GL_SetSwapInterval(0); /*VSYNC=off*/
  	glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK); 
@@ -1328,6 +1583,10 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 				.data = SG_RANGE(quadVertices),
 				.label = "quad_verts"
 			});
+
+	sg_shader instShade = sg_make_shader(simpleInst_shader_desc(sg_query_backend()));
+	sg_pipeline_desc ibpd = OEGetInstancingPipe(instShade, "instPipe");
+	globalRenderer->iBatchPipe = sg_make_pipeline(&ibpd);
 
 /*
  * Init objects
@@ -1653,11 +1912,20 @@ void OESetWindowDisplayMode(int flag) {
 	};
 }
 
+unsigned int OEGetMouseScrollUp() {
+	return globalRenderer->mouseScrollUp;
+}
+
+unsigned int OEGetMouseScrollDown() {
+	return globalRenderer->mouseScrollDown;
+}
+
 /*For mixed events use an SDL keyboard state*/
 void OEPollEvents(EVENTFUNC event) {
 	globalRenderer->wasKeyPressed = OEIsKeyPressed();
 	globalRenderer->wasMousePressed = OEIsMousePressed();
-
+	globalRenderer->mouseScrollUp = 0;
+	globalRenderer->mouseScrollDown = 0;
 	while(SDL_PollEvent(&globalRenderer->event)!=0) {
 		ImGui_ImplSDL2_ProcessEvent(&globalRenderer->event);
 		if(globalRenderer->event.type==SDL_QUIT) {
@@ -1675,6 +1943,14 @@ void OEPollEvents(EVENTFUNC event) {
 		} else if(globalRenderer->event.type==SDL_MOUSEBUTTONUP) {
 			globalRenderer->mousePressed = 0; 
 			globalRenderer->mouseEvent = globalRenderer->event.button;
+		}
+
+		if(globalRenderer->event.type==SDL_MOUSEWHEEL) {
+			if(globalRenderer->event.wheel.y>0) {
+				globalRenderer->mouseScrollUp = 1;
+			} else if(globalRenderer->event.wheel.y<0) {
+				globalRenderer->mouseScrollDown = 1;
+			} 
 		}
 	}
 	event();
@@ -1703,6 +1979,11 @@ _OE_PURE SDL_Window *OEGetWindow() {
 void OEGetWindowResolution(int *x, int *y) {
 	*x = globalRenderer->window->width;
 	*y = globalRenderer->window->height;
+}
+
+void OEGetRenderResolution(int *x, int *y) {
+	*x = globalRenderer->window->renderWidth;
+	*y = globalRenderer->window->renderHeight;
 }
 
 _OE_PURE OEUIData *OEGetOEUIData() {
@@ -1833,7 +2114,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	sg_pass_action pass_action = (sg_pass_action) {
        	.colors[0] = {
            	.load_action = SG_LOADACTION_CLEAR,
-       		.clear_value = {0.0f,0.0f,0.0f,1.0f}
+       		.clear_value = {0.0f,0.0f,0.0f,0.0f}
         },
 		.depth = {
 			.load_action = SG_LOADACTION_CLEAR,
@@ -1993,6 +2274,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 		SDL_SetCursor(globalRenderer->window->cursor);
 
 	OEUpdateViewMat();
+	OEClearInstanceBatchData();
 
 	globalRenderer->frame_end = SDL_GetPerformanceCounter();
 	globalRenderer->fps =

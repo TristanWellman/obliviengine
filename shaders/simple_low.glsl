@@ -17,9 +17,10 @@
 #define AMB vec3(0.002)
 
 layout(binding=0) uniform OELOW_vs_params {
-    mat4 mvp;
+	float tick;
     mat4 model;
 	mat4 view;
+	mat4 proj;
 };
 
 layout(binding=1) uniform OELOW_light_params {
@@ -60,6 +61,7 @@ in vec4 color0;
 in vec3 normal0;
 in vec2 texcoord0;
 
+out float time;
 out lowp vec4 color;
 out lowp vec3 normal;
 out lowp vec3 fragPos;
@@ -68,7 +70,7 @@ out lowp vec3 viewSpaceNorm;
 out lowp vec2 texcoord;
 
 void main() {
-    gl_Position = mvp * vec4(position,1.0);
+    gl_Position = ((proj*view)*model) * vec4(position,1.0);
     color = color0;
 
     lowp mat3 normalMatrix = transpose(inverse(mat3(model)));
@@ -78,6 +80,7 @@ void main() {
 	viewSpacePos = vec3(view*vec4(fragPos,1.0));
 	viewSpaceNorm = WNORM(mat3(view) * normal);
 	texcoord = texcoord0;
+	time = tick;
 }
 
 @end
@@ -88,6 +91,7 @@ void main() {
 layout(binding=3) uniform texture2D _texture;
 layout(binding=3) uniform sampler smp;
 
+in float time;
 in lowp vec4 color;
 in lowp vec3 normal; 
 in lowp vec3 fragPos;
@@ -119,7 +123,7 @@ void main() {
 
 	vec3 ad = vec3(0.0);
 
-	lowp vec3 texcolor = texture(sampler2D(_texture, smp), texcoord).rgb;
+	lowp vec4 texcolor = texture(sampler2D(_texture, smp), texcoord);
 	
 	int al = clamp(numLights,0,MAXLIGHTS);
 	int i;
@@ -134,8 +138,8 @@ void main() {
 			vec3(colors[i]*(colors[i].a*1.5))*MATDIFF*diff*atten;
 		ad += diffuse;
     }
-	lowp vec3 hdr = (AMB+ad*texcolor);
-    frag_color = vec4(pow(hdr/(vec3(1.0)+hdr),vec3(0.5))*vec3(color), 1.0);
+	lowp vec3 hdr = (AMB+ad*texcolor.rgb);
+    frag_color = vec4(pow(hdr/(vec3(1.0)+hdr),vec3(0.5))*vec3(color), texcolor.a);
 
 	depth();
 	normal_c();

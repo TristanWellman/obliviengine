@@ -1,8 +1,9 @@
 CC= gcc
-CFLAGS= -g -O2 -D_OE_INC -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include
+ARCHTUNES= -march=x86-64-v2 -mtune=generic
+CFLAGS= -O2 -D_OE_INC -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include -funroll-loops -fomit-frame-pointer -fconserve-stack
 CFLAGS_DEB= -g -O2 -Iinclude -Ishaders 
 # We do not use LDFLAGS, but it is left here for lib reference.
-LDFLAGS = -lm -lpthread 
+LDFLAGS = -lm -lpthread
 LIB?= lib/libOE.a
 UNAME_S := $(shell uname -s)
 ARCH := $(shell $(CC) -dumpmachine)
@@ -25,6 +26,8 @@ CIMGUI_LOC = lib/libcimgui.a
 
 ifeq ($(UNAME_S),Linux)
 	BACKEND= -DSOKOL_GLCORE
+	CFLAGS += $(ARCHTUNES)
+	CIMGUI_CXXFLAGS += $(ARCHTUNES)
 	LIB= lib/lin/libOE.a
 	LDFLAGS += -ldl -lSDL2 -lcimgui -lassimp -llua -lX11 -lGL
 	SHDC= sokol-tools-bin/bin/linux/sokol-shdc 
@@ -33,6 +36,8 @@ ifeq ($(UNAME_S),Linux)
 endif
 ifeq ($(UNAME_S),FreeBSD)
 	BACKEND= -DSOKOL_GLCORE
+	CFLAGS += $(ARCHTUNES)
+	CIMGUI_CXXFLAGS += $(ARCHTUNES)
 	LIB= lib/bsd/libOE.a
 	LDFLAGS += -ldl -lSDL2 -lcimgui -lassimp -llua -lX11 -lGL
 	SHDC= sokol-tools-bin/bin/linux/sokol-shdc 
@@ -55,6 +60,8 @@ ifeq ($(OS),Windows_NT)
 		CIMGUI_LDFLAGS += -Llib/win32 -lSDL2 -lgdi32 -lopengl32
 		CIMGUI_LOC = lib/win32/libcimgui.a
 	else
+		CFLAGS += $(ARCHTUNES)
+		CIMGUI_CXXFLAGS += $(ARCHTUNES)
 		LDFLAGS += -Llib -lSDL2 -lcimgui -lassimp -llua -lgdi32 -lopengl32
 		CIMGUI_LDFLAGS += -Llib -lSDL2 -lgdi32 -lopengl32
 	endif
@@ -68,8 +75,8 @@ OBJS := $(SRCS:.c=.o)
 OPENXRINC= C:/msys64/mingw64/include/openxr
 OPENXRLIB= C:/msys64/mingw64/lib
 ifneq ($(wildcard C:/msys64/mingw64/include/openxr*),)
-	CFLAGS += -I$(OPENXRINC) #-DSDL_VIDEO_DRIVER_WINDOWS
-	CFLAGS_DEB += -I$(OPENXRINC) #-DSDL_VIDEO_DRIVER_WINDOWS
+	CFLAGS += -I$(OPENXRINC) 
+	CFLAGS_DEB += -I$(OPENXRINC) 
 	LDFLAGS += -L$(OPENXRLIB) -lopenxr_loader.dll
 	SRCS += $(wildcard src/openxr/*.c)
 	OBJS = $(SRCS:.c=.o)
@@ -85,6 +92,9 @@ TEST_SRC= test
 
 all: shaders cimgui lib
 
+generalx86_64_tune:
+	@ CFLAGS="$(ARCHTUNES) $(CFLAGS)"
+	
 .cpp.o:
 	$(CIMGUI_CC) $(CIMGUI_CXXFLAGS) -c -o $@ $<
 
@@ -112,6 +122,7 @@ clean_cimgui:
 
 shaders:
 	$(SHDC) --input shaders/simple.glsl --output include/OE/simple.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/simpleInst.glsl --output include/OE/simpleInst.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/simple_low.glsl --output include/OE/simple_low.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/quad.glsl --output include/OE/quad.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/font.glsl --output include/OE/font.glsl.h $(SHADER_ARGS)

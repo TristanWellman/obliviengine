@@ -29,8 +29,9 @@ in vec2 texcoord0;
 out vec4 frag_color;
 
 void main() {
-	vec3 texColor = texture(sampler2D(OEquad_texture, OEquad_smp), texcoord0).rgb;
-	frag_color = vec4(texColor, 1.0);
+	/*vec3 texColor = texture(sampler2D(OEquad_texture, OEquad_smp), texcoord0).rgb;
+	frag_color = vec4(texColor, 1.0);*/
+	frag_color = texture(sampler2D(OEquad_texture, OEquad_smp), texcoord0);
 }
 
 

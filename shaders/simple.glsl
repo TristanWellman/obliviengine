@@ -19,9 +19,10 @@
 
 
 layout(binding=0) uniform vs_params {
-    mat4 mvp;
+	float tick;
     mat4 model;
 	mat4 view;
+	mat4 proj;
 };
 
 layout(binding=1) uniform light_params {
@@ -62,6 +63,7 @@ in vec4 color0;
 in vec3 normal0;
 in vec2 texcoord0;
 
+out float time;
 out vec4 color;
 out vec3 normal;
 out vec3 fragPos;
@@ -70,7 +72,7 @@ out vec3 viewSpaceNorm;
 out vec2 texcoord;
 
 void main() {
-    gl_Position = mvp * vec4(position,1.0);
+    gl_Position = ((proj*view)*model) * vec4(position,1.0);
     color = color0;
 
     mat3 normalMatrix = transpose(inverse(mat3(model)));
@@ -80,6 +82,7 @@ void main() {
 	viewSpacePos = vec3(view*vec4(fragPos,1.0));
 	viewSpaceNorm = WNORM(mat3(view) * normal);
 	texcoord = texcoord0;
+	time = tick;
 }
 
 @end
@@ -90,6 +93,7 @@ void main() {
 layout(binding=3) uniform texture2D _texture;
 layout(binding=3) uniform sampler smp;
 
+in float time;
 in vec4 color;
 in vec3 normal; 
 in vec3 fragPos;
@@ -140,7 +144,7 @@ void main() {
 	vec3 ad = vec3(0.0);
 	vec3 as = vec3(0.0);
 
-	vec3 texcolor = texture(sampler2D(_texture, smp), texcoord).rgb;
+	vec4 texcolor = texture(sampler2D(_texture, smp), texcoord);
 	
 	int activeLight = clamp(numLights,0,MAXLIGHTS);
 	int i;
@@ -172,11 +176,11 @@ void main() {
 		as += specular;
     }
 	
-	vec3 hdr = ambient+ad*texcolor+as;
+	vec3 hdr = ambient+ad*texcolor.rgb+as;
 	vec3 mapped = hdr/(vec3(1.0)+hdr);
 
     vec3 result = pow(mapped, vec3(0.45));
-    frag_color = vec4(result*vec3(color), 1.0);
+    frag_color = vec4(result*vec3(color), texcolor.a);
 
 	depth();
 	normal_c();
