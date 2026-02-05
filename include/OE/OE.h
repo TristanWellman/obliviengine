@@ -87,7 +87,8 @@ extern "C" {
 
 #define MAXOBJS (1000000)
 #define OBJSTEP (100)
-#define INSTMAX (5000)
+#define INSTMAX (50000)
+#define MAXTICK (100000)
 
 #define MAXDRAWCALLS (500000)
 #define DRAWCALLSTEP (10) /*This is how much we realloc to the queue*/
@@ -109,6 +110,7 @@ extern "C" {
 #	define OE_LOW_GRAPHICS (1<<6|1)
 #	define OE_MED_GRAPHICS (1<<7|1)
 #	define OE_HIGH_GRAPHICS (1<<8|1)
+#	define OE_KEEPVERTS (1<<9|1)
 #endif
 
 #define MAXPOSTPASS 16
@@ -178,6 +180,10 @@ typedef struct {
 } Camera;
 
 typedef struct {
+	/*This saves verts into memory, I don't like it but I cannot query from VRAM when needed*/
+	float *vrtPtr;
+	unsigned int vrtSize;
+
 	OEScript script;
 	sg_buffer vbuf, ibuf;
 	sg_shader defShader;
@@ -223,6 +229,7 @@ typedef struct {
 } Mouse;
 
 typedef struct {
+	float passTime;
 	char *ID;
 	sg_pipeline pipe;
 	UNILOADER uniformBind;
@@ -259,6 +266,7 @@ struct renderer {
 
 	SDL_Event event;
 	SDL_MouseButtonEvent mouseEvent;
+	SDL_GameController *gameController;
 	unsigned int keyPressed :1, wasKeyPressed :1;
 	unsigned int mousePressed :1, wasMousePressed :1;
 	unsigned int mouseScrollUp :1, mouseScrollDown :1;
@@ -276,6 +284,7 @@ struct renderer {
 	Object *objects;
 	OEInstanceBatch *iBatches;
 	sg_pipeline iBatchPipe;
+	sg_shader originalIBatchShader;
 	int objCap :20;
 	int objSize :20;
 	unsigned int iBatchCap;
@@ -401,8 +410,9 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos);
  * @param name The name/ID for the Object.
  * @param path The file path for the model file.
  * @param pos The world space position of the Object.
+ * @param flag The load flags for the model, I.E. OE_KEEPVERTS to store verts in ram & vram.
  * */
-void OECreateMeshFromAssimp(char *name, char *path, vec3 pos);
+void OECreateMeshFromAssimp(char *name, char *path, vec3 pos, int flag);
 /**
  * @brief Sets the world space position of an existing OE Object.
  *
@@ -485,9 +495,13 @@ sg_buffer_desc OEGetCubeVertDesc();
  * */
 sg_buffer_desc OEGetCubeIndDesc();
 /**
- * @brief Gets the default OE cube shader (simple.glsl)
+ * @brief Gets the default OE cube shader (simple.glsl).
  * */
 sg_shader OEGetDefCubeShader();
+/**
+ * @brief Gets the default OE instancing shader (simpleInst.glsl).
+ * */
+sg_shader OEGetDefInstShader();
 /**
  * @brief Gets the OE ray tracing shader (not implemented yet).
  * */
@@ -502,6 +516,12 @@ sg_pipeline_desc OEGetRayTracedPipe();
  * @param shader The shader you are setting as default.
  * */
 void OESetDefaultShader(sg_shader shader);
+/**
+ * @brief Set the default OE instancing shader, this will overrite simpleInst.glsl.
+ *
+ * @param shader The shader you are setting as default.
+ * */
+void OESetDefaultInstancingShader(sg_shader shader);
 /**
  * @brief Creates and returns a new OE cube object.
  * */
@@ -711,6 +731,10 @@ unsigned int OEGetMouseScrollDown();
  * */
 unsigned int OEGetMouseScrollUp();
 /**
+ * @brief Get the SDL2 game controller.
+ * */
+SDL_GameController *OEGetGameController();
+/**
  * @brief Runs the SDL event polling loop along with a user defined key handler.
  *
  * @param event The user's event handling function.
@@ -841,6 +865,12 @@ PostPass *OEAddPostPass(char *id, sg_pipeline pipe, UNILOADER loader);
  * @param id The name/ID of the post-pass you are removing.
  * */
 void OERemovePostPass(char *id);
+/**
+ * @brief Retrieve the time in MS for a post pass.
+ *
+ * @param ID The ID for the post pass I.E. "SSGI"
+ * */
+float OEGetPostPassTime(char *ID);
 /**
  * @brief Runs the actual rendering process, all your draw calls, UI, etc.
  *
@@ -1045,19 +1075,8 @@ _OE_PRIVATE void OEQSortIBatch() {
 
 _OE_PRIVATE void OEClearInstanceBatchData() {
 	int i;
-	for(i=0;i<globalRenderer->iBatchSize;i++) {
-		free(globalRenderer->iBatches[i].positions);
-		free(globalRenderer->iBatches[i].instModelsr0);
-		free(globalRenderer->iBatches[i].instModelsr1);
-		free(globalRenderer->iBatches[i].instModelsr2);
-		free(globalRenderer->iBatches[i].instModelsr3);
-		globalRenderer->iBatches[i].positions = calloc(INSTMAX, sizeof(vec3));
-		globalRenderer->iBatches[i].instModelsr0 = calloc(INSTMAX, sizeof(mat4x4));
-		globalRenderer->iBatches[i].instModelsr1 = calloc(INSTMAX, sizeof(mat4x4));
-		globalRenderer->iBatches[i].instModelsr2 = calloc(INSTMAX, sizeof(mat4x4));
-		globalRenderer->iBatches[i].instModelsr3 = calloc(INSTMAX, sizeof(mat4x4));
+	for(i=0;i<globalRenderer->iBatchSize;i++)
 		globalRenderer->iBatches[i].size = 0;
-	}
 }
 
 

@@ -1,6 +1,7 @@
 CC= gcc
 ARCHTUNES= -march=x86-64-v2 -mtune=generic
-CFLAGS= -O2 -D_OE_INC -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include -funroll-loops -fomit-frame-pointer -fconserve-stack
+ARMARCHTUNES= -march=armv8.5-a -mtune=apple-m1
+CFLAGS= -O3 -D_OE_INC -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include -funroll-loops -fomit-frame-pointer -flto -ffast-math 
 CFLAGS_DEB= -g -O2 -Iinclude -Ishaders 
 # We do not use LDFLAGS, but it is left here for lib reference.
 LDFLAGS = -lm -lpthread
@@ -47,6 +48,7 @@ endif
 ifeq ($(UNAME_S),Darwin)
 	BACKEND= -DSOKOL_GLCORE
 	LIB= lib/mac/libOE.a
+	CFLAGS += $(ARMARCHTUNES)
 	LDFLAGS += -Llib/mac -ldl -lSDL2 -lcimgui -lassimp -llua -framework Cocoa -framework OpenGL 
 	SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
 	CIMGUI_LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 

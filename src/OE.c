@@ -84,16 +84,10 @@ _OE_HOT void OECreateInstanceBatch(Object *obj) {
 	
 	globalRenderer->iBatches[globalRenderer->iBatchSize].obj = obj;
 	globalRenderer->iBatches[globalRenderer->iBatchSize].size = 0;
-	globalRenderer->iBatches[globalRenderer->iBatchSize].positions = calloc(INSTMAX, sizeof(vec3));
 	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr0 = calloc(INSTMAX, sizeof(vec4));
 	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr1 = calloc(INSTMAX, sizeof(vec4));
 	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr2 = calloc(INSTMAX, sizeof(vec4));
 	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr3 = calloc(INSTMAX, sizeof(vec4));
-	globalRenderer->iBatches[globalRenderer->iBatchSize].vbuf = sg_make_buffer(&(sg_buffer_desc){
-				.size = INSTMAX*sizeof(vec3),
-				.usage.stream_update = true,
-				.label = obj->name
-			});
 	globalRenderer->iBatches[globalRenderer->iBatchSize].mbuf0 = sg_make_buffer(&(sg_buffer_desc){
 				.size = INSTMAX*sizeof(vec4),
 				.usage.stream_update = true,
@@ -124,7 +118,6 @@ _OE_HOT void OEPushInstanceBatchData(OEInstanceBatch *batch, vec3 pos) {
 		WLOG(WARN, "Instance Batch too large, not adding.");
 		return;
 	}
-	vec3_dup(batch->positions[batch->size], pos);
 	mat4x4 objModel;
 	mat4x4_identity(objModel);
 	mat4x4_translate(objModel, pos[0], pos[1], pos[2]);
@@ -154,6 +147,8 @@ void OECreateObject(Object obj) {
 	}
 	for(i=0;i<globalRenderer->objSize&&globalRenderer->objects[i].name!=NULL;i++);
 	size_t pos = globalRenderer->objSize;
+	globalRenderer->objects[pos].vrtPtr = obj.vrtPtr;
+	globalRenderer->objects[pos].vrtSize = obj.vrtSize;
 	memcpy(&globalRenderer->objects[pos].pipe, &obj.pipe, sizeof(obj.pipe));
 	memcpy(&globalRenderer->objects[pos].vbuf, &obj.vbuf, sizeof(obj.vbuf));
 	memcpy(&globalRenderer->objects[pos].ibuf, &obj.ibuf, sizeof(obj.ibuf));
@@ -309,7 +304,7 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 }
 
 /*This should be used over the OECreateObjectFromMesh since my .obj parser is "ok"*/
-void OECreateMeshFromAssimp(char *name, char *path, vec3 pos) {
+void OECreateMeshFromAssimp(char *name, char *path, vec3 pos, int flag) {
 	Object obj = {0};
 	obj.name = strdup(name); 
 
@@ -371,6 +366,11 @@ void OECreateMeshFromAssimp(char *name, char *path, vec3 pos) {
 		finalInds[(i*VSIZE)+2] = (uint16_t)((i*VSIZE)+1);
 	}
 
+	if(flag==OE_KEEPVERTS) {
+		obj.vrtPtr = calloc(totalFSize+1, sizeof(float));
+		memcpy(obj.vrtPtr, finalVerts, totalFSize*sizeof(float));
+		obj.vrtSize = totalFSize;
+	}
 	obj.vbuf = sg_make_buffer(&(sg_buffer_desc) {
 				.data = PTRRANGE(finalVerts, totalFSize),
 				.label = "objv"
@@ -529,11 +529,8 @@ _OE_HOT void OEDrawInstanceBatch(OEInstanceBatch *batch) {
 		WLOG(ERROR, "NULL instance batch passed to drawInstanceBatch");
 		return;
 	}
+	if(batch->size<=0) return;
 
-	sg_update_buffer(batch->vbuf, &(sg_range){
-				.ptr = batch->positions,
-				.size = (size_t)batch->size*sizeof(vec3)
-	});
 	sg_update_buffer(batch->mbuf0, &(sg_range){
 				.ptr = batch->instModelsr0,
 				.size = (size_t)batch->size*sizeof(vec4)
@@ -554,7 +551,6 @@ _OE_HOT void OEDrawInstanceBatch(OEInstanceBatch *batch) {
 	sg_apply_pipeline(globalRenderer->iBatchPipe);
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = batch->obj->vbuf,
-		.vertex_buffers[1] = batch->vbuf,
 		.vertex_buffers[2] = batch->mbuf0,
 		.vertex_buffers[3] = batch->mbuf1,
 		.vertex_buffers[4] = batch->mbuf2,
@@ -574,11 +570,8 @@ _OE_HOT void OEDrawInstanceBatchTex(OEInstanceBatch *batch,
 		WLOG(ERROR, "NULL instance batch passed to drawInstanceBatch");
 		return;
 	}
+	if(batch->size<=0) return;
 
-	sg_update_buffer(batch->vbuf, &(sg_range){
-				.ptr = batch->positions,
-				.size = (size_t)batch->size*sizeof(vec3)
-	});
 	sg_update_buffer(batch->mbuf0, &(sg_range){
 				.ptr = batch->instModelsr0,
 				.size = (size_t)batch->size*sizeof(vec4)
@@ -599,7 +592,6 @@ _OE_HOT void OEDrawInstanceBatchTex(OEInstanceBatch *batch,
 	sg_apply_pipeline(globalRenderer->iBatchPipe);
     sg_apply_bindings(&(sg_bindings){
 		.vertex_buffers[0] = batch->obj->vbuf,
-		.vertex_buffers[1] = batch->vbuf,
 		.vertex_buffers[2] = batch->mbuf0,
 		.vertex_buffers[3] = batch->mbuf1,
 		.vertex_buffers[4] = batch->mbuf2,
@@ -819,8 +811,6 @@ sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label) {
 						{.format=SG_VERTEXFORMAT_FLOAT3,.buffer_index=0},
 					[ATTR_simple_texcoord0] = 
 						{.format=SG_VERTEXFORMAT_FLOAT2,.buffer_index=0},
-					[ATTR_simpleInst_instPos] =
-						{.format=SG_VERTEXFORMAT_FLOAT3,.buffer_index=1},
 					[ATTR_simpleInst_instModelr0] =
 						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=2},
             		[ATTR_simpleInst_instModelr1] =
@@ -896,6 +886,10 @@ sg_shader OEGetDefCubeShader() {
 	return globalRenderer->defCubeShader;
 }
 
+sg_shader OEGetDefInstShader() {
+	return globalRenderer->originalIBatchShader;
+}
+
 sg_shader OEGetRayTracedShader() {
 	if(globalRenderer->rayTracedShader.id==SG_INVALID_ID)
 		globalRenderer->rayTracedShader = sg_make_shader(OERayTracer_shader_desc(sg_query_backend()));
@@ -918,6 +912,12 @@ void OESetDefaultShader(sg_shader shader) {
 		sg_pipeline_desc pipe = OEGetDefaultPipe(shader, globalRenderer->objects[i].name);
 		globalRenderer->objects[i].pipe = sg_make_pipeline(&pipe);
 	}
+}
+
+void OESetDefaultInstancingShader(sg_shader shader) {
+	sg_destroy_pipeline(globalRenderer->iBatchPipe);
+	sg_pipeline_desc pipe = OEGetInstancingPipe(shader, "InstancePipe");
+	globalRenderer->iBatchPipe = sg_make_pipeline(&pipe);
 }
 
 Object OEGetDefaultCubeObj(char *name) {
@@ -1278,6 +1278,8 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->window->renderHeight = height;
 	globalRenderer->window->title = strdup(title);
 	globalRenderer->window->running = 1;
+	globalRenderer->gameController = NULL;
+	globalRenderer->tick = 0.0f;
 	globalRenderer->debug = 0;
 	globalRenderer->postPassSize = 0;
 	globalRenderer->keyPressed = 0;
@@ -1306,7 +1308,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		setenv("MESA_GL_VERSION_OVERRIDE", "4.1", 0);
 	}
 	
-	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER)>=0,
+	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER)>=0,
 			"ERROR:: Failed to init SDL!");
 	
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -1587,6 +1589,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	sg_shader instShade = sg_make_shader(simpleInst_shader_desc(sg_query_backend()));
 	sg_pipeline_desc ibpd = OEGetInstancingPipe(instShade, "instPipe");
 	globalRenderer->iBatchPipe = sg_make_pipeline(&ibpd);
+	globalRenderer->originalIBatchShader = instShade;
 
 /*
  * Init objects
@@ -1920,6 +1923,10 @@ unsigned int OEGetMouseScrollDown() {
 	return globalRenderer->mouseScrollDown;
 }
 
+SDL_GameController *OEGetGameController() {
+	return globalRenderer->gameController;
+}
+
 /*For mixed events use an SDL keyboard state*/
 void OEPollEvents(EVENTFUNC event) {
 	globalRenderer->wasKeyPressed = OEIsKeyPressed();
@@ -1928,6 +1935,10 @@ void OEPollEvents(EVENTFUNC event) {
 	globalRenderer->mouseScrollDown = 0;
 	while(SDL_PollEvent(&globalRenderer->event)!=0) {
 		ImGui_ImplSDL2_ProcessEvent(&globalRenderer->event);
+		if(globalRenderer->event.type==SDL_CONTROLLERDEVICEADDED) {
+			globalRenderer->gameController = 
+				SDL_GameControllerOpen(globalRenderer->event.cdevice.which);
+		}
 		if(globalRenderer->event.type==SDL_QUIT) {
 			globalRenderer->window->running = 0;
 		}
@@ -2021,7 +2032,7 @@ PostPass *OEAddPostPass(char *id, sg_pipeline pipe, UNILOADER loader) {
 		for(i=0;i<MAXPOSTPASS;i++) {
 			if(globalRenderer->postPasses[i].ID==NULL) {
 				globalRenderer->postPasses[i] = 
-					(PostPass){id, pipe, loader};
+					(PostPass){0.0f, id, pipe, loader};
 				globalRenderer->postPassSize++;
 				return &globalRenderer->postPasses[i];
 			}
@@ -2041,6 +2052,16 @@ void OERemovePostPass(char *id) {
 	globalRenderer->postPasses[globalRenderer->postPassSize-1] = (PostPass){0};
 	globalRenderer->postPassSize--;
 
+}
+
+float OEGetPostPassTime(char *ID) {
+	if(ID==NULL) return 0.0f;
+	int i;
+	for(i=0;i<globalRenderer->postPassSize;i++) {
+		if(!strcmp(globalRenderer->postPasses[i].ID, ID)) 
+			return globalRenderer->postPasses[i].passTime;
+	}
+	return 0.0f;
 }
 
 void OEEnableFXAA() {
@@ -2164,6 +2185,10 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 				srcimg==sg_query_view_image(globalRenderer->views.tPostTargetPong).id)
 				?globalRenderer->postTargetAtt:globalRenderer->postTargetAttPong;
 
+		/*GLuint query[2];
+		glGenQueries(2, query);
+		glQueryCounter(query[0], GL_TIMESTAMP);*/
+
 		sg_begin_pass(&(sg_pass){ .action = post_pass_action,
 				.attachments = dstAtt});
 
@@ -2184,6 +2209,14 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 		sg_draw(0,6,1);
 
 		sg_end_pass();
+
+		/*This isn't really accurate to the frametime, but still gives an idea.*/
+		/*glQueryCounter(query[1], GL_TIMESTAMP);
+		GLuint64 GPUstart, GPUend;
+		glGetQueryObjectui64v(query[0], GL_QUERY_RESULT, &GPUstart);
+		glGetQueryObjectui64v(query[1], GL_QUERY_RESULT, &GPUend);
+		globalRenderer->postPasses[i].passTime = (float)(GPUend-GPUstart)/100000.0f;*/
+
 		src = dst;
 		final = src;
 	}
@@ -2282,6 +2315,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 		(float)SDL_GetPerformanceFrequency());
 	globalRenderer->frameTime = 1.0f/globalRenderer->fps;
 	globalRenderer->tick+=globalRenderer->frameTime;
+	if(globalRenderer->tick>=(float)MAXTICK) globalRenderer->tick = 0.0f;
 	globalRenderer->frame = !globalRenderer->frame;
 }
 
@@ -2302,7 +2336,7 @@ void OERendererTimerEnd() {
 		(float)SDL_GetPerformanceFrequency());
 	globalRenderer->frameTime = 1.0f/globalRenderer->fps;
 	globalRenderer->tick+=globalRenderer->frameTime;
-
+	if(globalRenderer->tick>=(float)MAXTICK) globalRenderer->tick = 0.0f;
 }
 
 void OECleanup(void) {

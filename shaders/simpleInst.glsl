@@ -62,7 +62,6 @@ in vec3 position;
 in vec4 color0;
 in vec3 normal0;
 in vec2 texcoord0;
-in vec3 instPos;
 in vec4 instModelr0;
 in vec4 instModelr1;
 in vec4 instModelr2;
