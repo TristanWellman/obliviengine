@@ -726,18 +726,36 @@ sg_buffer_desc OEGetCubeIndDesc() {
 }
 
 _OE_PURE _OE_COLD sg_environment OEGetEnv() {
+#ifndef OE_VULKAN
+	return (sg_environment) {
+		.defaults = {
+			.color_format = SG_PIXELFORMAT_RGBA32F,
+			.depth_format = SG_PIXELFORMAT_DEPTH,
+			.sample_count = 1
+		},
+	};
+#else
 	return (sg_environment) {
 		.defaults = {
 			.color_format = SG_PIXELFORMAT_RGBA32F,
 			.depth_format = SG_PIXELFORMAT_DEPTH,
 			.sample_count = 1,
 		},
+		.vulkan = {
+			.instance = (const void *)globalRenderer->window->VK->instance,
+			.physical_device = (const void *)globalRenderer->window->VK->physDevice,
+			.device = (const void *)globalRenderer->window->VK->device,
+			.queue = (const void *)globalRenderer->window->VK->queue,
+			.queue_family_index = globalRenderer->window->VK->queueFamIndex	
+		}
 	};
+#endif
 }
 
 _OE_COLD sg_swapchain OEGetSwapChain() {
 	int w = globalRenderer->window->width;
 	int h = globalRenderer->window->height;
+#ifndef OE_VULKAN
 	return (sg_swapchain) {
 		.sample_count = 1,
 		.color_format = SG_PIXELFORMAT_RGBA32F,
@@ -746,6 +764,26 @@ _OE_COLD sg_swapchain OEGetSwapChain() {
 		.height = h,
 		.gl.framebuffer = 0,
 	};
+#else
+	OEVKData *vk = globalRenderer->window->VK;
+	return (sg_swapchain) {
+		.sample_count = 1,
+		.color_format = SG_PIXELFORMAT_RGBA32F,
+		.depth_format = SG_PIXELFORMAT_DEPTH,
+		.width = w,
+		.height = h,
+		.vulkan = {
+			.render_image = (const void *)vk->images.images[vk->images.imageIndex],
+			.render_view = (const void *)vk->images.views[vk->images.imageIndex],
+			.resolve_image = NULL,
+			.resolve_view = NULL,
+			.depth_stencil_image = (const void *)vk->images.depthImage,
+			.depth_stencil_view = (const void *)vk->images.depthImageView,
+			.render_finished_semaphore = (const void *)vk->images.renderSema,
+			.present_complete_semaphore = (const void *)vk->images.presentSema,
+		}
+	};
+#endif
 }
 
 sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
@@ -786,7 +824,10 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 				.pixel_format = SG_PIXELFORMAT_DEPTH,
 				.write_enabled = true
         	},
-			.label = label
+			.label = label,
+#ifdef OE_VULKAN
+			.face_winding = SG_FACEWINDING_CW
+#endif
 		};
 }
 
@@ -848,7 +889,10 @@ sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label) {
 				.pixel_format = SG_PIXELFORMAT_DEPTH,
 				.write_enabled = true
         	},
-			.label = label
+			.label = label,
+#ifdef OE_VULKAN
+			.face_winding = SG_FACEWINDING_CCW
+#endif
 		};
 }
 
@@ -1054,9 +1098,9 @@ int OEDumpSupportedPixelFormats() {
 	sg_pixelformat_info pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_RGBA32F);
 	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA32F: renderable");}
 	else {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA32F: un-renderable");ret=0;}
-	pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_RGBA8);
-	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA8: renderable");}
-	else {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA8: un-renderable");ret=0;}
+	pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_RGBA32F);
+	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA32F: renderable");}
+	else {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA32F: un-renderable");ret=0;}
 	pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_DEPTH);
 	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_DEPTH: renderable");}
 	else {WLOG(PF_INFO, "SG_PIXELFORMAT_DEPTH: un-renderable");ret=0;}
@@ -1264,6 +1308,133 @@ _OE_COLD void OEForceGraphicsSetting(int flag) {
 	}
 }
 
+#ifdef OE_VULKAN
+_OE_COLD void OEInitVKImages() {
+
+	VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
+	//VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
+
+	OEVKData *vk = globalRenderer->window->VK;
+
+	vk->images.swapInfo = (VkSwapchainCreateInfoKHR){
+		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+		.surface = vk->images.surface,
+		.minImageCount = 2,
+		.imageFormat = format,
+		.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+		.imageExtent = {(uint32_t)globalRenderer->window->width, (uint32_t)globalRenderer->window->height},
+		.imageArrayLayers = 1,
+		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+		.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		.presentMode = VK_PRESENT_MODE_FIFO_KHR,
+		.clipped = VK_TRUE
+	};
+	WASSERT(vkCreateSwapchainKHR(vk->device, &vk->images.swapInfo, 
+				NULL, &vk->images.swapchain)==VK_SUCCESS, "Failed to create swapchain!");
+
+	uint32_t images;
+	vkGetSwapchainImagesKHR(vk->device, vk->images.swapchain, &images, NULL);
+	vk->images.images = calloc(images, sizeof(VkImage));
+	vk->images.views = calloc(images, sizeof(VkImageView));
+	vk->images.viewInfo = calloc(images, sizeof(VkImageViewCreateInfo));
+	vkGetSwapchainImagesKHR(vk->device, vk->images.swapchain, &images, vk->images.images);
+	int i;
+	for(i=0;i<images;i++) {
+		vk->images.viewInfo[i] = (VkImageViewCreateInfo){
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.image = vk->images.images[i],
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = format,
+			.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+		};
+		WASSERT(vkCreateImageView(vk->device, &vk->images.viewInfo[i], 
+					NULL, &vk->images.views[i])==VK_SUCCESS, "Failed to create view image!");
+	} 
+
+	vk->images.depthImageInfo = (VkImageCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = VK_FORMAT_D32_SFLOAT,
+		.extent = {(uint32_t)globalRenderer->window->width, (uint32_t)globalRenderer->window->height, 1},
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = VK_IMAGE_TILING_OPTIMAL,
+		.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+	};
+	WASSERT(vkCreateImage(vk->device, &vk->images.depthImageInfo, 
+				NULL, &vk->images.depthImage)==VK_SUCCESS, "Failed to create depth image!");
+
+	VkMemoryRequirements memReq;
+	VkPhysicalDeviceMemoryProperties memProps;
+	VkMemoryAllocateInfo allocInfo;
+
+	vkGetImageMemoryRequirements(vk->device, vk->images.depthImage, &memReq);
+	vkGetPhysicalDeviceMemoryProperties(vk->physDevice, &memProps);
+
+	uint32_t mIndex = UINT32_MAX;
+	for(i=0;i<memProps.memoryTypeCount;i++) {
+		if((memReq.memoryTypeBits&(1<<i))&&
+				(memProps.memoryTypes[i].propertyFlags&VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+			mIndex = i;
+			break;
+		}
+	}
+	WASSERT(mIndex!=UINT32_MAX, "Invalid requested memory index for depth image!");
+
+	allocInfo = (VkMemoryAllocateInfo){
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = memReq.size,
+		.memoryTypeIndex = mIndex
+	};
+	WASSERT(vkAllocateMemory(vk->device, &allocInfo,
+				NULL, &vk->images.depthMem)==VK_SUCCESS, 
+			"Failed to allocate memory for depth image!");
+	WASSERT(vkBindImageMemory(vk->device, vk->images.depthImage,
+				vk->images.depthMem, 0)==VK_SUCCESS, "Failed to bind depth image memory!");
+
+	vk->images.depthImageViewInfo = (VkImageViewCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = vk->images.depthImage,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = VK_FORMAT_D32_SFLOAT,
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		}
+	};
+	WASSERT(vkCreateImageView(vk->device, &vk->images.depthImageViewInfo,
+				NULL, &vk->images.depthImageView)==VK_SUCCESS, 
+				"Failed to create depth view!");
+}
+
+_OE_HOT void OEReinitVKImages() {
+	OEVKData *vk = globalRenderer->window->VK;
+	vkDeviceWaitIdle(vk->device);
+	uint32_t iCount = 0;
+	vkGetSwapchainImagesKHR(vk->device, vk->images.swapchain, &iCount, NULL);
+	int i;
+	for(i=0;i<iCount;i++) vkDestroyImageView(vk->device, vk->images.views[i], NULL);
+	free(vk->images.views);
+	free(vk->images.images);
+	vkDestroySwapchainKHR(vk->device, vk->images.swapchain, NULL);
+	vkDestroyImageView(vk->device, vk->images.depthImageView, NULL);
+	vkDestroyImage(vk->device, vk->images.depthImage, NULL);
+	vkFreeMemory(vk->device, vk->images.depthMem, NULL);
+	OEInitVKImages();
+}
+
+#endif
+
+unsigned int OEIsVulkan() {return globalRenderer->isVulkan;}
+
 _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType camType) {
 
 /*
@@ -1310,7 +1481,8 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	
 	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER)>=0,
 			"ERROR:: Failed to init SDL!");
-	
+#ifndef OE_VULKAN
+	globalRenderer->isVulkan = 0;
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); 
@@ -1355,19 +1527,172 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	WLOG(INFO_VENDOR, glGetString(GL_VENDOR));
 	WLOG(INFO_GPU, glGetString(GL_RENDERER));
 	WLOG(INFO_DRIVER_VERSION, glGetString(GL_VERSION));
+#else 
+	globalRenderer->isVulkan = 1;
+	globalRenderer->window->VK = calloc(1, sizeof(OEVKData));
+	SDL_Vulkan_LoadLibrary(NULL);
+	
+	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK, "1");
 
+	globalRenderer->window->window = SDL_CreateWindow(
+			globalRenderer->window->title, 
+			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+			globalRenderer->window->width, globalRenderer->window->height,
+			SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+
+	uint32_t extCount;
+	SDL_Vulkan_GetInstanceExtensions(globalRenderer->window->window, &extCount, NULL);
+	const char **extNames = calloc(extCount+2, sizeof(const char *));
+	SDL_Vulkan_GetInstanceExtensions(globalRenderer->window->window, &extCount, extNames);
+	extNames[extCount++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+	extNames[extCount++] = VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME;
+
+	/*VkDebugUtilsMessengerCreateInfoEXT debugInfo = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+		.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+		.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+		.pfnUserCallback = OEVKDebugCallback,
+		.pUserData = NULL
+	};
+
+	const char *validationLayers[] = {"VK_LAYER_MESA_device_select"};*/
+
+	globalRenderer->window->VK->appInfo = (VkApplicationInfo){
+		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+		.pApplicationName = globalRenderer->window->title,
+		.pEngineName = "Obliviengine",
+		.applicationVersion = VK_MAKE_VERSION(0, 0, 0),
+		.engineVersion = VK_MAKE_VERSION(0, 0, 0),
+		.apiVersion = VK_API_VERSION_1_2
+	};
+	globalRenderer->window->VK->createInfo = (VkInstanceCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+		.pApplicationInfo = &globalRenderer->window->VK->appInfo,
+		.enabledExtensionCount = extCount,
+		.ppEnabledExtensionNames = extNames,
+		/*.enabledLayerCount = 1,
+		.ppEnabledLayerNames = validationLayers,
+		.pNext = &debugInfo*/
+	};
+
+	WASSERT(vkCreateInstance(&globalRenderer->window->VK->createInfo,
+				NULL, &globalRenderer->window->VK->instance)==VK_SUCCESS, 
+			"Failed to init Vulkan instance!");
+
+	/*PFN_vkCreateDebugUtilsMessengerEXT debugMessenger =
+		(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(globalRenderer->window->VK->instance,
+				"vkCreateDebugUtilsMessengerEXT");
+	if(debugMessenger) {
+		debugMessenger(globalRenderer->window->VK->instance,
+				&debugInfo, NULL, &globalRenderer->window->VK->debugMessenger);
+	}*/
+
+	SDL_Vulkan_CreateSurface(globalRenderer->window->window,
+			globalRenderer->window->VK->instance, &globalRenderer->window->VK->images.surface);
+
+	uint32_t GPUCount = 0;
+	vkEnumeratePhysicalDevices(globalRenderer->window->VK->instance, &GPUCount, NULL);
+	WASSERT(GPUCount>0, "No GPU devices found!");
+	char *gbuf = calloc(128, sizeof(char));
+	snprintf(gbuf, sizeof(char)*128, "GPU Count: %d", GPUCount);
+	WLOG(VK_INFO, gbuf);
+	free(gbuf); gbuf = NULL;
+
+	VkPhysicalDevice *devices = calloc(GPUCount, sizeof(VkPhysicalDevice));	
+	vkEnumeratePhysicalDevices(globalRenderer->window->VK->instance, &GPUCount, devices);
+	globalRenderer->window->VK->physDevice = devices[0];
+	
+	uint32_t qFamCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(globalRenderer->window->VK->physDevice, &qFamCount, NULL);
+	VkQueueFamilyProperties *qFamProps = calloc(qFamCount, sizeof(VkQueueFamilyProperties));
+	vkGetPhysicalDeviceQueueFamilyProperties(globalRenderer->window->VK->physDevice, &qFamCount, qFamProps);
+	int qi;
+	for(qi=0;qi<qFamCount;qi++) {
+		VkBool32 presentSupport = VK_FALSE;
+		vkGetPhysicalDeviceSurfaceSupportKHR(globalRenderer->window->VK->physDevice, qi,
+				globalRenderer->window->VK->images.surface, &presentSupport);
+		if((qFamProps[qi].queueFlags&VK_QUEUE_GRAPHICS_BIT)&&presentSupport==VK_TRUE) {
+			globalRenderer->window->VK->queueFamIndex = qi;
+			break;
+		}
+	}
+	free(qFamProps);
+
+	globalRenderer->window->VK->queuePrio = 1.0f;
+	globalRenderer->window->VK->queueInfo = (VkDeviceQueueCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.queueFamilyIndex = globalRenderer->window->VK->queueFamIndex,
+		.queueCount = 1,
+		.pQueuePriorities = &globalRenderer->window->VK->queuePrio 
+	};
+
+	const char *dExt[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME};
+	globalRenderer->window->VK->features = (VkPhysicalDeviceFeatures){
+		.samplerAnisotropy = VK_TRUE
+	};
+	globalRenderer->window->VK->features13 = (VkPhysicalDeviceVulkan13Features){
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+		.pNext = NULL,
+		.dynamicRendering = VK_TRUE,
+		.synchronization2 = VK_TRUE
+	};
+	globalRenderer->window->VK->features12 = (VkPhysicalDeviceVulkan12Features){
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		.pNext = &globalRenderer->window->VK->features13,
+		.bufferDeviceAddress = VK_TRUE,
+		.descriptorIndexing = VK_TRUE
+	};
+	globalRenderer->window->VK->deviceInfo = (VkDeviceCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+		.pNext = &globalRenderer->window->VK->features12,
+		.queueCreateInfoCount = 1,
+		.pQueueCreateInfos = &globalRenderer->window->VK->queueInfo,
+		.enabledExtensionCount = 2,
+		.ppEnabledExtensionNames = dExt,
+		.pEnabledFeatures = &globalRenderer->window->VK->features
+	};
+
+	WASSERT(vkCreateDevice(globalRenderer->window->VK->physDevice, 
+			&globalRenderer->window->VK->deviceInfo, NULL,
+			&globalRenderer->window->VK->device)==VK_SUCCESS, 
+			"Failed to create VK device!");
+
+	vkGetDeviceQueue(globalRenderer->window->VK->device,
+			globalRenderer->window->VK->queueFamIndex, 0,
+			&globalRenderer->window->VK->queue);
+
+	OEInitVKImages();
+
+	OEVKData *vk = globalRenderer->window->VK;
+	vk->images.semaInfo = (VkSemaphoreCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+	};	
+	WASSERT(vkCreateSemaphore(vk->device, &vk->images.semaInfo,
+				NULL, &vk->images.renderSema)==VK_SUCCESS, "Failed to create renderSema!");
+	WASSERT(vkCreateSemaphore(vk->device, &vk->images.semaInfo, 
+			NULL, &vk->images.presentSema)==VK_SUCCESS, "Failed to create presentSema!");
+
+#endif
 /*
  * Sokol setup
  * */
 
 	sg_setup(&(sg_desc){
 			.environment = OEGetEnv(),
-			.logger.func = slog_func});
+			.logger.func = slog_func,
+#ifdef OE_VULKAN
+			.vulkan.stream_staging_buffer_size = 64*1024*1024
+#endif
+	});
 
 	if(!globalRenderer->legacy) {
-		sdtx_setup(&(sdtx_desc_t){
+		/*sdtx_setup(&(sdtx_desc_t){
 			.fonts = {[1]  = sdtx_font_oric()},
-			.logger.func = slog_func});
+			.logger.func = slog_func});*/
 	} else {
 		/*TODO: sdtx for legacy GL 3.3*/
 	}
@@ -1379,11 +1704,11 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 /*
  * Cimgui Setup
  * */
+
+#ifndef OE_VULKAN
 	igCreateContext(NULL);
 	globalRenderer->imgui.ioptr = igGetIO();
 	ImGuiIO *iotmp = globalRenderer->imgui.ioptr;
-	iotmp->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	iotmp->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
 	ImGui_ImplSDL2_InitForOpenGL(globalRenderer->window->window, 
 			globalRenderer->window->gl_context);
@@ -1391,6 +1716,12 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	if(!globalRenderer->legacy)
 		globalRenderer->igStat = (int)ImGui_ImplOpenGL3_Init("#version 410");
 	else globalRenderer->igStat = (int)ImGui_ImplOpenGL3_Init("#version 330");
+#else
+	simgui_desc_t desc = {.logger.func = slog_func};
+	simgui_setup(&desc);
+	ImGui_ImplSDL2_InitForVulkan(globalRenderer->window->window);
+	globalRenderer->igStat = 1;
+#endif
 
 	if(!globalRenderer->igStat) 
 		WLOG(IMGUI_INFO, "Failed to initialize Imgui!");
@@ -1639,10 +1970,11 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 
 			float angle_y = DEG2RAD(45.0f);
 			float angle_x = DEG2RAD(-30.0f);
-	
+
 			globalRenderer->cam.front[0] = -1.0f; 
 			globalRenderer->cam.front[1] = -1.0f;
 			globalRenderer->cam.front[2] = -1.0f;
+
 			tmp = (Vec3){globalRenderer->cam.front[0],globalRenderer->cam.front[1],globalRenderer->cam.front[2]};
 			tmp = WNORM(tmp);
 			VEC3TOVEC3F(tmp, globalRenderer->cam.front);
@@ -1658,11 +1990,17 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 			               globalRenderer->cam.position,
 			               globalRenderer->cam.target,
 			               globalRenderer->cam.up);
-
+#ifndef OE_VULKAN
 			mat4x4_ortho(globalRenderer->cam.proj, 
 			             -oScale * aspect, oScale * aspect, 
 			             -oScale, oScale, 
 			             0.1f, 80.0f);
+#else
+			mat4x4_ortho_vulkan(globalRenderer->cam.proj, 
+			             -oScale * aspect, oScale * aspect, 
+			             -oScale, oScale, 
+			             0.1f, 80.0f);
+#endif
 
 			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.proj, globalRenderer->cam.view);
 			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.mvp, globalRenderer->cam.model);
@@ -1733,10 +2071,15 @@ _OE_HOT void OEUpdateViewMat() {
 	} else if(globalRenderer->camType==ISOMETRIC) {
 		float aspect = (float)globalRenderer->window->width / (float)globalRenderer->window->height;
 		float oScale = globalRenderer->cam.oScale;
+#ifndef OE_VULKAN
 		mat4x4_ortho(globalRenderer->cam.proj, 
 				-oScale * aspect, oScale * aspect, 
 				-oScale, oScale, 0.1f, 100.0f);
-
+#else
+		mat4x4_ortho_vulkan(globalRenderer->cam.proj, 
+				-oScale * aspect, oScale * aspect, 
+				-oScale, oScale, 0.1f, 100.0f);
+#endif
 	}
 	mat4x4_look_at(cam->view, cam->position, cam->target, cam->up);
 	computeCameraRay();
@@ -2127,10 +2470,25 @@ void OEDisableDNOISE() {
 
 _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
+	int winW, winH;
 	SDL_GetWindowSize(globalRenderer->window->window,
-			&globalRenderer->window->width,
-			&globalRenderer->window->height);
+			&winW, &winH);
+	if(winW!=globalRenderer->window->width||winH!=globalRenderer->window->height) {
+		globalRenderer->window->width = winW;
+		globalRenderer->window->height = winH;
+#ifdef OE_VULKAN
+		OEReinitVKImages();
+#endif
+	}
+	
 	OEGetMousePos(&globalRenderer->mouse.posx, &globalRenderer->mouse.posy);
+
+#ifdef OE_VULKAN
+	OEVKData *vk = globalRenderer->window->VK;
+	WASSERT(vkAcquireNextImageKHR(vk->device, vk->images.swapchain, UINT64_MAX, 
+			vk->images.presentSema, VK_NULL_HANDLE, &vk->images.imageIndex)==VK_SUCCESS, 
+			"Failed to swap VK images!");
+#endif
 
 	sg_pass_action pass_action = (sg_pass_action) {
        	.colors[0] = {
@@ -2272,6 +2630,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	});
 	sg_draw(0,6,1);
 
+#ifndef OE_VULKAN /*sdtx doesn't work on Vulkan yet?*/
 	if(globalRenderer->debug&&!globalRenderer->legacy&&!globalRenderer->disablesdtx) {
 		sdtx_canvas(globalRenderer->window->width * 0.5f, 
 				globalRenderer->window->height * 0.5f);
@@ -2288,23 +2647,44 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 				glGetString(GL_RENDERER), glGetString(GL_VERSION));
 		sdtx_draw();
 	}
+#endif
 
 	if(cimgui!=NULL&&globalRenderer->igStat) {
+#ifndef OE_VULKAN
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		igNewFrame();
 		cimgui();
 		igRender();
 		ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData());
+#else
+		simgui_new_frame(&(simgui_frame_desc_t){
+				globalRenderer->window->width, globalRenderer->window->height,
+				globalRenderer->frameTime, 1.0f});
+		cimgui();
+		simgui_render();
+#endif
 	}
 
 	sg_end_pass();
 
 	sg_commit();
 
+#ifndef OE_VULKAN
 	SDL_GL_SwapWindow(globalRenderer->window->window);
 	if(globalRenderer->window->cursor!=NULL)
 		SDL_SetCursor(globalRenderer->window->cursor);
+#else 
+	vk->images.presentInfo = (VkPresentInfoKHR){
+		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = &vk->images.renderSema,
+		.swapchainCount = 1,
+		.pSwapchains = &vk->images.swapchain,
+		.pImageIndices = &vk->images.imageIndex
+	};	
+	vkQueuePresentKHR(vk->queue, &vk->images.presentInfo);
+#endif
 
 	OEUpdateViewMat();
 	OEClearInstanceBatchData();
@@ -2343,9 +2723,27 @@ void OECleanup(void) {
 	OEDestroyViews(&globalRenderer->views);
 	sg_destroy_view(globalRenderer->defTexture);
 	sg_shutdown();
+#ifndef OE_VULKAN
 	if(globalRenderer->igStat) ImGui_ImplOpenGL3_Shutdown();
 	SDL_GL_DeleteContext(globalRenderer->window->gl_context);
 	SDL_GL_UnloadLibrary();
 	SDL_DestroyWindow(globalRenderer->window->window);
 	SDL_Quit();
+#else
+	OEVKData *vk = globalRenderer->window->VK;
+	vkDeviceWaitIdle(vk->device);
+	uint32_t iCount = 0;
+	vkGetSwapchainImagesKHR(vk->device, vk->images.swapchain, &iCount, NULL);
+	int i;
+	for(i=0;i<iCount;i++) vkDestroyImageView(vk->device, vk->images.views[i], NULL);
+	free(vk->images.views);
+	free(vk->images.images);
+	vkDestroySwapchainKHR(vk->device, vk->images.swapchain, NULL);
+	vkDestroyImageView(vk->device, vk->images.depthImageView, NULL);
+	vkDestroyImage(vk->device, vk->images.depthImage, NULL);
+	vkFreeMemory(vk->device, vk->images.depthMem, NULL);
+	SDL_Vulkan_UnloadLibrary();
+	SDL_DestroyWindow(globalRenderer->window->window);
+	SDL_Quit();
+#endif
 }

@@ -5,24 +5,40 @@
 #define SOKOL_NO_ENTRY
 #define SOKOL_EXTERNAL_GL_LOADER
 #include <glad/glad.h>
+#ifdef _OE_VULKAN
+#	define OE_VULKAN 1
+#	include <vulkan/vulkan.h>
+#endif
+#undef GL_VERSION_4_2 /*Sokol "bug", it checks 4.2 instead of 4.1. Which is not noticable on OSX for 4.1, but on Linux or anything else it will crash*/
 #include <sokol/sokol_gfx.h>
 #include <sokol/sokol_log.h>
 #include <sokol/util/sokol_debugtext.h>
-
 #if defined __WIN32__ || __WIN64__
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
 #include <SDL_opengl.h>
+#ifdef _OE_VULKAN
+#	include <SDL_vulkan.h>
+#endif
 #include <SDL_syswm.h>
 
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
+#define IMGUI_ENABLE_STB_RECT_PACK_TYPEDEFS
 #if !defined CIMGUI_USE_SDL2 && !defined CIMGUI_USE_OPENGL3
-#define CIMGUI_USE_OPENGL3
-#define CIMGUI_USE_SDL2
+#	define CIMGUI_USE_OPENGL3
+#	define CIMGUI_USE_SDL2
+#	ifdef _OE_VULKAN
+#		define CIMGUI_USE_VULKAN
+#	endif
 #endif
 #include <cimgui/cimgui.h>
 #include <cimgui/cimgui_impl.h>
+#ifdef _OE_VULKAN
+#	define SOKOL_IMGUI_NO_SOKOL_APP
+#	define SOKOL_IMGUI_CPREFIX ig
+#	include <sokol/util/sokol_imgui.h>
+#endif
 
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
@@ -213,6 +229,55 @@ typedef struct {
 	sg_buffer mbuf0, mbuf1, mbuf2, mbuf3;
 } OEInstanceBatch; 
 
+#ifdef _OE_VULKAN
+typedef struct {
+	VkSurfaceKHR surface;
+	VkSwapchainCreateInfoKHR swapInfo;
+	VkSwapchainKHR swapchain;
+	uint32_t imageIndex;
+	uint32_t totalImages;
+
+	VkImage *images;
+	VkImageView *views;
+	VkImageViewCreateInfo *viewInfo;
+
+	VkImage resolveImage;
+	VkImageView resolveImageView;
+
+	VkImageCreateInfo depthImageInfo;
+	VkImageViewCreateInfo depthImageViewInfo;
+	VkImage depthImage;
+	VkImageView depthImageView;
+	VkDeviceMemory depthMem;
+
+	VkSemaphoreCreateInfo semaInfo;
+	VkSemaphore renderSema;
+	VkSemaphore presentSema;
+
+	VkPresentInfoKHR presentInfo;
+} OEVKViews;
+
+typedef struct {
+	VkApplicationInfo appInfo;
+	VkInstanceCreateInfo createInfo;
+	VkDeviceQueueCreateInfo queueInfo;
+	VkQueue queue;
+	uint32_t queueFamIndex;
+	float queuePrio;
+	VkInstance instance;
+	VkPhysicalDevice physDevice;
+	VkDeviceCreateInfo deviceInfo;
+	VkDevice device;
+
+	VkPhysicalDeviceFeatures features;
+	VkPhysicalDeviceVulkan13Features features13;
+	VkPhysicalDeviceVulkan12Features features12;
+
+	OEVKViews images;
+	VkDebugUtilsMessengerEXT debugMessenger;
+} OEVKData;
+#endif
+
 typedef struct {
 	int width, height;
 	int renderWidth, renderHeight;
@@ -221,6 +286,9 @@ typedef struct {
 	SDL_GLContext gl_context;
 	SDL_Cursor *cursor;
 	unsigned int running;
+#ifdef _OE_VULKAN
+	OEVKData *VK;
+#endif
 } Window;
 
 typedef struct {
@@ -274,6 +342,7 @@ struct renderer {
 	unsigned int igStat :1;
 	unsigned int legacy :1; /*If OpenGL 3.3 is required*/
 	unsigned int disablesdtx :1;
+	unsigned int isVulkan :1;
 	int lastKey :8;
 
 	Camera cam;
@@ -627,6 +696,10 @@ void OESetRenderResolution(int w, int h);
  * @param flag The OE flag for graphical setting, e.g. OE_LOW_GRAPHICS.
  * */
 _OE_COLD void OEForceGraphicsSetting(int flag);
+/**
+ * @brief is OE using the Vulkan backend.
+ * */
+unsigned int OEIsVulkan();
 /**
  * @brief This initializes the OE renderer (Sokol, SDL2, OpenGL), camera, and other renderer Objects.
  *
@@ -1079,6 +1152,30 @@ _OE_PRIVATE void OEClearInstanceBatchData() {
 		globalRenderer->iBatches[i].size = 0;
 }
 
+#ifdef _OE_VULKAN
+_OE_PRIVATE VKAPI_ATTR VkBool32 VKAPI_CALL OEVKDebugCallback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT level,
+		VkDebugUtilsMessageTypeFlagsEXT type,
+		const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void *userData) {
+	WLOG(VK_DEBUG, callbackData->pMessage);
+	return VK_FALSE;
+}
+
+_OE_PRIVATE void mat4x4_ortho_vulkan(mat4x4 M, float left, float right, 
+		float bottom, float top, float near, float far) {
+    mat4x4_identity(M);
+    float rl = right - left;
+    float tb = top - bottom;
+    float fn = far - near;
+    M[0][0] = 2.0f / rl;
+    M[1][1] = -2.0f / tb;
+    M[2][2] = -1.0f / fn;
+    M[3][0] = -(right + left) / rl;
+    M[3][1] = (top + bottom) / tb;
+    M[3][2] = -near / fn;
+}
+
+#endif
 
 #ifdef __cplusplus
 }

@@ -75,14 +75,14 @@ int main(int argc, char **argv) {
 	
 	OEInitRenderer(1280, 720, "game", PERSPECTIVE);
 	//initOpenXR();
-	OEEnableDebugInfo();
+	//OEEnableDebugInfo();
 	meshTest();
 	//OESetDefaultShader(OEGetRayTracedShader());
 
 	OEEnableFXAA();
 	//OEEnableSSGI(64, 8);
 	//OEEnableSSAO();
-	OEEnableBloom(0.8, 0.5);
+	//OEEnableBloom(0.8, 0.5);
 
 	//makeCubes();
 

@@ -79,7 +79,7 @@ void main() {
 	mat4 instModel = mat4(instModelr0, instModelr1, instModelr2, instModelr3);
 	vec4 pos = instModel*vec4(position, 1.0);
     gl_Position = (proj*view)*pos;
-    color = color0;
+	color = color0;
 
     mat3 normalMatrix = transpose(inverse(mat3(instModel)));
     normal = WNORM(normalMatrix * normal0);
@@ -186,7 +186,7 @@ void main() {
 	vec3 mapped = hdr/(vec3(1.0)+hdr);
 
     vec3 result = pow(mapped, vec3(0.45));
-    frag_color = vec4(result*vec3(color), texcolor.a);
+    frag_color = vec4(result, texcolor.a);
 
 	depth();
 	normal_c();

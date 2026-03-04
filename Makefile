@@ -1,7 +1,7 @@
 CC= gcc
 ARCHTUNES= -march=x86-64-v2 -mtune=generic
 ARMARCHTUNES= -march=armv8.5-a -mtune=apple-m1
-CFLAGS= -O3 -D_OE_INC -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include -funroll-loops -fomit-frame-pointer -flto -ffast-math 
+CFLAGS= -g -O3 -D_OE_INC -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include -funroll-loops -fomit-frame-pointer 
 CFLAGS_DEB= -g -O2 -Iinclude -Ishaders 
 # We do not use LDFLAGS, but it is left here for lib reference.
 LDFLAGS = -lm -lpthread
@@ -37,7 +37,7 @@ ifeq ($(UNAME_S),Linux)
 endif
 ifeq ($(UNAME_S),FreeBSD)
 	BACKEND= -DSOKOL_GLCORE
-	CFLAGS += $(ARCHTUNES)
+	CFLAGS += $(ARCHTUNES) 
 	CIMGUI_CXXFLAGS += $(ARCHTUNES)
 	LIB= lib/bsd/libOE.a
 	LDFLAGS += -ldl -lSDL2 -lcimgui -lassimp -llua -lX11 -lGL
@@ -48,7 +48,8 @@ endif
 ifeq ($(UNAME_S),Darwin)
 	BACKEND= -DSOKOL_GLCORE
 	LIB= lib/mac/libOE.a
-	CFLAGS += $(ARMARCHTUNES)
+	CFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0
+	CIMGUI_CXXFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0
 	LDFLAGS += -Llib/mac -ldl -lSDL2 -lcimgui -lassimp -llua -framework Cocoa -framework OpenGL 
 	SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
 	CIMGUI_LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
@@ -86,7 +87,7 @@ endif
 
 AR_ARGS= rcs $(LIB) $(COMMON_O)
 
-SHADER_ARGS=  --format sokol --slang glsl410 --ifdef 
+SHADER_ARGS= --format sokol --slang glsl410# :spirv_vk  
 
 TEST_SRC= test
 

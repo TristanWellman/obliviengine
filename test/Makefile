@@ -1,17 +1,17 @@
 # This is a good referal for makefile usage with Obliviengine
 
 CC=gcc
-CFLAGS= -g -O2 -I../include -I../include/SDL/include -I../include/assimp/include -I../shaders
+CFLAGS= -DSOKOL_GLCORE -g -O2 -I../include -I../include/SDL/include -I../include/assimp/include -I../shaders
 
 UNAME_S := $(shell uname -s)
 # setup required linker flags for 
 LDFLAGS= -lm -lminizip -lz -lpthread -lstdc++ 
 ifeq ($(UNAME_S),Linux)
-    LDFLAGS += -ldl -L../lib/lin -lOE -lSDL2 -lcimgui -lassimp -llua -lX11 -lGL 
+    LDFLAGS += -ldl -L../lib/lin -lOE -lSDL2 -lcimgui -lassimp -llua -lX11 -lGL -lvulkan 
 endif
 ifeq ($(UNAME_S),Darwin)
     LDFLAGS = -L/opt/homebrew/opt/minizip/lib -lm -lminizip -lz -lpthread -lstdc++ \
-			   -ldl -L../lib/mac -lcimgui -lOE -lSDL2 -lassimp -llua -framework Cocoa -framework OpenGL
+			   -ldl -L../lib/mac -lcimgui -lOE -lSDL2 -lassimp -llua -lvulkan -framework Cocoa -framework OpenGL
 endif
 ifeq ($(OS),Windows_NT)
 
@@ -19,7 +19,7 @@ ifeq ($(OS),Windows_NT)
 #  OPENXRLIB= C:/msys64/mingw64/lib (or wherever you have it installed)
 #  LDFLAGS += -L$(OPENXRLIB) -lopenxr_loader.dll
 
-    LDFLAGS += -L../lib -lOE -lSDL2 -lcimgui -lassimp -llua -lgdi32 -lopengl32
+    LDFLAGS += -L../lib -lOE -lSDL2 -lcimgui -lassimp -llua -lgdi32 -lopengl32 -lvulkan-1
 endif
 
 

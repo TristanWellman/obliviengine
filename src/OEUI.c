@@ -4,6 +4,60 @@
 #include <OE/OEUI.h>
 #include <OE/cube.h>
 #include <OE/font.glsl.h>
+
+/*
+ * Fuck Cimgui for auto generating fucking stbrp_node ruining my stb include
+ * */
+#define STB_RECT_PACK_VERSION
+typedef struct stbrp_rect stbrp_rect;
+typedef int stbrp_coord;
+typedef struct
+{
+   int width,height;
+   int x,y,bottom_y;
+} stbrp_context;
+
+typedef struct stbrp_node
+{
+   unsigned char x;
+} stbrp_node;
+
+struct stbrp_rect
+{
+   stbrp_coord x,y;
+   int id,w,h,was_packed;
+};
+static void stbrp_init_target(stbrp_context *con, int pw, int ph, stbrp_node *nodes, int num_nodes)
+{
+   con->width  = pw;
+   con->height = ph;
+   con->x = 0;
+   con->y = 0;
+   con->bottom_y = 0;
+   (void)sizeof(nodes);
+   (void)sizeof(num_nodes);
+}
+
+static void stbrp_pack_rects(stbrp_context *con, stbrp_rect *rects, int num_rects)
+{
+   int i;
+   for (i=0; i < num_rects; ++i) {
+      if (con->x + rects[i].w > con->width) {
+         con->x = 0;
+         con->y = con->bottom_y;
+      }
+      if (con->y + rects[i].h > con->height)
+         break;
+      rects[i].x = con->x;
+      rects[i].y = con->y;
+      rects[i].was_packed = 1;
+      con->x += rects[i].w;
+      if (con->y + rects[i].h > con->bottom_y)
+         con->bottom_y = con->y + rects[i].h;
+   }
+   for (   ; i < num_rects; ++i)
+      rects[i].was_packed = 0;
+}
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <stb/stb_truetype.h>
 
@@ -37,7 +91,7 @@ sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label) {
 			.compare = SG_COMPAREFUNC_ALWAYS,
 			.write_enabled = false,
         },
-		.label = label
+		.label = label,
 	};
 }
 
