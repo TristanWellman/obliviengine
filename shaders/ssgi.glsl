@@ -78,8 +78,12 @@ uint pcg(uint v) {
 	return (word>>uint(22))^word;
 }
 
-lowp float getRandom(vec2 p) {
+/*lowp float getRandom(vec2 p) {
 	return float(pcg(pcg(uint(p.x))+uint(p.y)))/float(uint(0xffffffff));
+}*/
+
+lowp float getRandom(vec2 uv) {
+	return fract(sin(dot(uv,vec2(12.98,78.23)))*43758.5453);
 }
 
 void main() {
@@ -110,6 +114,9 @@ void main() {
 			vec3 samplePos = pcol+rayDir*ta;
 			vec4 clip = proj*vec4(samplePos,1.0);
 			vec2 suv = (clip.xy/clip.w)*0.5+0.5;
+#ifdef _OE_VULKAN
+			suv.y = 1.0 - suv.y;
+#endif
 			if(any(lessThan(suv,vec2(0.0)))||any(greaterThan(suv,vec2(1.0)))) continue;
 			vec3 hitPos = texture(sampler2D(OESSGI_ptexture, OESSGI_smp), suv).xyz;
 			if(QSQRT(dot(hitPos,hitPos))<0.001) continue;
@@ -126,8 +133,8 @@ void main() {
 	lowp float AO = ((float(hits)/float(RAYS)));
 	frag_color = vec4((col+GI)*AO,1.0);
 	//frag_color = vec4(col*AO, 1.0);
-	//frag_color = vec4(vec3(dcol),1.0);
-	//frag_color = vec4(vec3(tpi*getRandom(vec2(i,seed))),1.0);
+	//frag_color = vec4(vec3(pcol),1.0);
+	//frag_color = vec4(vec3(tpi*getRandom(vec2(i,2025))),1.0);
 }
 
 @end

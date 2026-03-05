@@ -82,6 +82,9 @@ void main() {
 	viewSpacePos = vec3(view*vec4(fragPos,1.0));
 	viewSpaceNorm = WNORM(mat3(view) * normal);
 	texcoord = texcoord0;
+#ifdef _OE_VULKAN
+	texcoord.y = 1.0 - texcoord.y;
+#endif
 	time = tick;
 }
 

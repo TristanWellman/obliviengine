@@ -15,6 +15,10 @@ out vec2 texcoord0;
 void main() {
 	texcoord0 = OEquad_texcoord;
 	gl_Position = vec4(OEquad_position, 0.0, 1.0);
+#ifdef _OE_VULKAN
+	gl_Position.y *= -1.0;
+	texcoord0.y *= -1.0;
+#endif
 }
 
 @end

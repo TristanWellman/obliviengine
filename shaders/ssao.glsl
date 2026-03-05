@@ -99,6 +99,9 @@ void main() {
 	lowp vec3 samplePos = pcol+rayDir*aRadius;
 	lowp vec4 clip = proj*vec4(samplePos,1.0);
 	lowp vec2 suv = (clip.xy/clip.w)*0.5+0.5;
+#ifdef _OE_VULKAN
+	suv.y = 1.0 - suv.y;
+#endif
 	lowp vec3 hitPos = texture(sampler2D(OESSAO_ptexture, OESSAO_smp), suv).xyz;
 	if(hitPos.z<samplePos.z-aBias) hits=1.0;
 

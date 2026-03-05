@@ -28,7 +28,7 @@ void addTexture(char *ID, char *path, int fv) {
 			int *w,*h,c=0;
 			w = &handle.textures[i].width;
 			h = &handle.textures[i].height;
-			if(fv&&!OEIsVulkan) stbi_set_flip_vertically_on_load(1);
+			if((fv&&!OEIsVulkan())||(!fv&&OEIsVulkan())) stbi_set_flip_vertically_on_load(1);
 			unsigned char *data = stbi_load(path, w,h,&c,4);
 			WASSERT(data, "Failed to load image: %s", path);
 			handle.textures[i].tex = sg_make_view(&(sg_view_desc){
@@ -40,7 +40,7 @@ void addTexture(char *ID, char *path, int fv) {
 						.label = ID
     		})});
 			stbi_image_free(data);
-			if(fv&&!OEIsVulkan()) stbi_set_flip_vertically_on_load(0);
+			if((fv&&!OEIsVulkan())||(!fv&&OEIsVulkan())) stbi_set_flip_vertically_on_load(0);
 			handle.total++;
 			char buf[1024];
 			sprintf(buf, "Successfully loaded texture[%s]: %s", ID, path);

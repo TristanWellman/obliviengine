@@ -92,6 +92,9 @@ sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label) {
 			.write_enabled = false,
         },
 		.label = label,
+#ifdef OE_VULKAN
+			.face_winding = SG_FACEWINDING_CW
+#endif
 	};
 }
 
@@ -231,7 +234,11 @@ void OEUIApplyFontUniforms() {
 	font_params_t params;
 	int w=0,h=0;
 	OEGetWindowResolution(&w, &h);
+#ifdef OE_VULKAN
+	mat4x4_ortho_vulkan(params.mvp, 0.0f, w, h, 0.0f, -1.0f, 1.0f);
+#else
 	mat4x4_ortho(params.mvp, 0.0f, w, h, 0.0f, -1.0f, 1.0f);
+#endif
 	sg_apply_uniforms(UB_font_params, &SG_RANGE(params));
 }
 

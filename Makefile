@@ -9,6 +9,7 @@ LIB?= lib/libOE.a
 UNAME_S := $(shell uname -s)
 ARCH := $(shell $(CC) -dumpmachine)
 SHDC= sokol-tools-bin/bin/win32/sokol-shdc.exe
+SHDC_MACRO= --defines _OE_NONE
 
 # CIMGUI
 CIMGUI_CC= g++
@@ -26,7 +27,8 @@ CIMGUI_CXXFLAGS = -std=c++11 -O2 -fno-exceptions -fno-rtti -Wall \
 CIMGUI_LOC = lib/libcimgui.a
 
 ifeq ($(UNAME_S),Linux)
-	BACKEND= -DSOKOL_GLCORE
+	SHDC_MACRO= --defines _OE_VULKAN
+	BACKEND= -DSOKOL_VULKAN -D_OE_VULKAN
 	CFLAGS += $(ARCHTUNES)
 	CIMGUI_CXXFLAGS += $(ARCHTUNES)
 	LIB= lib/lin/libOE.a
@@ -36,7 +38,8 @@ ifeq ($(UNAME_S),Linux)
 	CIMGUI_LOC = lib/lin/libcimgui.a
 endif
 ifeq ($(UNAME_S),FreeBSD)
-	BACKEND= -DSOKOL_GLCORE
+	SHDC_MACRO= --defines _OE_VULKAN
+	BACKEND= -DSOKOL_VULKAN -D_OE_VULKAN
 	CFLAGS += $(ARCHTUNES) 
 	CIMGUI_CXXFLAGS += $(ARCHTUNES)
 	LIB= lib/bsd/libOE.a
@@ -68,7 +71,8 @@ ifeq ($(OS),Windows_NT)
 		LDFLAGS += -Llib -lSDL2 -lcimgui -lassimp -llua -lgdi32 -lopengl32
 		CIMGUI_LDFLAGS += -Llib -lSDL2 -lgdi32 -lopengl32
 	endif
-	BACKEND= -DSOKOL_GLCORE
+	SHDC_MACRO= --defines _OE_VULKAN
+	BACKEND= -DSOKOL_VULKAN -D_OE_VULKAN
 endif
 
 SRCS := $(wildcard src/*.c)
@@ -87,7 +91,7 @@ endif
 
 AR_ARGS= rcs $(LIB) $(COMMON_O)
 
-SHADER_ARGS= --format sokol --slang glsl410# :spirv_vk  
+SHADER_ARGS= --format sokol --slang glsl410:spirv_vk $(SHDC_MACRO) 
 
 TEST_SRC= test
 

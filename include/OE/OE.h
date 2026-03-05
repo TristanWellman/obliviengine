@@ -235,6 +235,7 @@ typedef struct {
 	VkSwapchainCreateInfoKHR swapInfo;
 	VkSwapchainKHR swapchain;
 	uint32_t imageIndex;
+	uint32_t semaSlotIndex;
 	uint32_t totalImages;
 
 	VkImage *images;
@@ -250,9 +251,8 @@ typedef struct {
 	VkImageView depthImageView;
 	VkDeviceMemory depthMem;
 
-	VkSemaphoreCreateInfo semaInfo;
-	VkSemaphore renderSema;
-	VkSemaphore presentSema;
+	VkSemaphore *renderSema;
+	VkSemaphore *presentSema;
 
 	VkPresentInfoKHR presentInfo;
 } OEVKViews;
@@ -269,9 +269,11 @@ typedef struct {
 	VkDeviceCreateInfo deviceInfo;
 	VkDevice device;
 
-	VkPhysicalDeviceFeatures features;
+	VkPhysicalDeviceFeatures2 features2;
 	VkPhysicalDeviceVulkan13Features features13;
 	VkPhysicalDeviceVulkan12Features features12;
+	VkPhysicalDeviceExtendedDynamicStateFeaturesEXT xdsFeatures;
+	VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBuffFeatures;
 
 	OEVKViews images;
 	VkDebugUtilsMessengerEXT debugMessenger;
@@ -1173,6 +1175,15 @@ _OE_PRIVATE void mat4x4_ortho_vulkan(mat4x4 M, float left, float right,
     M[3][0] = -(right + left) / rl;
     M[3][1] = (top + bottom) / tb;
     M[3][2] = -near / fn;
+}
+
+/*This is from sokol_app.h*/
+_OE_PRIVATE uint32_t OEVKGetMinImageCount(const VkSurfaceCapabilitiesKHR *surfCaps) {
+	WASSERT(surfCaps!=NULL, "Invalid OEVK surface capabilities!");
+	const uint32_t reqCount = 3;
+	uint32_t minCount = surfCaps->minImageCount;
+	if(minCount<reqCount) minCount = reqCount;
+	return minCount;
 }
 
 #endif

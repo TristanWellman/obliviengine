@@ -551,10 +551,10 @@ _OE_HOT void OEDrawInstanceBatch(OEInstanceBatch *batch) {
 	sg_apply_pipeline(globalRenderer->iBatchPipe);
     sg_apply_bindings(&(sg_bindings){
         .vertex_buffers[0] = batch->obj->vbuf,
-		.vertex_buffers[2] = batch->mbuf0,
-		.vertex_buffers[3] = batch->mbuf1,
-		.vertex_buffers[4] = batch->mbuf2,
-		.vertex_buffers[5] = batch->mbuf3,
+		.vertex_buffers[1] = batch->mbuf0,
+		.vertex_buffers[2] = batch->mbuf1,
+		.vertex_buffers[3] = batch->mbuf2,
+		.vertex_buffers[4] = batch->mbuf3,
         .index_buffer = batch->obj->ibuf,
 		.views[OE_TEXPOS] = OEGetDefaultTexture(),
         .samplers[OE_TEXPOS] = globalRenderer->sampler
@@ -592,10 +592,10 @@ _OE_HOT void OEDrawInstanceBatchTex(OEInstanceBatch *batch,
 	sg_apply_pipeline(globalRenderer->iBatchPipe);
     sg_apply_bindings(&(sg_bindings){
 		.vertex_buffers[0] = batch->obj->vbuf,
-		.vertex_buffers[2] = batch->mbuf0,
-		.vertex_buffers[3] = batch->mbuf1,
-		.vertex_buffers[4] = batch->mbuf2,
-		.vertex_buffers[5] = batch->mbuf3,
+		.vertex_buffers[1] = batch->mbuf0,
+		.vertex_buffers[2] = batch->mbuf1,
+		.vertex_buffers[3] = batch->mbuf2,
+		.vertex_buffers[4] = batch->mbuf3,
         .index_buffer = batch->obj->ibuf,
 		.views[3] = texture,
         .samplers[3] = globalRenderer->sampler
@@ -779,8 +779,8 @@ _OE_COLD sg_swapchain OEGetSwapChain() {
 			.resolve_view = NULL,
 			.depth_stencil_image = (const void *)vk->images.depthImage,
 			.depth_stencil_view = (const void *)vk->images.depthImageView,
-			.render_finished_semaphore = (const void *)vk->images.renderSema,
-			.present_complete_semaphore = (const void *)vk->images.presentSema,
+			.render_finished_semaphore = (const void *)vk->images.renderSema[vk->images.imageIndex],
+			.present_complete_semaphore = (const void *)vk->images.presentSema[vk->images.semaSlotIndex],
 		}
 	};
 #endif
@@ -826,7 +826,7 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
         	},
 			.label = label,
 #ifdef OE_VULKAN
-			.face_winding = SG_FACEWINDING_CW
+			.face_winding = SG_FACEWINDING_CCW
 #endif
 		};
 }
@@ -853,13 +853,13 @@ sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label) {
 					[ATTR_simple_texcoord0] = 
 						{.format=SG_VERTEXFORMAT_FLOAT2,.buffer_index=0},
 					[ATTR_simpleInst_instModelr0] =
-						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=2},
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=1},
             		[ATTR_simpleInst_instModelr1] =
-						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=3},
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=2},
 					[ATTR_simpleInst_instModelr2] =
-						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=4},
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=3},
 					[ATTR_simpleInst_instModelr3] =
-						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=5},
+						{.format=SG_VERTEXFORMAT_FLOAT4,.buffer_index=4},
 				}
         	},
 			.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
@@ -922,7 +922,10 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
 			.compare = SG_COMPAREFUNC_ALWAYS,
 			.write_enabled = false,
         },
-		.label = label
+		.label = label,
+#ifdef OE_VULKAN
+			.face_winding = SG_FACEWINDING_CCW
+#endif
 	};
 }
 
@@ -1316,15 +1319,21 @@ _OE_COLD void OEInitVKImages() {
 
 	OEVKData *vk = globalRenderer->window->VK;
 
+	VkSurfaceCapabilitiesKHR surfCaps;
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk->physDevice, vk->images.surface, &surfCaps);
+
 	vk->images.swapInfo = (VkSwapchainCreateInfoKHR){
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.surface = vk->images.surface,
-		.minImageCount = 2,
+		.minImageCount = OEVKGetMinImageCount(&surfCaps),
 		.imageFormat = format,
 		.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-		.imageExtent = {(uint32_t)globalRenderer->window->width, (uint32_t)globalRenderer->window->height},
+		.imageExtent = {
+			.width = surfCaps.currentExtent.width, 
+			.height = surfCaps.currentExtent.height,
+		},
 		.imageArrayLayers = 1,
-		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
 		.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
@@ -1347,17 +1356,26 @@ _OE_COLD void OEInitVKImages() {
 			.image = vk->images.images[i],
 			.viewType = VK_IMAGE_VIEW_TYPE_2D,
 			.format = format,
-			.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.levelCount = 1,
+				.layerCount = 1
+			}
 		};
 		WASSERT(vkCreateImageView(vk->device, &vk->images.viewInfo[i], 
 					NULL, &vk->images.views[i])==VK_SUCCESS, "Failed to create view image!");
 	} 
+	vk->images.totalImages = images;
 
 	vk->images.depthImageInfo = (VkImageCreateInfo){
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = VK_IMAGE_TYPE_2D,
-		.format = VK_FORMAT_D32_SFLOAT,
-		.extent = {(uint32_t)globalRenderer->window->width, (uint32_t)globalRenderer->window->height, 1},
+		.format = VK_FORMAT_D32_SFLOAT_S8_UINT,
+		.extent = {
+			.width = surfCaps.currentExtent.width, 
+			.height = surfCaps.currentExtent.height,
+			.depth = 1
+		},
 		.mipLevels = 1,
 		.arrayLayers = 1,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
@@ -1401,7 +1419,7 @@ _OE_COLD void OEInitVKImages() {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		.image = vk->images.depthImage,
 		.viewType = VK_IMAGE_VIEW_TYPE_2D,
-		.format = VK_FORMAT_D32_SFLOAT,
+		.format = VK_FORMAT_D32_SFLOAT_S8_UINT,
 		.subresourceRange = {
 			.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
 			.baseMipLevel = 0,
@@ -1413,6 +1431,23 @@ _OE_COLD void OEInitVKImages() {
 	WASSERT(vkCreateImageView(vk->device, &vk->images.depthImageViewInfo,
 				NULL, &vk->images.depthImageView)==VK_SUCCESS, 
 				"Failed to create depth view!");
+}
+
+_OE_COLD void OEVKInitSemaphores() {
+	OEVKData *vk = globalRenderer->window->VK;
+	vk->images.renderSema = calloc(vk->images.totalImages, sizeof(VkSemaphore));
+	vk->images.presentSema = calloc(vk->images.totalImages, sizeof(VkSemaphore));
+	VkSemaphoreCreateInfo createInfo = (VkSemaphoreCreateInfo){
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+	};	
+	int i;
+	for(i=0;i<vk->images.totalImages;i++) {
+		WASSERT(vkCreateSemaphore(vk->device, &createInfo,
+					NULL, &vk->images.renderSema[i])==VK_SUCCESS, "Failed to create renderSema!");
+		WASSERT(vkCreateSemaphore(vk->device, &createInfo, 
+				NULL, &vk->images.presentSema[i])==VK_SUCCESS, "Failed to create presentSema!");
+	}
+	vk->images.semaSlotIndex = 0;
 }
 
 _OE_HOT void OEReinitVKImages() {
@@ -1428,7 +1463,14 @@ _OE_HOT void OEReinitVKImages() {
 	vkDestroyImageView(vk->device, vk->images.depthImageView, NULL);
 	vkDestroyImage(vk->device, vk->images.depthImage, NULL);
 	vkFreeMemory(vk->device, vk->images.depthMem, NULL);
+	for(i=0;i<iCount;i++) {
+		vkDestroySemaphore(vk->device, vk->images.renderSema[i], NULL);
+		vkDestroySemaphore(vk->device, vk->images.presentSema[i], NULL);
+	}
+	free(vk->images.renderSema);
+	free(vk->images.presentSema);
 	OEInitVKImages();
+	OEVKInitSemaphores();
 }
 
 #endif
@@ -1574,6 +1616,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.pApplicationInfo = &globalRenderer->window->VK->appInfo,
 		.enabledExtensionCount = extCount,
 		.ppEnabledExtensionNames = extNames,
+		.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
 		/*.enabledLayerCount = 1,
 		.ppEnabledLayerNames = validationLayers,
 		.pNext = &debugInfo*/
@@ -1631,29 +1674,52 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	};
 
 	const char *dExt[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME};
-	globalRenderer->window->VK->features = (VkPhysicalDeviceFeatures){
-		.samplerAnisotropy = VK_TRUE
+
+	globalRenderer->window->VK->descriptorBuffFeatures = (VkPhysicalDeviceDescriptorBufferFeaturesEXT){
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+		.descriptorBuffer = VK_TRUE
 	};
-	globalRenderer->window->VK->features13 = (VkPhysicalDeviceVulkan13Features){
-		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-		.pNext = NULL,
-		.dynamicRendering = VK_TRUE,
-		.synchronization2 = VK_TRUE
+	globalRenderer->window->VK->xdsFeatures = (VkPhysicalDeviceExtendedDynamicStateFeaturesEXT){
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+		.pNext = &globalRenderer->window->VK->descriptorBuffFeatures,
+		.extendedDynamicState = VK_TRUE
 	};
 	globalRenderer->window->VK->features12 = (VkPhysicalDeviceVulkan12Features){
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-		.pNext = &globalRenderer->window->VK->features13,
-		.bufferDeviceAddress = VK_TRUE,
-		.descriptorIndexing = VK_TRUE
+		.pNext = &globalRenderer->window->VK->xdsFeatures,
+		.bufferDeviceAddress = VK_TRUE
 	};
+	globalRenderer->window->VK->features13 = (VkPhysicalDeviceVulkan13Features){
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+		.pNext = &globalRenderer->window->VK->features12,
+		.dynamicRendering = VK_TRUE,
+		.synchronization2 = VK_TRUE
+	};
+
+	VkPhysicalDeviceFeatures2 supports;
+	supports.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	supports.pNext = NULL;
+	vkGetPhysicalDeviceFeatures2(globalRenderer->window->VK->physDevice, &supports);
+	globalRenderer->window->VK->features2 = (VkPhysicalDeviceFeatures2){
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+		.pNext = &globalRenderer->window->VK->features13,
+		.features.samplerAnisotropy = VK_TRUE,
+		.features.dualSrcBlend = VK_TRUE
+	};
+	if(supports.features.textureCompressionBC)
+		globalRenderer->window->VK->features2.features.textureCompressionBC = VK_TRUE;
+	if(supports.features.textureCompressionETC2)
+		globalRenderer->window->VK->features2.features.textureCompressionETC2 = VK_TRUE;
+	if(supports.features.textureCompressionASTC_LDR)
+		globalRenderer->window->VK->features2.features.textureCompressionASTC_LDR = VK_TRUE;
+
 	globalRenderer->window->VK->deviceInfo = (VkDeviceCreateInfo){
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		.pNext = &globalRenderer->window->VK->features12,
+		.pNext = &globalRenderer->window->VK->features2,
 		.queueCreateInfoCount = 1,
 		.pQueueCreateInfos = &globalRenderer->window->VK->queueInfo,
 		.enabledExtensionCount = 2,
 		.ppEnabledExtensionNames = dExt,
-		.pEnabledFeatures = &globalRenderer->window->VK->features
 	};
 
 	WASSERT(vkCreateDevice(globalRenderer->window->VK->physDevice, 
@@ -1666,16 +1732,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 			&globalRenderer->window->VK->queue);
 
 	OEInitVKImages();
-
-	OEVKData *vk = globalRenderer->window->VK;
-	vk->images.semaInfo = (VkSemaphoreCreateInfo){
-		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-	};	
-	WASSERT(vkCreateSemaphore(vk->device, &vk->images.semaInfo,
-				NULL, &vk->images.renderSema)==VK_SUCCESS, "Failed to create renderSema!");
-	WASSERT(vkCreateSemaphore(vk->device, &vk->images.semaInfo, 
-			NULL, &vk->images.presentSema)==VK_SUCCESS, "Failed to create presentSema!");
-
+	OEVKInitSemaphores();
 #endif
 /*
  * Sokol setup
@@ -2486,7 +2543,8 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 #ifdef OE_VULKAN
 	OEVKData *vk = globalRenderer->window->VK;
 	WASSERT(vkAcquireNextImageKHR(vk->device, vk->images.swapchain, UINT64_MAX, 
-			vk->images.presentSema, VK_NULL_HANDLE, &vk->images.imageIndex)==VK_SUCCESS, 
+			vk->images.presentSema[vk->images.semaSlotIndex], 
+			VK_NULL_HANDLE, &vk->images.imageIndex)==VK_SUCCESS, 
 			"Failed to swap VK images!");
 #endif
 
@@ -2678,12 +2736,15 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	vk->images.presentInfo = (VkPresentInfoKHR){
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &vk->images.renderSema,
+		.pWaitSemaphores = &vk->images.renderSema[vk->images.imageIndex],
 		.swapchainCount = 1,
 		.pSwapchains = &vk->images.swapchain,
 		.pImageIndices = &vk->images.imageIndex
 	};	
 	vkQueuePresentKHR(vk->queue, &vk->images.presentInfo);
+	vk->images.semaSlotIndex = (vk->images.semaSlotIndex+1)%vk->images.totalImages;
+	if(globalRenderer->window->cursor!=NULL)
+		SDL_SetCursor(globalRenderer->window->cursor);
 #endif
 
 	OEUpdateViewMat();
@@ -2738,6 +2799,8 @@ void OECleanup(void) {
 	for(i=0;i<iCount;i++) vkDestroyImageView(vk->device, vk->images.views[i], NULL);
 	free(vk->images.views);
 	free(vk->images.images);
+	free(vk->images.renderSema);
+	free(vk->images.presentSema);
 	vkDestroySwapchainKHR(vk->device, vk->images.swapchain, NULL);
 	vkDestroyImageView(vk->device, vk->images.depthImageView, NULL);
 	vkDestroyImage(vk->device, vk->images.depthImage, NULL);
