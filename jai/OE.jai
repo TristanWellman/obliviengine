@@ -44,9 +44,9 @@ sg_range :: struct {
  * OE defs
  */
 
-vec2 :: [2] float;
-vec3 :: [3] float;
-vec4 :: [4] float;
+vec2 :: [2] float32;
+vec3 :: [3] float32;
+vec4 :: [4] float32;
 mat4x4 :: [4] vec4;
 
 VIEW__texture :: 3;
@@ -62,6 +62,7 @@ OE_LOW_GRAPHICS :: (1<<6|1);
 OE_MED_GRAPHICS :: (1<<7|1);
 OE_HIGH_GRAPHICS :: (1<<8|1);
 OE_KEEPVERTS :: (1<<9|1);
+OE_RAWVERTDATA :: (1<<10|1);
 
 MAXPOSTPASS :: 16;
 OEFXAA :: "OEFXAA";
@@ -77,15 +78,15 @@ UNILOADER :: #type () -> void #foreign OE;
 /*These are contained in OE's util.h so you don't have to pass float arrays around functions.*/
 V3SIZE : s32 : 3;
 Vec3 :: struct {
-	x, y, z: float;
+	x, y, z: float32;
 }
 
 Vec2 :: struct {
-	x, y: float;
+	x, y: float32;
 }
 
 Color :: struct {
-	r, g, b, a: float;
+	r, g, b, a: float32;
 }
 
 operator *= :: (color: *Color, scalar: float) {
@@ -187,7 +188,7 @@ OEAttachScript :: (ID: *u8, scriptPath: *u8) #foreign OE;
 OECreateInstanceBatch :: (obj: *Object) #foreign OE;
 OEPushInstanceBatchData :: (batch: *OEInstanceBatch, pos: *vec3) #foreign OE;
 OECreateObject :: (obj: Object) #foreign OE;
-OECreateMeshFromAssimp :: (name: *u8, path: *u8, pos: *vec3, flag: s32) #foreign OE;
+OECreateMeshFromAssimp :: (name: *u8, path: *u8, pos: *vec3, flag: s32, fsize: s32) #foreign OE;
 OESetObjectPosition :: (ID: *u8, position: *vec3) #foreign OE;
 OEGetObjectPosition :: (ID: *u8) -> Vec3 #foreign OE;
 OERotateObject :: (ID: *u8, deg: float) #foreign OE;
@@ -205,6 +206,7 @@ OEGetDefaultCubeObj :: (name: *u8) -> Object #foreign OE;
 OEGetDefaultTexture :: () -> sg_view #foreign OE;
 OEgetSampler :: () -> sg_sampler #foreign OE;
 OERendererIsRunning :: () -> s32 #foreign OE;
+OECreateColorImage :: (color: u32, w: s32, h: s32) -> sg_view #foreign OE;
 OEUpdateViewMat :: () #foreign OE;
 OEEnableDebugInfo :: () #foreign OE;
 OEDisableDebugInfo :: () #foreign OE;
@@ -244,6 +246,7 @@ OEGetFrameSwap :: () -> u32 #foreign OE;
 OEGetTick :: () -> float #foreign OE;
 OEGetWindow :: () -> *SDL_Window #foreign OE;
 OEGetWindowResolution :: (x: *s32, y: *s32) #foreign OE;
+OEGetRenderResolution :: (x: *s32, y: *s32) #foreign OE;
 OEGetOEUIData :: () -> *OEUIData #foreign OE;
 OEQueryOSInfo :: () -> *u8 #foreign OE;
 OEEnableSSAO :: () #foreign OE;
@@ -366,3 +369,24 @@ OEUILoadFont :: (filePath: *u8, ID: *u8, flag: s32) -> *OEUIFont #foreign OE;
 OEUIRenderText :: (font: *OEUIFont, input: *u8, x: s32, y: s32) #foreign OE;
 OEUIDrawImage :: (image: sg_view) #foreign OE;
 OEUIDrawImageEx :: (image: sg_view, x: s32, y: s32, w: s32, h: s32) #foreign OE;
+
+/*macky.h*/
+
+mky_array :: struct {
+	array: *void;
+	array_length: s32;
+}
+
+mky_data :: struct {
+	file: *void;
+	filebuf: *u8;
+	fsize, fcap: s32;
+}
+
+mky_init :: (filename: *u8) -> *mky_data #foreign OE;
+mky_close :: (data: *mky_data) #foreign OE;
+mky_getIntArrayAt :: (section: *u8, itemName: *u8) #foreign OE;
+mky_getIntAt :: (section: *u8, itemName: *u8) -> s32 #foreign OE;
+mky_getFloatAt :: (section: *u8, itemName: *u8) -> float32 #foreign OE;
+mky_getStrAt :: (section: *u8, itemName: *u8) -> *u8 #foreign OE;
+mky_getBoolAt :: (section: *u8, itemName: *u8) -> bool #foreign OE;

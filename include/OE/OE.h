@@ -127,6 +127,7 @@ extern "C" {
 #	define OE_MED_GRAPHICS (1<<7|1)
 #	define OE_HIGH_GRAPHICS (1<<8|1)
 #	define OE_KEEPVERTS (1<<9|1)
+#	define OE_RAWVERTDATA (1<<10|1)
 #endif
 
 #define MAXPOSTPASS 16
@@ -135,6 +136,7 @@ extern "C" {
 #define OEBLOOM "OEB"
 #define OESSGI "OESSGI"
 #define OEDNOISE "OEDNOISE"
+#define OERT "OERT"
 
 /*OE compiler definitions*/
 #define _OE_NONE
@@ -311,9 +313,9 @@ struct OEImgui {
 
 typedef struct {
 	sg_shader fxaa, ssao, bloom, 
-			  ssgi, dnoise;
+			  ssgi, dnoise, oert;
 	sg_pipeline fxaap, ssaop, bloomp, 
-				ssgip, dnoisep;
+				ssgip, dnoisep, oertp;
 } OEPPShaders;
 
 typedef struct {
@@ -340,6 +342,7 @@ struct renderer {
 	unsigned int keyPressed :1, wasKeyPressed :1;
 	unsigned int mousePressed :1, wasMousePressed :1;
 	unsigned int mouseScrollUp :1, mouseScrollDown :1;
+	char curTextIn;
 	unsigned int graphicsSetting;
 	unsigned int igStat :1;
 	unsigned int legacy :1; /*If OpenGL 3.3 is required*/
@@ -391,6 +394,7 @@ struct renderer {
 	sg_pipeline renderTargetPipe;
 	sg_buffer renderTargetBuff;
 	
+	RENDFUNC customPrePassing;
 	/*The user's post passes (bloom, fxaa, ssao, etc.)*/
 	PostPass postPasses[MAXPOSTPASS];
 	int postPassSize :4;
@@ -483,7 +487,7 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos);
  * @param pos The world space position of the Object.
  * @param flag The load flags for the model, I.E. OE_KEEPVERTS to store verts in ram & vram.
  * */
-void OECreateMeshFromAssimp(char *name, char *path, vec3 pos, int flag);
+void OECreateMeshFromAssimp(char *name, char *path, vec3 pos, int flag, int fSize);
 /**
  * @brief Sets the world space position of an existing OE Object.
  *
@@ -574,14 +578,6 @@ sg_shader OEGetDefCubeShader();
  * */
 sg_shader OEGetDefInstShader();
 /**
- * @brief Gets the OE ray tracing shader (not implemented yet).
- * */
-sg_shader OEGetRayTracedShader();
-/**
- * @brief Gets the OE ray tracing pipeline (not implemented yet).
- * */
-sg_pipeline_desc OEGetRayTracedPipe();
-/**
  * @brief Set the default OE shader, this will overrite from simple.glsl.
  *
  * @param shader The shader you are setting as default.
@@ -609,6 +605,14 @@ _OE_PURE sg_sampler OEGetSampler();
  * @brief Retrieve the main render target pipeline, this uses the quad shader. Good for drawing images.
  * */
 _OE_PURE sg_pipeline OEGetRTP();
+/**
+ * @brief Create a new image view of just a color.
+ *
+ * @param color The color you want the image to be.
+ * @param w The width
+ * @param h The height
+ * */
+sg_view OECreateColorImage(unsigned int color, int w, int h);
 /*renderer*/
 /**
  * @brief Tells if the renderer is running or not.
@@ -712,6 +716,12 @@ unsigned int OEIsVulkan();
  * */
 _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType camType);
 /**
+ * @brief Initializes the OE Camera System as PERSPECTIVE or ISOMETRIC.
+ *
+ * @param camType The type of camera projection you want (PERSPECTIVE, ISOMETRIC).
+ * */
+void OEInitCamera(enum CamType camType);
+/**
  * @brief Move the camera Forward, Backward, Up, Down, Left, and Right.
  *
  * @param direction The direction of movement.
@@ -809,6 +819,10 @@ unsigned int OEGetMouseScrollUp();
  * @brief Get the SDL2 game controller.
  * */
 SDL_GameController *OEGetGameController();
+/**
+ * @brief Get the latest keyboard text input per SDL context window. (SDL_TEXTINPUT).
+ * */
+char OEGetTextInput();
 /**
  * @brief Runs the SDL event polling loop along with a user defined key handler.
  *
@@ -921,6 +935,14 @@ void OEEnableDNOISE();
  * */
 void OEDisableDNOISE();
 /**
+ * @brief Enables the OE DDA Screen-space Ray-tracer. 
+ * */
+void OEEnableRT();
+/**
+ * @brief Disable OE RT.
+ * */
+void OEDisableRT();
+/**
  * @brief Sets the image used for the Cursor
  *
  * @param filePath The file path to the image.
@@ -946,6 +968,12 @@ void OERemovePostPass(char *id);
  * @param ID The ID for the post pass I.E. "SSGI"
  * */
 float OEGetPostPassTime(char *ID);
+/**
+ * @brief Provide a custom pre-pass to OE. Can be used for more complex rendering like shadow-mapping.
+ *
+ * @param prePass The pre-pass function. 
+ * */
+void OESetCustomPrePassing(RENDFUNC prePass);
 /**
  * @brief Runs the actual rendering process, all your draw calls, UI, etc.
  *

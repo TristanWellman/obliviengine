@@ -25,7 +25,7 @@ void main() {
 
 #define RADIUS 0.25
 #define BIAS 0.05
-#define INTENSITY 2.0
+#define INTENSITY 2.8
 #define PI 3.1415926
 
 /*These macros/functions come from include/OE/util.h*/
@@ -82,8 +82,8 @@ uint pcg(uint v) {
 	return float(pcg(pcg(uint(p.x))+uint(p.y)))/float(uint(0xffffffff));
 }*/
 
-lowp float getRandom(vec2 uv) {
-	return fract(sin(dot(uv,vec2(12.98,78.23)))*43758.5453);
+lowp float getRandom(vec2 p) {
+	return fract(52.9829189*fract(dot(p, vec2(0.06711056, 0.00583715))));
 }
 
 void main() {
@@ -122,7 +122,6 @@ void main() {
 			if(QSQRT(dot(hitPos,hitPos))<0.001) continue;
 			if(hitPos.z<samplePos.z-BIAS) {
 				lowp vec3 hitColor = texture(sampler2D(OESSGI_texture, OESSGI_smp), suv).rgb;
-				//lowp float wei = max(dot(ncol,rayDir), 0.0)*(1.0-ta/RADIUS);
 				GI += hitColor*0.4;//*wei; 
 				hits++;
 				break;

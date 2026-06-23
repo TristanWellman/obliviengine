@@ -145,7 +145,7 @@ void main() {
 
     float shininess = 32.0;
     vec3 materialAmbient = vec3(0.1);
-    vec3 materialDiffuse = vec3(0.7);
+    vec3 materialDiffuse = vec3(1.0);
     vec3 materialSpecular = vec3(0.5);
 
 	ambient = materialAmbient*vec3(0.02);
@@ -185,7 +185,7 @@ void main() {
 		as += specular;
     }
 	
-	vec3 hdr = ambient+ad*texcolor.rgb+as;
+	vec3 hdr = (ambient)+(ad*texcolor.rgb)+as;
 	vec3 mapped = hdr/(vec3(1.0)+hdr);
 
     vec3 result = pow(mapped, vec3(0.45));

@@ -7,6 +7,7 @@ CFLAGS_DEB= -g -O2 -Iinclude -Ishaders
 LDFLAGS = -lm -lpthread
 LIB?= lib/libOE.a
 UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
 ARCH := $(shell $(CC) -dumpmachine)
 SHDC= sokol-tools-bin/bin/win32/sokol-shdc.exe
 SHDC_MACRO= --defines _OE_NONE
@@ -27,8 +28,9 @@ CIMGUI_CXXFLAGS = -std=c++11 -O2 -fno-exceptions -fno-rtti -Wall \
 CIMGUI_LOC = lib/libcimgui.a
 
 ifeq ($(UNAME_S),Linux)
-	SHDC_MACRO= --defines _OE_VULKAN
-	BACKEND= -DSOKOL_VULKAN -D_OE_VULKAN
+	#SHDC_MACRO= --defines _OE_VULKAN
+	#BACKEND= -DSOKOL_VULKAN -D_OE_VULKAN
+	BACKEND= -DSOKOL_GLCORE
 	CFLAGS += $(ARCHTUNES)
 	CIMGUI_CXXFLAGS += $(ARCHTUNES)
 	LIB= lib/lin/libOE.a
@@ -71,8 +73,9 @@ ifeq ($(OS),Windows_NT)
 		LDFLAGS += -Llib -lSDL2 -lcimgui -lassimp -llua -lgdi32 -lopengl32
 		CIMGUI_LDFLAGS += -Llib -lSDL2 -lgdi32 -lopengl32
 	endif
-	SHDC_MACRO= --defines _OE_VULKAN
-	BACKEND= -DSOKOL_VULKAN -D_OE_VULKAN
+	#SHDC_MACRO= --defines _OE_VULKAN
+	#BACKEND= -DSOKOL_VULKAN -D_OE_VULKAN
+	BACKEND= -DSOKOL_GLCORE
 endif
 
 SRCS := $(wildcard src/*.c)

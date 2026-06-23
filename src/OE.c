@@ -156,6 +156,7 @@ void OECreateObject(Object obj) {
 	
 	globalRenderer->objects[pos].name = calloc(strlen(obj.name)+1, sizeof(char));
 	strcpy(globalRenderer->objects[pos].name, obj.name);
+
 	if(obj.ID!=NULL) {
 		globalRenderer->objects[pos].ID = calloc(strlen(obj.ID)+1, sizeof(char));
 		strcpy(globalRenderer->objects[pos].ID, obj.ID);
@@ -168,12 +169,12 @@ void OECreateObject(Object obj) {
 
 	globalRenderer->objects[pos].numID = globalRenderer->objSize;
 	globalRenderer->objSize++;
-	OEQSortObjects();
 
 	char buf[strlen(globalRenderer->objects[pos].name)+256];
 	sprintf(buf, "OBJ[%zu]: %s Created", pos, globalRenderer->objects[pos].name);
 	WLOG(INFO, buf);
 
+	OEQSortObjects();
 }
 
 void OECreateObjectEx(char *name, vec3 pos,
@@ -209,7 +210,6 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 	Object obj = {0};
 	obj.name = calloc(strlen(mesh->label)+1, sizeof(char));
 	strcpy(obj.name, mesh->label);
-
 
 	int numFaces = mesh->indices.size;
 	int totalVerts = numFaces*ISIZE;
@@ -304,13 +304,22 @@ void OECreateObjectFromMesh(OEMesh *mesh, vec3 pos
 }
 
 /*This should be used over the OECreateObjectFromMesh since my .obj parser is "ok"*/
-void OECreateMeshFromAssimp(char *name, char *path, vec3 pos, int flag) {
+void OECreateMeshFromAssimp(char *name, char *path, vec3 pos, int flag, int fSize) {
 	Object obj = {0};
-	obj.name = strdup(name); 
+	obj.name = calloc(strlen(name)+1, sizeof(char)); 
+	strcpy(obj.name, name);
 
-	const struct aiScene *scene = aiImportFile(path,
-			aiProcess_GenSmoothNormals|aiProcess_Triangulate|
-			aiProcess_JoinIdenticalVertices|aiProcess_PreTransformVertices);
+	const struct aiScene *scene = NULL;
+	if((flag&OE_RAWVERTDATA)==OE_RAWVERTDATA) {
+		scene = aiImportFileFromMemory(path, fSize,
+				aiProcess_GenSmoothNormals|aiProcess_Triangulate|
+				aiProcess_JoinIdenticalVertices|aiProcess_PreTransformVertices,
+				"fbx");
+	} else {
+		scene = aiImportFile(path,
+				aiProcess_GenSmoothNormals|aiProcess_Triangulate|
+				aiProcess_JoinIdenticalVertices|aiProcess_PreTransformVertices);
+	}
 	if(!scene||scene->mNumMeshes==0) {
 		char *buf = calloc(128+strlen(path), sizeof(char));
 		snprintf(buf,sizeof(buf),"Failed to load FBX file: %s", path);
@@ -366,7 +375,7 @@ void OECreateMeshFromAssimp(char *name, char *path, vec3 pos, int flag) {
 		finalInds[(i*VSIZE)+2] = (uint16_t)((i*VSIZE)+1);
 	}
 
-	if(flag==OE_KEEPVERTS) {
+	if((flag&OE_KEEPVERTS)==OE_KEEPVERTS) {
 		obj.vrtPtr = calloc(totalFSize+1, sizeof(float));
 		memcpy(obj.vrtPtr, finalVerts, totalFSize*sizeof(float));
 		obj.vrtSize = totalFSize;
@@ -937,18 +946,6 @@ sg_shader OEGetDefInstShader() {
 	return globalRenderer->originalIBatchShader;
 }
 
-sg_shader OEGetRayTracedShader() {
-	if(globalRenderer->rayTracedShader.id==SG_INVALID_ID)
-		globalRenderer->rayTracedShader = sg_make_shader(OERayTracer_shader_desc(sg_query_backend()));
-		
-	return globalRenderer->rayTracedShader;
-}
-
-sg_pipeline_desc OEGetRayTracedPipe() {
-	return OEGetDefaultPipe(OEGetRayTracedShader(), "rayTracedPipe");
-}
-
-
 void OESetDefaultShader(sg_shader shader) {
 	globalRenderer->defCubeShader = shader;
 	int i;
@@ -998,6 +995,19 @@ _OE_PURE sg_sampler OEGetSampler() {
 
 _OE_PURE sg_pipeline OEGetRTP() {
 	return globalRenderer->renderTargetPipe;
+}
+
+sg_view OECreateColorImage(unsigned int color, int w, int h) {
+	sg_image_desc img_desc = {
+		.width = w,
+		.height = h,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.data.mip_levels[0] = SG_RANGE(color),
+    	.label = "colorTex"
+	};
+
+	return sg_make_view(&(sg_view_desc){
+			.texture.image=sg_make_image(&img_desc)});
 }
 
 void initBaseObjects() {
@@ -1506,6 +1516,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->iBatchCap = OBJSTEP;
 	globalRenderer->iBatchSize = 0;
 	globalRenderer->iBatches = calloc(globalRenderer->iBatchCap, sizeof(OEInstanceBatch));
+	globalRenderer->customPrePassing = NULL;
 	char *os = OEGETOS();
 	char *osclass = OEGETOSCLASS();
 	globalRenderer->OSInfo = calloc(strlen(os)+strlen(osclass)+128, sizeof(char));
@@ -1516,11 +1527,11 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		globalRenderer->postPasses[pp] = (PostPass){0};
 		globalRenderer->postPasses[pp].ID = NULL;
 	}
-
+#if !defined(_WIN64) || !defined(__WIN64__)
 	if(OSCLASS!=OS_WINDOWS) {
 		setenv("MESA_GL_VERSION_OVERRIDE", "4.1", 0);
 	}
-	
+#endif	
 	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER)>=0,
 			"ERROR:: Failed to init SDL!");
 #ifndef OE_VULKAN
@@ -1959,6 +1970,9 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		globalRenderer->ppshaders.dnoise = sg_make_shader(OEDNOISE_shader_desc(sg_query_backend()));
 		sg_pipeline_desc dnoisepd = OEGetQuadPipeline(globalRenderer->ppshaders.dnoise, "dnoise");
 		globalRenderer->ppshaders.dnoisep = sg_make_pipeline(&dnoisepd);
+		globalRenderer->ppshaders.oert = sg_make_shader(OERT_shader_desc(sg_query_backend()));
+		sg_pipeline_desc oertpd = OEGetQuadPipeline(globalRenderer->ppshaders.oert, "oert");
+		globalRenderer->ppshaders.oertp = sg_make_pipeline(&oertpd);
 	//} else {
 		/*TODO: Build GL 330 shaders*/
 	//	WLOG(WARN, "Using legacy fallback shaders");
@@ -2000,10 +2014,23 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->defTexture = sg_make_view(&(sg_view_desc){
 			.texture.image=sg_make_image(&img_desc)});
 
-/*
- * Init Camera
- * */
 
+	OEInitCamera(camType);
+
+	/*
+	 * Init Lua Scripting
+	 * */
+	OEInitLua(&globalRenderer->luaData);
+	int i;
+	for(i=0;i<globalRenderer->objSize;i++) globalRenderer->objects[i].script.filePath = NULL;
+
+	/*
+	 * Init OEUI
+	 * */
+	OEUIInit(&globalRenderer->oeuiData, __FILE__);
+}
+
+void OEInitCamera(enum CamType camType) {
 	globalRenderer->cam.oScale = 3.0f;
 	float oScale = globalRenderer->cam.oScale;
 
@@ -2102,18 +2129,6 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 			break;
 		}
 	};
-
-	/*
-	 * Init Lua Scripting
-	 * */
-	OEInitLua(&globalRenderer->luaData);
-	int i;
-	for(i=0;i<globalRenderer->objSize;i++) globalRenderer->objects[i].script.filePath = NULL;
-
-	/*
-	 * Init OEUI
-	 * */
-	OEUIInit(&globalRenderer->oeuiData, __FILE__);
 }
 
 _OE_HOT void OEUpdateViewMat() {
@@ -2327,6 +2342,10 @@ SDL_GameController *OEGetGameController() {
 	return globalRenderer->gameController;
 }
 
+char OEGetTextInput() {
+	return globalRenderer->curTextIn;
+}
+
 /*For mixed events use an SDL keyboard state*/
 void OEPollEvents(EVENTFUNC event) {
 	globalRenderer->wasKeyPressed = OEIsKeyPressed();
@@ -2354,7 +2373,10 @@ void OEPollEvents(EVENTFUNC event) {
 		} else if(globalRenderer->event.type==SDL_MOUSEBUTTONUP) {
 			globalRenderer->mousePressed = 0; 
 			globalRenderer->mouseEvent = globalRenderer->event.button;
-		}
+		} 
+
+		if(globalRenderer->event.type==SDL_TEXTINPUT) 
+			globalRenderer->curTextIn = globalRenderer->event.text.text[0];
 
 		if(globalRenderer->event.type==SDL_MOUSEWHEEL) {
 			if(globalRenderer->event.wheel.y>0) {
@@ -2525,6 +2547,18 @@ void OEDisableDNOISE() {
 	OERemovePostPass(OEDNOISE);
 }
 
+void OEEnableRT() {
+	OEAddPostPass(OERT, globalRenderer->ppshaders.oertp, NULL);
+}
+
+void OEDisableRT() {
+	OERemovePostPass(OERT);
+}
+
+void OESetCustomPrePassing(RENDFUNC prePass) {
+	globalRenderer->customPrePassing = prePass;
+}
+
 _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	globalRenderer->frame_start = SDL_GetPerformanceCounter();
 	int winW, winH;
@@ -2579,6 +2613,8 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 			.clear_value = 1.0f
 		}
 	};
+
+	if(globalRenderer->customPrePassing!=NULL) globalRenderer->customPrePassing();
 
 	/*Offscreen pass to the texture*/
     sg_begin_pass(&(sg_pass){ .action = off_pass_action,

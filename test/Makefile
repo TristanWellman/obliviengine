@@ -1,7 +1,7 @@
 # This is a good referal for makefile usage with Obliviengine
 
 CC=gcc
-CFLAGS= -DSOKOL_GLCORE -g -O2 -I../include -I../include/SDL/include -I../include/assimp/include -I../shaders
+CFLAGS= -g -O2 -I../include -I../include/SDL/include -I../include/assimp/include -I../shaders
 
 UNAME_S := $(shell uname -s)
 # setup required linker flags for 
