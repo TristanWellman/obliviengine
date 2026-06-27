@@ -10,7 +10,13 @@
 #	include <vulkan/vulkan.h>
 #endif
 #undef GL_VERSION_4_2 /*Sokol "bug", it checks 4.2 instead of 4.1. Which is not noticable on OSX for 4.1, but on Linux or anything else it will crash*/
+#if defined(__APPLE__) && defined(__x86_64__)
+#undef __APPLE__ /*On intel macs from like 2015 they don't have texbuf support, I guess sokol does not know this so it breaks*/
 #include <sokol/sokol_gfx.h>
+#define __APPLE__
+#else 
+#include <sokol/sokol_gfx.h>
+#endif
 #include <sokol/sokol_log.h>
 #include <sokol/util/sokol_debugtext.h>
 #if defined __WIN32__ || __WIN64__
@@ -72,6 +78,8 @@
 #include "rayTracer.glsl.h"
 #include "ssgi.glsl.h"
 #include "denoise.glsl.h"
+#include "shadow.glsl.h"
+#include "shadowInst.glsl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -176,6 +184,11 @@ enum CamType {
 	ISOMETRIC
 };
 
+enum RenderMode {
+	NORMAL,
+	SHADOW
+};
+
 typedef void (*RENDFUNC)();
 typedef void (*EVENTFUNC)();
 typedef void (*UNILOADER)();
@@ -222,6 +235,7 @@ typedef struct {
 typedef struct {
 	Object *obj; 
 	unsigned int size;
+	unsigned int instancingUpdates;
 	vec3 *positions;
 	vec4 *instModelsr0;
 	vec4 *instModelsr1;
@@ -321,11 +335,11 @@ typedef struct {
 typedef struct {
 	/*Color attachment views*/
 	sg_view cRenderTarget, cDepthBuffer, cNormalBuffer,
-			cPositionBuffer, cNoiseBuffer, cPrevFrameBuffer,
+			cPositionBuffer, cNoiseBuffer, cShadowBuffer,
 			cPostTarget, cPostTargetPong;
 	/*Texture attachment views*/
 	sg_view tRenderTarget, tDepthBuffer, tNormalBuffer,
-			tPositionBuffer, tNoiseBuffer, tPrevFrameBuffer,
+			tPositionBuffer, tNoiseBuffer, tShadowBuffer,
 			tPostTarget, tPostTargetPong;
 } OEViews;
 
@@ -348,16 +362,20 @@ struct renderer {
 	unsigned int legacy :1; /*If OpenGL 3.3 is required*/
 	unsigned int disablesdtx :1;
 	unsigned int isVulkan :1;
+	unsigned int shadowMapping :1;
 	int lastKey :8;
 
 	Camera cam;
+	Camera shadowCam;
 	enum CamType camType;
 	Mouse mouse;
 
+	enum RenderMode renderMode;
 	sg_bindings bindings;
 	Object *objects;
 	OEInstanceBatch *iBatches;
 	sg_pipeline iBatchPipe;
+	sg_pipeline shadowMapInstPipe;
 	sg_shader originalIBatchShader;
 	int objCap :20;
 	int objSize :20;
@@ -366,6 +384,7 @@ struct renderer {
 
 	OEPPShaders ppshaders; /*These are the enable/disable-able post-pass shaders*/
 	sg_shader defCubeShader;
+	sg_shader shadowMapShade, shadowMapInstShade;
 	sg_shader cubeShader, lowDefCubeShader;
 	sg_shader rayTracedShader;
 
@@ -377,7 +396,7 @@ struct renderer {
 	sg_image normalBuffer;
 	sg_image positionBuffer;
 	sg_image noiseBuffer;
-	sg_image prevFrameBuffer;
+	sg_image shadowBuffer;
 	OEViews views;
 
 	/*images, atts, pipes, shaders, buffers*/
@@ -387,7 +406,7 @@ struct renderer {
 	sg_image postTargetPong; /*We must alternate images/attachments for user passes*/
 	sg_attachments postTargetAtt;
 	sg_attachments postTargetAttPong;
-	sg_attachments prevFrameTarg;
+	sg_attachments shadowTarg;
 	sg_sampler sampler;
 	/*This is just a shader for the screen quad*/
 	sg_shader renderTargetShade;
@@ -578,6 +597,18 @@ sg_shader OEGetDefCubeShader();
  * */
 sg_shader OEGetDefInstShader();
 /**
+ * @brief Get the Shadow Mapping shader.
+ * */
+sg_shader OEGetDefShadowShader();
+/*
+ * @brief Get the Shadow Mapping Instancing shader.
+ * */
+sg_shader OEGetDefShadowInstShader();
+/**
+ * @brief Get the current running render mode I.E. NORMAL/SHADOW
+ * */
+enum RenderMode OEGetCurrentRenderMode();
+/**
  * @brief Set the default OE shader, this will overrite from simple.glsl.
  *
  * @param shader The shader you are setting as default.
@@ -716,11 +747,25 @@ unsigned int OEIsVulkan();
  * */
 _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType camType);
 /**
+ * @brief Initializes and enables OE shadow mapping into the shadow map buffer.
+ *
+ * @param pos The camera position
+ * @param target the position at which the camera is looking.
+ * */
+void OEEnableShadowCast(vec3 pos, vec3 target, vec2 angle);
+/**
+ * @brief Disable shadow mapping.
+ * */
+void OEDisableShadowCast();
+/**
  * @brief Initializes the OE Camera System as PERSPECTIVE or ISOMETRIC.
  *
+ * @param cam The camera structure to fill.
  * @param camType The type of camera projection you want (PERSPECTIVE, ISOMETRIC).
+ * @param pos The camera's 3D position.
+ * @param target The position at which the camera is looking.
  * */
-void OEInitCamera(enum CamType camType);
+void OEInitCamera(Camera *cam, enum CamType camType, vec3 pos, vec3 target, vec2 angle);
 /**
  * @brief Move the camera Forward, Backward, Up, Down, Left, and Right.
  *
@@ -785,6 +830,10 @@ _OE_PURE SDL_MouseButtonEvent *OEGetMouseEvent();
  * @brief Set the window to fullscreen.
  * */
 void OESetWindowFullscreen();
+/**
+ * @brief Set the window to windowed mode.
+ * */
+void OESetWindowWindowed(); 
 /**
  * @brief Set the window to fake fullscreen, just takes up the desktop space.
  * */
@@ -1051,7 +1100,7 @@ _OE_PRIVATE void OECheckOEViews(OEViews *views) {
 		OECheckViewState(views->cNormalBuffer);
 		OECheckViewState(views->cPositionBuffer);
 		OECheckViewState(views->cNoiseBuffer);
-		OECheckViewState(views->cPrevFrameBuffer);
+		OECheckViewState(views->cShadowBuffer);
 		OECheckViewState(views->cPostTarget);
 		OECheckViewState(views->cPostTargetPong);
 		OECheckViewState(views->tRenderTarget);
@@ -1059,7 +1108,7 @@ _OE_PRIVATE void OECheckOEViews(OEViews *views) {
 		OECheckViewState(views->tNormalBuffer);
 		OECheckViewState(views->tPositionBuffer);
 		OECheckViewState(views->tNoiseBuffer);
-		OECheckViewState(views->tPrevFrameBuffer);
+		OECheckViewState(views->tShadowBuffer);
 		OECheckViewState(views->tPostTarget);
 		OECheckViewState(views->tPostTargetPong);
 	}
@@ -1073,7 +1122,7 @@ _OE_PRIVATE void OEDestroyViews(OEViews *views) {
 		sg_destroy_view(views->cNormalBuffer);	
 		sg_destroy_view(views->cPositionBuffer);	
 		sg_destroy_view(views->cNoiseBuffer);	
-		sg_destroy_view(views->cPrevFrameBuffer);	
+		sg_destroy_view(views->cShadowBuffer);	
 		sg_destroy_view(views->cPostTarget);	
 		sg_destroy_view(views->cPostTargetPong);	
 		sg_destroy_view(views->tRenderTarget);	
@@ -1081,7 +1130,7 @@ _OE_PRIVATE void OEDestroyViews(OEViews *views) {
 		sg_destroy_view(views->tNormalBuffer);	
 		sg_destroy_view(views->tPositionBuffer);	
 		sg_destroy_view(views->tNoiseBuffer);	
-		sg_destroy_view(views->tPrevFrameBuffer);	
+		sg_destroy_view(views->tShadowBuffer);	
 		sg_destroy_view(views->tPostTarget);	
 		sg_destroy_view(views->tPostTargetPong);	
 	}
@@ -1178,8 +1227,10 @@ _OE_PRIVATE void OEQSortIBatch() {
 
 _OE_PRIVATE void OEClearInstanceBatchData() {
 	int i;
-	for(i=0;i<globalRenderer->iBatchSize;i++)
+	for(i=0;i<globalRenderer->iBatchSize;i++) {
 		globalRenderer->iBatches[i].size = 0;
+		globalRenderer->iBatches[i].instancingUpdates = 0;
+	}
 }
 
 #ifdef _OE_VULKAN

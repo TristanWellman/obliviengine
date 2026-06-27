@@ -52,13 +52,21 @@ ifeq ($(UNAME_S),FreeBSD)
 endif
 ifeq ($(UNAME_S),Darwin)
 	BACKEND= -DSOKOL_GLCORE
-	LIB= lib/mac/libOE.a
-	CFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0
-	CIMGUI_CXXFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0
-	LDFLAGS += -Llib/mac -ldl -lSDL2 -lcimgui -lassimp -llua -framework Cocoa -framework OpenGL 
-	SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
-	CIMGUI_LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
-	CIMGUI_LOC = lib/mac/libcimgui.a
+	ifeq ($(UNAME_M),x86_64)
+		LIB= lib/mac/intel/libOE.a
+		CFLAGS += $(ARCHTUNES) -mmacosx-version-min=11.0
+		CIMGUI_CXXFLAGS += $(ARCHTUNES) -mmacosx-version-min=11.0
+		SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
+		CIMGUI_LDFLAGS += -Llib/mac/intel -ldl -lSDL2 -framework Cocoa -framework OpenGL
+		CIMGUI_LOC = lib/mac/intel/libcimgui.a
+	else
+		LIB= lib/mac/libOE.a
+		CFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0
+		CIMGUI_CXXFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0
+		SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
+		CIMGUI_LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
+		CIMGUI_LOC = lib/mac/libcimgui.a
+	endif
 endif
 
 ifeq ($(OS),Windows_NT)
@@ -142,6 +150,8 @@ shaders:
 	$(SHDC) --input shaders/ssao.glsl --output include/OE/ssao.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/ssgi.glsl --output include/OE/ssgi.glsl.h $(SHADER_ARGS)
 	$(SHDC) --input shaders/denoise.glsl --output include/OE/denoise.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/shadow.glsl --output include/OE/shadow.glsl.h $(SHADER_ARGS)
+	$(SHDC) --input shaders/shadowInst.glsl --output include/OE/shadowInst.glsl.h $(SHADER_ARGS)
 
 shaders_clean:
 	rm include/OE/*.glsl.h

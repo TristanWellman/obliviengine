@@ -232,6 +232,7 @@ OEIsMousePressed :: () -> s32 #foreign OE;
 OEIsMouseRepeating :: () -> s32 #foreign OE;
 OEGetMouseEvent :: () -> *SDL_MouseButtonEvent #foreign OE;
 OESetWindowFullscreen :: () #foreign OE;
+OESetWindowWindowed :: () #foreign OE;
 OESetWindowFullscreenDesktop :: () #foreign OE;
 OESetWindowBorderless :: () #foreign OE;
 OESetWindowUsableScreen :: () #foreign OE;

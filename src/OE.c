@@ -84,6 +84,7 @@ _OE_HOT void OECreateInstanceBatch(Object *obj) {
 	
 	globalRenderer->iBatches[globalRenderer->iBatchSize].obj = obj;
 	globalRenderer->iBatches[globalRenderer->iBatchSize].size = 0;
+	globalRenderer->iBatches[globalRenderer->iBatchSize].instancingUpdates = 0;
 	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr0 = calloc(INSTMAX, sizeof(vec4));
 	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr1 = calloc(INSTMAX, sizeof(vec4));
 	globalRenderer->iBatches[globalRenderer->iBatchSize].instModelsr2 = calloc(INSTMAX, sizeof(vec4));
@@ -408,10 +409,6 @@ void OECreateMeshFromAssimp(char *name, char *path, vec3 pos, int flag, int fSiz
 	aiReleaseImport(scene);
 }
 
-void createObjPipe() {
-
-}
-
 void OESetObjectPosition(char *ID, vec3 position) {
 	Object *obj = OEGetObjectFromName(ID);
 	if(obj!=NULL) {
@@ -460,36 +457,60 @@ void setObjectShader(char *name, sg_shader shd) {
 
 /*This is specifically for the default shader*/
 void OEApplyCurrentUniforms(Object *obj) {
-	vs_params_t vs_params = {.tick = OEGetTick()};
-	fs_params_t fs_params = {.numLights = getNumLights()};
-	light_params_t light_params = getLightUniform();
+	switch(globalRenderer->renderMode) {
+		case NORMAL: {
+			vs_params_t vs_params = {.tick = OEGetTick()};
+			fs_params_t fs_params = {.numLights = getNumLights()};
+			light_params_t light_params = getLightUniform();
 
-    mat4x4 mvp, mv;
-    mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
-    mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
+			mat4x4 mvp, mv;
+			mat4x4_mul(mv, globalRenderer->cam.view, obj->model);
+			mat4x4_mul(mvp, globalRenderer->cam.proj, mv);
 
-	Camera *cam = OEGetCamera();
-    //memcpy(vs_params.mvp, mvp, sizeof(mvp));
-	memcpy(vs_params.model, obj->model, sizeof(obj->model));
-	memcpy(vs_params.view, cam->view, sizeof(cam->view));
-	memcpy(vs_params.proj, cam->proj, sizeof(cam->proj));
-	memcpy(fs_params.camPos, cam->position, sizeof(cam->position));
+			Camera *cam = OEGetCamera();
+			Camera *shadow = &globalRenderer->shadowCam;
 
-	if(globalRenderer->graphicsSetting>OE_LOW_GRAPHICS) {
-		sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
-		sg_apply_uniforms(UB_fs_params, &SG_RANGE(fs_params));
-		sg_apply_uniforms(UB_light_params, &SG_RANGE(light_params));
-	} else {
-		OELOW_vs_params_t vslow;
-		OELOW_fs_params_t fslow;
-		OELOW_light_params_t lightlow;
-		memcpy(&vslow, &vs_params, sizeof(vslow));
-		memcpy(&fslow, &fs_params, sizeof(fslow));
-		memcpy(&lightlow, &light_params, sizeof(lightlow));
-		sg_apply_uniforms(UB_OELOW_vs_params, &SG_RANGE(vslow));
-		sg_apply_uniforms(UB_OELOW_fs_params, &SG_RANGE(fslow));
-		sg_apply_uniforms(UB_OELOW_light_params, &SG_RANGE(lightlow));
-	}
+			//memcpy(vs_params.mvp, mvp, sizeof(mvp));
+			memcpy(vs_params.model, obj->model, sizeof(obj->model));
+			memcpy(vs_params.view, cam->view, sizeof(cam->view));
+			memcpy(vs_params.proj, cam->proj, sizeof(cam->proj));
+			memcpy(fs_params.camPos, cam->position, sizeof(cam->position));
+			memcpy(vs_params.sunView, shadow->view, sizeof(shadow->view));
+			memcpy(vs_params.sunProj, shadow->proj, sizeof(shadow->proj));
+
+			if(globalRenderer->graphicsSetting>OE_LOW_GRAPHICS) {
+				sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+				sg_apply_uniforms(UB_fs_params, &SG_RANGE(fs_params));
+				sg_apply_uniforms(UB_light_params, &SG_RANGE(light_params));
+			} else {
+				OELOW_vs_params_t vslow;
+				OELOW_fs_params_t fslow;
+				OELOW_light_params_t lightlow;
+				memcpy(&vslow, &vs_params, sizeof(vslow));
+				memcpy(&fslow, &fs_params, sizeof(fslow));
+				memcpy(&lightlow, &light_params, sizeof(lightlow));
+				sg_apply_uniforms(UB_OELOW_vs_params, &SG_RANGE(vslow));
+				sg_apply_uniforms(UB_OELOW_fs_params, &SG_RANGE(fslow));
+				sg_apply_uniforms(UB_OELOW_light_params, &SG_RANGE(lightlow));
+			}
+			break;
+		}
+		case SHADOW: {
+			shadow_vs_params_t vs_params;
+			Camera *cam = &globalRenderer->shadowCam;
+
+			mat4x4 mvp, mv;
+			mat4x4_mul(mv, globalRenderer->shadowCam.view, obj->model);
+			mat4x4_mul(mvp, globalRenderer->shadowCam.proj, mv);
+
+			memcpy(vs_params.model, obj->model, sizeof(obj->model));
+			memcpy(vs_params.view, cam->view, sizeof(cam->view));
+			memcpy(vs_params.proj, cam->proj, sizeof(cam->proj));
+
+			sg_apply_uniforms(UB_vs_params, &SG_RANGE(vs_params));
+			break;
+		}
+	};
 }
 
 void *applyFXAAUniforms() {
@@ -540,25 +561,27 @@ _OE_HOT void OEDrawInstanceBatch(OEInstanceBatch *batch) {
 	}
 	if(batch->size<=0) return;
 
-	sg_update_buffer(batch->mbuf0, &(sg_range){
-				.ptr = batch->instModelsr0,
-				.size = (size_t)batch->size*sizeof(vec4)
-	});
-	sg_update_buffer(batch->mbuf1, &(sg_range){
-				.ptr = batch->instModelsr1,
-				.size = (size_t)batch->size*sizeof(vec4)
-	});
-	sg_update_buffer(batch->mbuf2, &(sg_range){
-				.ptr = batch->instModelsr2,
-				.size = (size_t)batch->size*sizeof(vec4)
-	});
-	sg_update_buffer(batch->mbuf3, &(sg_range){
-				.ptr = batch->instModelsr3,
-				.size = (size_t)batch->size*sizeof(vec4)
-	});
+	if(batch->instancingUpdates<1) {
+		sg_update_buffer(batch->mbuf0, &(sg_range){
+					.ptr = batch->instModelsr0,
+					.size = (size_t)batch->size*sizeof(vec4)
+		});
+		sg_update_buffer(batch->mbuf1, &(sg_range){
+					.ptr = batch->instModelsr1,
+					.size = (size_t)batch->size*sizeof(vec4)
+		});
+		sg_update_buffer(batch->mbuf2, &(sg_range){
+					.ptr = batch->instModelsr2,
+					.size = (size_t)batch->size*sizeof(vec4)
+		});
+		sg_update_buffer(batch->mbuf3, &(sg_range){
+					.ptr = batch->instModelsr3,
+					.size = (size_t)batch->size*sizeof(vec4)
+		});
+	}
 
 	sg_apply_pipeline(globalRenderer->iBatchPipe);
-    sg_apply_bindings(&(sg_bindings){
+	sg_bindings bindings = (sg_bindings) {
         .vertex_buffers[0] = batch->obj->vbuf,
 		.vertex_buffers[1] = batch->mbuf0,
 		.vertex_buffers[2] = batch->mbuf1,
@@ -567,10 +590,15 @@ _OE_HOT void OEDrawInstanceBatch(OEInstanceBatch *batch) {
         .index_buffer = batch->obj->ibuf,
 		.views[OE_TEXPOS] = OEGetDefaultTexture(),
         .samplers[OE_TEXPOS] = globalRenderer->sampler
-    });
+	};
+	if(globalRenderer->renderMode == NORMAL) {
+		bindings.views[5] = globalRenderer->views.tShadowBuffer;
+    	sg_apply_bindings(&bindings);
+	} else sg_apply_bindings(&bindings);
 
 	OEApplyCurrentUniforms(batch->obj);
     sg_draw(0, batch->obj->numIndices, (int)batch->size);
+	batch->instancingUpdates++;
 }
 
 _OE_HOT void OEDrawInstanceBatchTex(OEInstanceBatch *batch,
@@ -581,37 +609,45 @@ _OE_HOT void OEDrawInstanceBatchTex(OEInstanceBatch *batch,
 	}
 	if(batch->size<=0) return;
 
-	sg_update_buffer(batch->mbuf0, &(sg_range){
-				.ptr = batch->instModelsr0,
-				.size = (size_t)batch->size*sizeof(vec4)
-	});
-	sg_update_buffer(batch->mbuf1, &(sg_range){
-				.ptr = batch->instModelsr1,
-				.size = (size_t)batch->size*sizeof(vec4)
-	});
-	sg_update_buffer(batch->mbuf2, &(sg_range){
-				.ptr = batch->instModelsr2,
-				.size = (size_t)batch->size*sizeof(vec4)
-	});
-	sg_update_buffer(batch->mbuf3, &(sg_range){
-				.ptr = batch->instModelsr3,
-				.size = (size_t)batch->size*sizeof(vec4)
-	});
+
+	if(batch->instancingUpdates<1) {
+		sg_update_buffer(batch->mbuf0, &(sg_range){
+					.ptr = batch->instModelsr0,
+					.size = (size_t)batch->size*sizeof(vec4)
+		});
+		sg_update_buffer(batch->mbuf1, &(sg_range){
+					.ptr = batch->instModelsr1,
+					.size = (size_t)batch->size*sizeof(vec4)
+		});
+		sg_update_buffer(batch->mbuf2, &(sg_range){
+					.ptr = batch->instModelsr2,
+					.size = (size_t)batch->size*sizeof(vec4)
+		});
+		sg_update_buffer(batch->mbuf3, &(sg_range){
+					.ptr = batch->instModelsr3,
+					.size = (size_t)batch->size*sizeof(vec4)
+		});
+	}
 
 	sg_apply_pipeline(globalRenderer->iBatchPipe);
-    sg_apply_bindings(&(sg_bindings){
-		.vertex_buffers[0] = batch->obj->vbuf,
+	sg_bindings bindings = (sg_bindings) {
+        .vertex_buffers[0] = batch->obj->vbuf,
 		.vertex_buffers[1] = batch->mbuf0,
 		.vertex_buffers[2] = batch->mbuf1,
 		.vertex_buffers[3] = batch->mbuf2,
 		.vertex_buffers[4] = batch->mbuf3,
         .index_buffer = batch->obj->ibuf,
-		.views[3] = texture,
-        .samplers[3] = globalRenderer->sampler
-    });
+		.views[OE_TEXPOS] = texture,
+        .samplers[OE_TEXPOS] = globalRenderer->sampler
+	};
+	if(globalRenderer->renderMode == NORMAL) {
+		bindings.views[5] = globalRenderer->views.tShadowBuffer;
+    	sg_apply_bindings(&bindings);
+	} else sg_apply_bindings(&bindings);
 
 	OEApplyCurrentUniforms(batch->obj);
     sg_draw(0, batch->obj->numIndices, (int)batch->size);
+	batch->instancingUpdates++;
 }
 
 
@@ -624,13 +660,16 @@ _OE_HOT void OEDrawObject(Object *obj) {
 	runObjLuaScript(obj);
 
     sg_apply_pipeline(obj->pipe);
-    sg_apply_bindings(&(sg_bindings){
+	sg_bindings bindings = (sg_bindings) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
 		.views[OE_TEXPOS] = OEGetDefaultTexture(),
         .samplers[OE_TEXPOS] = globalRenderer->sampler
-
-    });
+	};
+	if(globalRenderer->renderMode == NORMAL) {
+		bindings.views[5] = globalRenderer->views.tShadowBuffer;
+    	sg_apply_bindings(&bindings);
+	} else sg_apply_bindings(&bindings);
 
 	OEApplyCurrentUniforms(obj);
     sg_draw(0, obj->numIndices, 1);
@@ -661,12 +700,16 @@ _OE_HOT void OEDrawObjectTex(Object *obj, int assign, sg_view texture) {
 	runObjLuaScript(obj);
 
     sg_apply_pipeline(obj->pipe);
-    sg_apply_bindings(&(sg_bindings){
+	sg_bindings bindings = (sg_bindings) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.views[3] = texture,
-        .samplers[3] = globalRenderer->sampler
-    });
+		.views[OE_TEXPOS] = texture,
+        .samplers[OE_TEXPOS] = globalRenderer->sampler
+	};
+	if(globalRenderer->renderMode == NORMAL) {
+		bindings.views[5] = globalRenderer->views.tShadowBuffer;
+    	sg_apply_bindings(&bindings);
+	} else sg_apply_bindings(&bindings);
 
 	OEApplyCurrentUniforms(obj);
     sg_draw(0, obj->numIndices, 1);
@@ -681,12 +724,16 @@ void OEDrawObjectEx(Object *obj, UNILOADER apply_uniforms) {
 	runObjLuaScript(obj);
 
     sg_apply_pipeline(obj->pipe);
-    sg_apply_bindings(&(sg_bindings){
+	sg_bindings bindings = (sg_bindings) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
 		.views[OE_TEXPOS] = OEGetDefaultTexture(),
         .samplers[OE_TEXPOS] = globalRenderer->sampler
-    });
+	};
+	if(globalRenderer->renderMode == NORMAL) {
+		bindings.views[5] = globalRenderer->views.tShadowBuffer;
+    	sg_apply_bindings(&bindings);
+	} else sg_apply_bindings(&bindings);
 
 	apply_uniforms();
 
@@ -703,12 +750,16 @@ void OEDrawObjectTexEx(Object *obj, int assign,
 	runObjLuaScript(obj);
 
     sg_apply_pipeline(obj->pipe);
-    sg_apply_bindings(&(sg_bindings){
+	sg_bindings bindings = (sg_bindings) {
         .vertex_buffers[0] = obj->vbuf,
         .index_buffer = obj->ibuf,
-		.views[3] = texture,
-        .samplers[3] = globalRenderer->sampler
-    });
+		.views[OE_TEXPOS] = texture,
+        .samplers[OE_TEXPOS] = globalRenderer->sampler
+	};
+	if(globalRenderer->renderMode == NORMAL) {
+		bindings.views[5] = globalRenderer->views.tShadowBuffer;
+    	sg_apply_bindings(&bindings);
+	} else sg_apply_bindings(&bindings);
 
 	apply_uniforms();
 
@@ -817,7 +868,7 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Normal Buffer*/
 				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Position Buffer*/
 				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Noise Buffer*/
-				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Previous Frame Buffer*/
+				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Shadow Frame Buffer*/
 			},
 			.colors[0].blend = (sg_blend_state){
 				.enabled = true,
@@ -882,7 +933,7 @@ sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label) {
 				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Normal Buffer*/
 				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Position Buffer*/
 				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Noise Buffer*/
-				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Previous Frame Buffer*/
+				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Shadow Frame Buffer*/
 			},
 			.colors[0].blend = (sg_blend_state){
 				.enabled = true,
@@ -944,6 +995,18 @@ sg_shader OEGetDefCubeShader() {
 
 sg_shader OEGetDefInstShader() {
 	return globalRenderer->originalIBatchShader;
+}
+
+sg_shader OEGetDefShadowShader() {
+	return globalRenderer->shadowMapShade;
+}
+
+sg_shader OEGetDefShadowInstShader() {
+	return globalRenderer->shadowMapInstShade;
+}
+
+enum RenderMode OEGetCurrentRenderMode() {
+	return globalRenderer->renderMode;
 }
 
 void OESetDefaultShader(sg_shader shader) {
@@ -1176,7 +1239,7 @@ void OESetRenderResolution(int w, int h) {
 	sg_destroy_image(globalRenderer->normalBuffer);
 	sg_destroy_image(globalRenderer->positionBuffer);
 	sg_destroy_image(globalRenderer->noiseBuffer);
-	sg_destroy_image(globalRenderer->prevFrameBuffer);
+	sg_destroy_image(globalRenderer->shadowBuffer);
 	OEDestroyViews(&globalRenderer->views);
 	globalRenderer->renderTarget = sg_make_image(&(sg_image_desc){
 		.usage.color_attachment = true,
@@ -1239,7 +1302,7 @@ void OESetRenderResolution(int w, int h) {
 		.sample_count = 1,
 		.label = "noise_image"
 	});
-	globalRenderer->prevFrameBuffer = sg_make_image(&(sg_image_desc){
+	globalRenderer->shadowBuffer = sg_make_image(&(sg_image_desc){
 		.usage.color_attachment = true,
     	.width = w, 
     	.height = h, 
@@ -1259,8 +1322,8 @@ void OESetRenderResolution(int w, int h) {
 		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->positionBuffer});
 	globalRenderer->views.cNoiseBuffer = 
 		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->noiseBuffer});
-	globalRenderer->views.cPrevFrameBuffer = 
-		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->prevFrameBuffer});
+	globalRenderer->views.cShadowBuffer = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->shadowBuffer});
 	globalRenderer->views.cPostTarget = 
 		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->postTarget});
 	globalRenderer->views.cPostTargetPong = 
@@ -1277,8 +1340,8 @@ void OESetRenderResolution(int w, int h) {
 		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->positionBuffer});
 	globalRenderer->views.tNoiseBuffer = 
 		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->noiseBuffer});
-	globalRenderer->views.tPrevFrameBuffer = 
-		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->prevFrameBuffer});
+	globalRenderer->views.tShadowBuffer = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->shadowBuffer});
 	globalRenderer->views.tPostTarget = 
 		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->postTarget});
 	globalRenderer->views.tPostTargetPong = 
@@ -1291,7 +1354,7 @@ void OESetRenderResolution(int w, int h) {
 		.colors[2] = globalRenderer->views.cNormalBuffer,
 		.colors[3] = globalRenderer->views.cPositionBuffer,
 		.colors[4] = globalRenderer->views.cNoiseBuffer,
-		.colors[5] = globalRenderer->views.cPrevFrameBuffer,
+		.colors[5] = globalRenderer->views.cNoiseBuffer,
 		.depth_stencil = depthDummyView};
 	
 	globalRenderer->postTargetAtt = (sg_attachments){
@@ -1300,8 +1363,13 @@ void OESetRenderResolution(int w, int h) {
 	globalRenderer->postTargetAttPong = (sg_attachments){
 		.colors[0] = globalRenderer->views.cPostTargetPong,
 		.depth_stencil = depthDummyView};
-	globalRenderer->prevFrameTarg = (sg_attachments){
-		.colors[0] = globalRenderer->views.cPrevFrameBuffer,
+	globalRenderer->shadowTarg = (sg_attachments){
+		.colors[0] = globalRenderer->views.cShadowBuffer,
+		.colors[1] = globalRenderer->views.cDepthBuffer,
+		.colors[2] = globalRenderer->views.cNormalBuffer,
+		.colors[3] = globalRenderer->views.cPositionBuffer,
+		.colors[4] = globalRenderer->views.cNoiseBuffer,
+		.colors[5] = globalRenderer->views.cRenderTarget,
 		.depth_stencil = depthDummyView};
 	globalRenderer->window->renderWidth = w;
 	globalRenderer->window->renderHeight = h;
@@ -1517,6 +1585,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->iBatchSize = 0;
 	globalRenderer->iBatches = calloc(globalRenderer->iBatchCap, sizeof(OEInstanceBatch));
 	globalRenderer->customPrePassing = NULL;
+	globalRenderer->shadowMapping = 0;
 	char *os = OEGETOS();
 	char *osclass = OEGETOSCLASS();
 	globalRenderer->OSInfo = calloc(strlen(os)+strlen(osclass)+128, sizeof(char));
@@ -1536,8 +1605,8 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 			"ERROR:: Failed to init SDL!");
 #ifndef OE_VULKAN
 	globalRenderer->isVulkan = 0;
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); 
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3); 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); 
 
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
@@ -1861,7 +1930,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.sample_count = 1,
 		.label = "noise_image"
 	});
-	globalRenderer->prevFrameBuffer = sg_make_image(&(sg_image_desc){
+	globalRenderer->shadowBuffer = sg_make_image(&(sg_image_desc){
 		.usage.color_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
@@ -1881,8 +1950,8 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->positionBuffer});
 	globalRenderer->views.cNoiseBuffer = 
 		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->noiseBuffer});
-	globalRenderer->views.cPrevFrameBuffer = 
-		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->prevFrameBuffer});
+	globalRenderer->views.cShadowBuffer = 
+		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->shadowBuffer});
 	globalRenderer->views.cPostTarget = 
 		sg_make_view(&(sg_view_desc){.color_attachment.image=globalRenderer->postTarget});
 	globalRenderer->views.cPostTargetPong = 
@@ -1900,8 +1969,8 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->positionBuffer});
 	globalRenderer->views.tNoiseBuffer = 
 		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->noiseBuffer});
-	globalRenderer->views.tPrevFrameBuffer = 
-		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->prevFrameBuffer});
+	globalRenderer->views.tShadowBuffer = 
+		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->shadowBuffer});
 	globalRenderer->views.tPostTarget = 
 		sg_make_view(&(sg_view_desc){.texture.image=globalRenderer->postTarget});
 	globalRenderer->views.tPostTargetPong = 
@@ -1918,7 +1987,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.colors[2] = globalRenderer->views.cNormalBuffer,
 		.colors[3] = globalRenderer->views.cPositionBuffer,
 		.colors[4] = globalRenderer->views.cNoiseBuffer,
-		.colors[5] = globalRenderer->views.cPrevFrameBuffer,
+		.colors[5] = globalRenderer->views.cNoiseBuffer,
 		.depth_stencil = depthDummyView};
 	
 	globalRenderer->postTargetAtt = (sg_attachments){
@@ -1927,8 +1996,13 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->postTargetAttPong = (sg_attachments){
 		.colors[0] = globalRenderer->views.cPostTargetPong,
 		.depth_stencil = depthDummyView};
-	globalRenderer->prevFrameTarg = (sg_attachments){
-		.colors[0] = globalRenderer->views.cPrevFrameBuffer,
+	globalRenderer->shadowTarg = (sg_attachments){
+		.colors[0] = globalRenderer->views.cShadowBuffer,
+		.colors[1] = globalRenderer->views.cDepthBuffer,
+		.colors[2] = globalRenderer->views.cNormalBuffer,
+		.colors[3] = globalRenderer->views.cPositionBuffer,
+		.colors[4] = globalRenderer->views.cNoiseBuffer,
+		.colors[5] = globalRenderer->views.cRenderTarget,
 		.depth_stencil = depthDummyView};
 
 	globalRenderer->sampler = sg_make_sampler(&(sg_sampler_desc){
@@ -1951,6 +2025,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		globalRenderer->renderTargetShade = sg_make_shader(quad_shader_desc(sg_query_backend()));
 		globalRenderer->cubeShader = sg_make_shader(simple_shader_desc(sg_query_backend()));
 		globalRenderer->lowDefCubeShader = sg_make_shader(simple_low_shader_desc(sg_query_backend()));
+		globalRenderer->shadowMapShade = sg_make_shader(shadow_shader_desc(sg_query_backend()));
 		if(globalRenderer->graphicsSetting<OE_HIGH_GRAPHICS)
 			OESetDefaultShader(globalRenderer->lowDefCubeShader);
 		else OESetDefaultShader(globalRenderer->cubeShader);
@@ -1973,6 +2048,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		globalRenderer->ppshaders.oert = sg_make_shader(OERT_shader_desc(sg_query_backend()));
 		sg_pipeline_desc oertpd = OEGetQuadPipeline(globalRenderer->ppshaders.oert, "oert");
 		globalRenderer->ppshaders.oertp = sg_make_pipeline(&oertpd);
+		
 	//} else {
 		/*TODO: Build GL 330 shaders*/
 	//	WLOG(WARN, "Using legacy fallback shaders");
@@ -1980,7 +2056,6 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 
 	sg_pipeline_desc rtp = OEGetQuadPipeline(globalRenderer->renderTargetShade, 
 			"render_target_pipe");
-
 	globalRenderer->renderTargetPipe = sg_make_pipeline(&rtp);
 
 	globalRenderer->renderTargetBuff = sg_make_buffer(&(sg_buffer_desc) {
@@ -1993,6 +2068,9 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	globalRenderer->iBatchPipe = sg_make_pipeline(&ibpd);
 	globalRenderer->originalIBatchShader = instShade;
 
+	globalRenderer->shadowMapInstShade = sg_make_shader(shadowInst_shader_desc(sg_query_backend())); 
+	sg_pipeline_desc smpd = OEGetInstancingPipe(globalRenderer->shadowMapInstShade, "shadowInstPipe");
+	globalRenderer->shadowMapInstPipe = sg_make_pipeline(&smpd); 
 /*
  * Init objects
  * */
@@ -2015,7 +2093,9 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 			.texture.image=sg_make_image(&img_desc)});
 
 
-	OEInitCamera(camType);
+	OEInitCamera(&globalRenderer->cam, camType,
+			(vec3){15.0f, 15.0f, 15.0f}, (vec3){0.0f, 0.0f, 0.0f}, (vec2){225.0f, -35.0f});
+	globalRenderer->camType = camType;
 
 	/*
 	 * Init Lua Scripting
@@ -2030,101 +2110,109 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	OEUIInit(&globalRenderer->oeuiData, __FILE__);
 }
 
-void OEInitCamera(enum CamType camType) {
-	globalRenderer->cam.oScale = 3.0f;
-	float oScale = globalRenderer->cam.oScale;
+void OEEnableShadowCast(vec3 pos, vec3 target, vec2 angle) {
+	globalRenderer->shadowMapping = 1;
+	OEInitCamera(&globalRenderer->shadowCam, ISOMETRIC, pos, target, angle);
+}
 
-	mat4x4_identity(globalRenderer->cam.model);
-	mat4x4_identity(globalRenderer->cam.view);
-	mat4x4_identity(globalRenderer->cam.proj);
-	mat4x4_identity(globalRenderer->cam.mvp);
-	mat4x4_identity(globalRenderer->cam.rotation);
+void OEDisableShadowCast() {
+	globalRenderer->shadowMapping = 1;
+}
 
-	vec3_dup(globalRenderer->cam.up, (vec3){0.0f, 1.0f, 0.0f});
-	globalRenderer->cam.fov = DEG2RAD(80.0f);
+void OEInitCamera(Camera *cam, enum CamType camType, vec3 pos, vec3 target, vec2 angle) {
+	cam->oScale = 3.0f;
+	float oScale = cam->oScale;
+
+	mat4x4_identity(cam->model);
+	mat4x4_identity(cam->view);
+	mat4x4_identity(cam->proj);
+	mat4x4_identity(cam->mvp);
+	mat4x4_identity(cam->rotation);
+
+	vec3_dup(cam->up, (vec3){0.0f, 1.0f, 0.0f});
+	cam->fov = DEG2RAD(80.0f);
 
 	float aspect = (float)globalRenderer->window->width / (float)globalRenderer->window->height;
-	globalRenderer->cam.aspect = aspect;
+	cam->aspect = aspect;
 	Vec3 tmp;
 
-	globalRenderer->camType = camType;
 	switch(camType) {
 		case ISOMETRIC: {
-			vec3_dup(globalRenderer->cam.position, (vec3){15.0f, 15.0f, 15.0f});
+			vec3_dup(cam->position, pos);
 
-			float angle_y = DEG2RAD(45.0f);
-			float angle_x = DEG2RAD(-30.0f);
+			float yaw = DEG2RAD(angle[0]);
+			float pitch = DEG2RAD(angle[1]);
 
-			globalRenderer->cam.front[0] = -1.0f; 
-			globalRenderer->cam.front[1] = -1.0f;
-			globalRenderer->cam.front[2] = -1.0f;
+			cam->front[0] = cosf(pitch)*sinf(yaw); 
+			cam->front[1] = sinf(pitch);
+			cam->front[2] = cosf(pitch)*cosf(yaw);
 
-			tmp = (Vec3){globalRenderer->cam.front[0],globalRenderer->cam.front[1],globalRenderer->cam.front[2]};
+			tmp = (Vec3){cam->front[0],cam->front[1],cam->front[2]};
 			tmp = WNORM(tmp);
-			VEC3TOVEC3F(tmp, globalRenderer->cam.front);
+			VEC3TOVEC3F(tmp, cam->front);
 
-			vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);
-			tmp = (Vec3){globalRenderer->cam.right[0],globalRenderer->cam.right[1],globalRenderer->cam.right[2]};
+			vec3_mul_cross(cam->right, cam->front, cam->up);
+			tmp = (Vec3){cam->right[0],cam->right[1],cam->right[2]};
 			tmp = WNORM(tmp);
-			VEC3TOVEC3F(tmp, globalRenderer->cam.right);
-			vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
+			VEC3TOVEC3F(tmp, cam->right);
+			vec3_mul_cross(cam->up, cam->right, cam->front);
 
-			vec3_dup(globalRenderer->cam.target, (vec3){0.0f,0.0f,0.0f});
-			mat4x4_look_at(globalRenderer->cam.view,
-			               globalRenderer->cam.position,
-			               globalRenderer->cam.target,
-			               globalRenderer->cam.up);
+			vec3_dup(cam->target, target);
+			mat4x4_look_at(cam->view,
+			               cam->position,
+			               cam->target,
+			               cam->up);
 #ifndef OE_VULKAN
-			mat4x4_ortho(globalRenderer->cam.proj, 
+			mat4x4_ortho(cam->proj, 
 			             -oScale * aspect, oScale * aspect, 
 			             -oScale, oScale, 
 			             0.1f, 80.0f);
 #else
-			mat4x4_ortho_vulkan(globalRenderer->cam.proj, 
+			mat4x4_ortho_vulkan(cam->proj, 
 			             -oScale * aspect, oScale * aspect, 
 			             -oScale, oScale, 
 			             0.1f, 80.0f);
 #endif
 
-			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.proj, globalRenderer->cam.view);
-			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.mvp, globalRenderer->cam.model);
+			mat4x4_mul(cam->mvp, cam->proj, cam->view);
+			mat4x4_mul(cam->mvp, cam->mvp, cam->model);
 
 			break;
 		}
 		case PERSPECTIVE: {
-			vec3_dup(globalRenderer->cam.position, (vec3){0.0f, 0.0f, 5.0f});
-			vec3_dup(globalRenderer->cam.target, (vec3){0.0f, 0.0f, 0.0f});
-			vec3_dup(globalRenderer->cam.front, (vec3){0.0f, 0.0f, -1.0f});
-			tmp = (Vec3){globalRenderer->cam.front[0],globalRenderer->cam.front[1],globalRenderer->cam.front[2]};
+			vec3_dup(cam->position, pos);
+			vec3_dup(cam->target, target);
+			vec3_dup(cam->front, (vec3){0.0f, 0.0f, -1.0f});
+			tmp = (Vec3){cam->front[0],cam->front[1],cam->front[2]};
 			tmp = WNORM(tmp);
-			VEC3TOVEC3F(tmp, globalRenderer->cam.front);
+			VEC3TOVEC3F(tmp, cam->front);
 			
-			vec3_mul_cross(globalRenderer->cam.right, globalRenderer->cam.front, globalRenderer->cam.up);
-			tmp = (Vec3){globalRenderer->cam.right[0],globalRenderer->cam.right[1],globalRenderer->cam.right[2]};
+			vec3_mul_cross(cam->right, cam->front, cam->up);
+			tmp = (Vec3){cam->right[0],cam->right[1],cam->right[2]};
 			tmp = WNORM(tmp);
-			VEC3TOVEC3F(tmp, globalRenderer->cam.right);
-			vec3_mul_cross(globalRenderer->cam.up, globalRenderer->cam.right, globalRenderer->cam.front);
-			tmp = (Vec3){globalRenderer->cam.up[0],globalRenderer->cam.up[1],globalRenderer->cam.up[2]};
+			VEC3TOVEC3F(tmp, cam->right);
+			vec3_mul_cross(cam->up, cam->right, cam->front);
+			tmp = (Vec3){cam->up[0],cam->up[1],cam->up[2]};
 			tmp = WNORM(tmp);
-			VEC3TOVEC3F(tmp, globalRenderer->cam.up);
+			VEC3TOVEC3F(tmp, cam->up);
 
 
-			mat4x4_look_at(globalRenderer->cam.view,
-			               globalRenderer->cam.position,
-			               globalRenderer->cam.target,
-			               globalRenderer->cam.up);
+			mat4x4_look_at(cam->view,
+			               cam->position,
+			               cam->target,
+			               cam->up);
 
-			mat4x4_perspective(globalRenderer->cam.proj,
-							   globalRenderer->cam.fov,
-							   globalRenderer->cam.aspect,
+			mat4x4_perspective(cam->proj,
+							   cam->fov,
+							   cam->aspect,
 							   0.1f, 100.0f);
 
-			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.proj, globalRenderer->cam.view);
-			mat4x4_mul(globalRenderer->cam.mvp, globalRenderer->cam.mvp, globalRenderer->cam.model);
+			mat4x4_mul(cam->mvp, cam->proj, cam->view);
+			mat4x4_mul(cam->mvp, cam->mvp, cam->model);
 
-			OEComputeRotationMatrix(globalRenderer->cam.rotation,
-				globalRenderer->cam.front, 
-				globalRenderer->cam.up);
+			OEComputeRotationMatrix(cam->rotation,
+				cam->front, 
+				cam->up);
 
 			break;
 		}
@@ -2287,6 +2375,10 @@ _OE_PURE SDL_MouseButtonEvent *OEGetMouseEvent() {
 
 void OESetWindowFullscreen() {
 	SDL_SetWindowFullscreen(globalRenderer->window->window, SDL_WINDOW_FULLSCREEN);
+}
+
+void OESetWindowWindowed() {
+	SDL_SetWindowFullscreen(globalRenderer->window->window, SDL_FALSE);
 }
 
 void OESetWindowFullscreenDesktop() {
@@ -2613,13 +2705,41 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 			.clear_value = 1.0f
 		}
 	};
+	sg_pass_action shadow_pass_action = (sg_pass_action) {
+		.colors[0].load_action = SG_LOADACTION_DONTCARE,
+		.colors[1].load_action = SG_LOADACTION_DONTCARE,
+		.colors[2].load_action = SG_LOADACTION_DONTCARE,
+		.colors[3].load_action = SG_LOADACTION_DONTCARE,
+		.colors[4].load_action = SG_LOADACTION_DONTCARE,
+		.colors[5].load_action = SG_LOADACTION_DONTCARE,
+		.depth = {
+			.load_action = SG_LOADACTION_DONTCARE,
+			.clear_value = 1.0f
+		}
+	};
 
 	if(globalRenderer->customPrePassing!=NULL) globalRenderer->customPrePassing();
 
-	/*Offscreen pass to the texture*/
-    sg_begin_pass(&(sg_pass){ .action = off_pass_action,
-			.attachments = globalRenderer->renderTargetAtt});
-	
+	if(globalRenderer->shadowMapping) {
+		sg_begin_pass(&(sg_pass){ .action = off_pass_action,
+				.attachments = globalRenderer->shadowTarg});
+		OESetDefaultShader(globalRenderer->shadowMapShade);
+		OESetDefaultInstancingShader(globalRenderer->shadowMapInstShade);
+		globalRenderer->renderMode = SHADOW;
+		drawCall();
+		sg_end_pass();
+		globalRenderer->renderMode = NORMAL;
+		OESetDefaultShader(globalRenderer->cubeShader);
+		OESetDefaultInstancingShader(globalRenderer->originalIBatchShader);
+	}
+
+	if(globalRenderer->shadowMapping) {
+		sg_begin_pass(&(sg_pass){ .action = off_pass_action,
+				.attachments = globalRenderer->renderTargetAtt});
+	} else {
+   		sg_begin_pass(&(sg_pass){ .action = off_pass_action,
+				.attachments = globalRenderer->renderTargetAtt});
+	}
 	drawCall();
 	sg_end_pass();
 
@@ -2653,7 +2773,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 			.views[2] = globalRenderer->views.tNormalBuffer,
 			.views[3] = globalRenderer->views.tPositionBuffer,
 			.views[4] = globalRenderer->views.tNoiseBuffer,
-			.views[5] = globalRenderer->views.tPrevFrameBuffer,
+			.views[5] = globalRenderer->views.tShadowBuffer,
 			.samplers[SMP_OEquad_smp] = globalRenderer->sampler,
 		});
 		if(globalRenderer->postPasses[i].uniformBind!=NULL) 
@@ -2671,22 +2791,6 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 
 		src = dst;
 		final = src;
-	}
-	
-	/*Get the previous frame into it's buffer
-	 * Previous frame storage is only on higher end graphics*/
-	if(globalRenderer->graphicsSetting>OE_LOW_GRAPHICS) {
-		post_pass_action.depth.load_action = SG_LOADACTION_DONTCARE;
-		sg_begin_pass(&(sg_pass){ .action = post_pass_action,
-				.attachments = globalRenderer->prevFrameTarg});
-		sg_apply_pipeline(globalRenderer->renderTargetPipe);
-		sg_apply_bindings(&(sg_bindings){
-			.vertex_buffers[0] = globalRenderer->renderTargetBuff,
-			.views[0] = final,
-			.samplers[0] = globalRenderer->sampler
-		});
-		sg_draw(0,6,1);
-		sg_end_pass();
 	}
 
 	/*OEUI pass*/

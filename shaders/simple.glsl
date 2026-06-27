@@ -1,7 +1,8 @@
 /* Copyright (c) 2025 Tristan Wellman
  * This is the DEFAULT shader for ObliviEngine.
  * Most default things for the engine require atleast these attributes in a shader.
- * 08/30/35 - Changed phong lighting to mix in some pbr functionality.
+ * 08/30/25 - Changed phong lighting to mix in some pbr functionality.
+ * 06/25/26 - Added shadow map shadows.
 */
 
 
@@ -23,6 +24,8 @@ layout(binding=0) uniform vs_params {
     mat4 model;
 	mat4 view;
 	mat4 proj;
+	mat4 sunView;
+	mat4 sunProj;
 };
 
 layout(binding=1) uniform light_params {
@@ -70,6 +73,7 @@ out vec3 fragPos;
 out vec3 viewSpacePos;
 out vec3 viewSpaceNorm;
 out vec2 texcoord;
+out vec4 shadowcoord;
 
 void main() {
     gl_Position = ((proj*view)*model) * vec4(position,1.0);
@@ -86,6 +90,9 @@ void main() {
 	texcoord.y = 1.0 - texcoord.y;
 #endif
 	time = tick;
+
+	vec4 lsPos = (sunProj*sunView)*vec4(fragPos,1.0);
+	shadowcoord = lsPos;
 }
 
 @end
@@ -94,6 +101,7 @@ void main() {
 @include_block uniforms
 
 layout(binding=3) uniform texture2D _texture;
+layout(binding=5) uniform texture2D _shadowTex;
 layout(binding=3) uniform sampler smp;
 
 in float time;
@@ -103,6 +111,7 @@ in vec3 fragPos;
 in vec3 viewSpacePos;
 in vec3 viewSpaceNorm;
 in vec2 texcoord;
+in vec4 shadowcoord;
 
 layout(location=0) out vec4 frag_color;
 layout(location=1) out vec4 depth_color;
@@ -117,8 +126,6 @@ float linearizeDepth(float depth) {
 }
 
 void depth() {
-	//float depth = linearizeDepth(gl_FragCoord.z)/far;
-	//depth_color = vec4(vec3(depth),1.0);
 	depth_color = vec4(vec3(gl_FragCoord.z),1.0);
 }
 
@@ -128,6 +135,21 @@ void normal_c() {
 
 void position() {
 	position_color = vec4(viewSpacePos,1.0);
+}
+
+float calcShadow() {
+	if(shadowcoord.w <= 0.0) return 1.0;
+	vec3 pc = shadowcoord.xyz/shadowcoord.w;
+	pc = pc * 0.5 + 0.5;
+	float closed = texture(sampler2D(_shadowTex, smp), pc.xy).r;
+	float curd = pc.z;
+	float bias = 0.0001;
+	float shadow = curd-bias>closed ? 0.0 : 1.0;
+	/*If I put these all in the same branch shdc freaks out?*/
+	if(pc.z>1.0) shadow = 1.0;
+	if(pc.z<0.0) shadow = 1.0;
+	if(pc.x<0.0||pc.x>1.0||pc.y<0.0||pc.y>1.0) shadow = 1.0;
+	return shadow;
 }
 
 /*Phong Lighting for simple shader*/
@@ -151,6 +173,7 @@ void main() {
 	
 	int activeLight = clamp(numLights,0,MAXLIGHTS);
 	int i;
+	float shadow = calcShadow();
     for(i=0;i<activeLight;i++) {
         vec3 lightPos = vec3(positions[i]);
 		
@@ -175,8 +198,8 @@ void main() {
         float spec = pow(max(dot(norm, WNORM(lightDir+viewDir)), 0.0), shininess);
         vec3 specular = lightColor*materialSpecular*spec*atten*0.8;
 		
-		ad += diffuse;
-		as += specular;
+		ad += diffuse*shadow;
+		as += specular*shadow;
     }
 	
 	vec3 hdr = ambient+ad*texcolor.rgb+as;

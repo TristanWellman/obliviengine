@@ -131,6 +131,8 @@ void main() {
 	GI = (GI/float(RAYS))*INTENSITY;
 	lowp float AO = ((float(hits)/float(RAYS)));
 	frag_color = vec4((col+GI)*AO,1.0);
+	/*testing prevFrame was just so I could see the shadow map*/
+	//frag_color = texture(sampler2D(OESSGI_prevFrame, OESSGI_smp), uv);
 	//frag_color = vec4(col*AO, 1.0);
 	//frag_color = vec4(vec3(pcol),1.0);
 	//frag_color = vec4(vec3(tpi*getRandom(vec2(i,2025))),1.0);
