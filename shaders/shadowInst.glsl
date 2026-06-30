@@ -14,7 +14,7 @@ layout(binding=0) uniform shadowInst_vs_params {
 };
 
 in vec3 position;
-in vec4 color0;
+in vec4 color;
 in vec3 normal0;
 in vec2 texcoord0;
 in vec4 instModelr0;
@@ -25,7 +25,12 @@ in vec4 instModelr3;
 void main() {
 	mat4 instModel = mat4(instModelr0, instModelr1, instModelr2, instModelr3);
 	vec4 pos = instModel*vec4(position, 1.0);
+	gl_Position = color*vec4(normal0,1.0)*vec4(texcoord0,1.0,1.0);
     gl_Position = (proj*view)*pos;
+#ifdef _OE_VULKAN
+    gl_Position.y *= -1.0;
+    gl_Position.z = (gl_Position.z+gl_Position.w)*0.5;
+#endif
 }
 @end
 

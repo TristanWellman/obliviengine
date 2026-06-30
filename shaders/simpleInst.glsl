@@ -150,7 +150,7 @@ float calcShadow() {
 	pc = pc * 0.5 + 0.5;
 	float closed = texture(sampler2D(instshadowTex, instsmp), pc.xy).r;
 	float curd = pc.z;
-	float bias = 0.0001;
+	float bias = 0.001;
 	float shadow = curd-bias>closed ? 0.0 : 1.0;
 	/*If I put these all in the same branch shdc freaks out?*/
 	if(pc.z>1.0) shadow = 1.0;

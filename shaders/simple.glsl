@@ -18,7 +18,6 @@
 #define MAXDIST 100.0
 #define EPSILON 0.001
 
-
 layout(binding=0) uniform vs_params {
 	float tick;
     mat4 model;
@@ -143,7 +142,7 @@ float calcShadow() {
 	pc = pc * 0.5 + 0.5;
 	float closed = texture(sampler2D(_shadowTex, smp), pc.xy).r;
 	float curd = pc.z;
-	float bias = 0.0001;
+	float bias = 0.001;
 	float shadow = curd-bias>closed ? 0.0 : 1.0;
 	/*If I put these all in the same branch shdc freaks out?*/
 	if(pc.z>1.0) shadow = 1.0;

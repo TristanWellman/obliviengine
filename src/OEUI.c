@@ -77,7 +77,7 @@ sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label) {
 		},
 		.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
 		.index_type = SG_INDEXTYPE_UINT16,
-		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.colors[0].blend = (sg_blend_state){
 			.enabled = true,
 			.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
@@ -92,7 +92,7 @@ sg_pipeline_desc OEUIGetFontPipe(sg_shader shader, char *label) {
 			.write_enabled = false,
         },
 		.label = label,
-#ifdef OE_VULKAN
+#if defined(OE_VULKAN) || defined(OE_METAL)
 			.face_winding = SG_FACEWINDING_CW
 #endif
 	};
@@ -142,7 +142,7 @@ void OEUISetFontSize(OEUIFont *font, int size) {
 		fclose(file);
 	}
 	unsigned char *atlas = calloc(OEUI_ATLASSIZE, sizeof(unsigned char));
-	float *scaledAtlas = calloc(OEUI_ATLASSIZE*4, sizeof(float));
+	uint16_t *scaledAtlas = calloc(OEUI_ATLASSIZE*4, sizeof(uint16_t));
 	stbtt_pack_context pc;
 	stbtt_pack_range pr;
 	memset(&pr, 0, sizeof(pr));
@@ -157,10 +157,16 @@ void OEUISetFontSize(OEUIFont *font, int size) {
 
 	int i;
 	for(i=0;i<OEUI_ATLASSIZE;i++) {
-		scaledAtlas[i*4] = 1.0f;
-		scaledAtlas[i*4+1] = 1.0f;
-		scaledAtlas[i*4+2] = 1.0f;
-		scaledAtlas[i*4+3] = (float)atlas[i]/255.0f;
+		scaledAtlas[i*4] = 0x3C00;
+		scaledAtlas[i*4+1] = 0x3C00;
+		scaledAtlas[i*4+2] = 0x3C00;
+
+		float alpha = (float)atlas[i]/255.0f;
+		uint32_t bits;
+		memcpy(&bits, &alpha, sizeof(float));
+		int32_t exp = ((bits>>23)&0xFF)-127;
+		uint32_t mant = bits&0x007FFFFF;
+		scaledAtlas[i*4+3] = (exp<=-15) ? 0 : (exp>=16) ? 0x7C00 : ((exp+15)<<10)|(mant>>13);
 	}
 	sg_image img = sg_query_view_image((sg_view){font->atlasTex.id});
 	sg_update_image(img, &(sg_image_data){
@@ -217,7 +223,7 @@ OEUIFont *OEUILoadFont(char *filePath, char *ID, int flag) {
 					.usage.immutable = false,
 					.usage.stream_update = true,
 					.width = OEUI_ATLASWID, .height = OEUI_ATLASHEI,
-					.pixel_format = SG_PIXELFORMAT_RGBA32F,
+					.pixel_format = SG_PIXELFORMAT_RGBA16F,
 					.label = ID
 	})});
 	sg_image img = sg_query_view_image((sg_view){res->atlasTex.id});
@@ -234,7 +240,7 @@ void OEUIApplyFontUniforms() {
 	font_params_t params;
 	int w=0,h=0;
 	OEGetWindowResolution(&w, &h);
-#ifdef OE_VULKAN
+#if defined(OE_VULKAN) || defined(OE_METAL)
 	mat4x4_ortho_vulkan(params.mvp, 0.0f, w, h, 0.0f, -1.0f, 1.0f);
 #else
 	mat4x4_ortho(params.mvp, 0.0f, w, h, 0.0f, -1.0f, 1.0f);

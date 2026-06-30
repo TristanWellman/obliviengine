@@ -789,7 +789,7 @@ _OE_PURE _OE_COLD sg_environment OEGetEnv() {
 #ifndef OE_VULKAN
 	return (sg_environment) {
 		.defaults = {
-			.color_format = SG_PIXELFORMAT_RGBA32F,
+			.color_format = SG_PIXELFORMAT_RGBA16F,
 			.depth_format = SG_PIXELFORMAT_DEPTH,
 			.sample_count = 1
 		},
@@ -797,7 +797,7 @@ _OE_PURE _OE_COLD sg_environment OEGetEnv() {
 #else
 	return (sg_environment) {
 		.defaults = {
-			.color_format = SG_PIXELFORMAT_RGBA32F,
+			.color_format = SG_PIXELFORMAT_RGBA16F,
 			.depth_format = SG_PIXELFORMAT_DEPTH,
 			.sample_count = 1,
 		},
@@ -818,7 +818,7 @@ _OE_COLD sg_swapchain OEGetSwapChain() {
 #ifndef OE_VULKAN
 	return (sg_swapchain) {
 		.sample_count = 1,
-		.color_format = SG_PIXELFORMAT_RGBA32F,
+		.color_format = SG_PIXELFORMAT_RGBA16F,
 		.depth_format = SG_PIXELFORMAT_DEPTH,
 		.width = w,
 		.height = h,
@@ -828,7 +828,7 @@ _OE_COLD sg_swapchain OEGetSwapChain() {
 	OEVKData *vk = globalRenderer->window->VK;
 	return (sg_swapchain) {
 		.sample_count = 1,
-		.color_format = SG_PIXELFORMAT_RGBA32F,
+		.color_format = SG_PIXELFORMAT_RGBA16F,
 		.depth_format = SG_PIXELFORMAT_DEPTH,
 		.width = w,
 		.height = h,
@@ -863,12 +863,12 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 			.sample_count = 1,
 			.color_count = 6,
 			.colors = {
-				[0] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Color Buffer*/
-				[1] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Depth Buffer*/
-				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Normal Buffer*/
-				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Position Buffer*/
-				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Noise Buffer*/
-				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Shadow Frame Buffer*/
+				[0] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Color Buffer*/
+				[1] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Depth Buffer*/
+				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Normal Buffer*/
+				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Position Buffer*/
+				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Noise Buffer*/
+				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}  /*Shadow Frame Buffer*/
 			},
 			.colors[0].blend = (sg_blend_state){
 				.enabled = true,
@@ -885,7 +885,7 @@ sg_pipeline_desc OEGetDefaultPipe(sg_shader shader, char *label) {
 				.write_enabled = true
         	},
 			.label = label,
-#ifdef OE_VULKAN
+#if defined(OE_VULKAN) || defined(OE_METAL)
 			.face_winding = SG_FACEWINDING_CCW
 #endif
 		};
@@ -928,12 +928,12 @@ sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label) {
 			.sample_count = 1,
 			.color_count = 6,
 			.colors = {
-				[0] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Color Buffer*/
-				[1] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Depth Buffer*/
-				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Normal Buffer*/
-				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Position Buffer*/
-				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}, /*Noise Buffer*/
-				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA32F}  /*Shadow Frame Buffer*/
+				[0] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Color Buffer*/
+				[1] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Depth Buffer*/
+				[2] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Normal Buffer*/
+				[3] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Position Buffer*/
+				[4] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}, /*Noise Buffer*/
+				[5] = {.pixel_format = SG_PIXELFORMAT_RGBA16F}  /*Shadow Frame Buffer*/
 			},
 			.colors[0].blend = (sg_blend_state){
 				.enabled = true,
@@ -950,7 +950,7 @@ sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label) {
 				.write_enabled = true
         	},
 			.label = label,
-#ifdef OE_VULKAN
+#if defined(OE_VULKAN) || defined(OE_METAL)
 			.face_winding = SG_FACEWINDING_CCW
 #endif
 		};
@@ -968,7 +968,7 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
 		.primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
 		.index_type = SG_INDEXTYPE_NONE,
 		.color_count = 1,
-		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.colors[0].pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.colors[0].blend = (sg_blend_state){
 			.enabled = true,
 			.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
@@ -983,7 +983,7 @@ sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label) {
 			.write_enabled = false,
         },
 		.label = label,
-#ifdef OE_VULKAN
+#if defined(OE_VULKAN) || defined(OE_METAL)
 			.face_winding = SG_FACEWINDING_CCW
 #endif
 	};
@@ -1171,12 +1171,12 @@ void OEComputeRotationMatrix(mat4x4 out, vec3 front, vec3 up) {
 
 int OEDumpSupportedPixelFormats() {
 	int ret = 1;
-	sg_pixelformat_info pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_RGBA32F);
-	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA32F: renderable");}
-	else {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA32F: un-renderable");ret=0;}
-	pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_RGBA32F);
-	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA32F: renderable");}
-	else {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA32F: un-renderable");ret=0;}
+	sg_pixelformat_info pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_RGBA16F);
+	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA16F: renderable");}
+	else {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA16F: un-renderable");ret=0;}
+	pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_RGBA16F);
+	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA16F: renderable");}
+	else {WLOG(PF_INFO, "SG_PIXELFORMAT_RGBA16F: un-renderable");ret=0;}
 	pfinfo = sg_query_pixelformat(SG_PIXELFORMAT_DEPTH);
 	if(pfinfo.render) {WLOG(PF_INFO, "SG_PIXELFORMAT_DEPTH: renderable");}
 	else {WLOG(PF_INFO, "SG_PIXELFORMAT_DEPTH: un-renderable");ret=0;}
@@ -1245,21 +1245,21 @@ void OESetRenderResolution(int w, int h) {
 		.usage.color_attachment = true,
 		.width = w,
 		.height = h,
-		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.label = "render_target"
 	});
 	globalRenderer->postTarget = sg_make_image(&(sg_image_desc){
 		.usage.color_attachment = true,
 		.width = w,
 		.height = h,
-		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.label = "post_target"
 	});
 	globalRenderer->postTargetPong = sg_make_image(&(sg_image_desc){
 		.usage.color_attachment = true,
 		.width = w,
 		.height = h,
-		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.label = "post_target_p"
 	});
 	globalRenderer->depthDummy = sg_make_image(&(sg_image_desc){
@@ -1274,7 +1274,7 @@ void OESetRenderResolution(int w, int h) {
 		.usage.color_attachment = true,
     	.width = w, 
     	.height = h, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "depth_image"
 	});
@@ -1282,7 +1282,7 @@ void OESetRenderResolution(int w, int h) {
 		.usage.color_attachment = true,
     	.width = w, 
     	.height = h, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "normal_image"
 	});
@@ -1290,7 +1290,7 @@ void OESetRenderResolution(int w, int h) {
 		.usage.color_attachment = true,
     	.width = w, 
     	.height = h, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "position_image"
 	});
@@ -1298,7 +1298,7 @@ void OESetRenderResolution(int w, int h) {
 		.usage.color_attachment = true,
     	.width = w, 
     	.height = h, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "noise_image"
 	});
@@ -1306,7 +1306,7 @@ void OESetRenderResolution(int w, int h) {
 		.usage.color_attachment = true,
     	.width = w, 
     	.height = h, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "previous_frame"
 	});
@@ -1373,6 +1373,9 @@ void OESetRenderResolution(int w, int h) {
 		.depth_stencil = depthDummyView};
 	globalRenderer->window->renderWidth = w;
 	globalRenderer->window->renderHeight = h;
+#ifdef OE_METAL
+	OEAdjustResolutionMetal(w, h);
+#endif
 }
 
 _OE_COLD void OEForceGraphicsSetting(int flag) {
@@ -1603,7 +1606,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 #endif	
 	WASSERT(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER)>=0,
 			"ERROR:: Failed to init SDL!");
-#ifndef OE_VULKAN
+#if !defined(OE_VULKAN) && !defined(OE_METAL)
 	globalRenderer->isVulkan = 0;
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3); 
@@ -1649,7 +1652,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	WLOG(INFO_VENDOR, glGetString(GL_VENDOR));
 	WLOG(INFO_GPU, glGetString(GL_RENDERER));
 	WLOG(INFO_DRIVER_VERSION, glGetString(GL_VERSION));
-#else 
+#elif defined(OE_VULKAN)
 	globalRenderer->isVulkan = 1;
 	globalRenderer->window->VK = calloc(1, sizeof(OEVKData));
 	SDL_Vulkan_LoadLibrary(NULL);
@@ -1813,13 +1816,22 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 
 	OEInitVKImages();
 	OEVKInitSemaphores();
+
+#elif defined(OE_METAL)
+
+	OEInitMetalRenderer(width, height, title);
+
 #endif
 /*
  * Sokol setup
  * */
 
 	sg_setup(&(sg_desc){
+#ifdef OE_METAL
+			.environment = OEGetEnvMetal(),
+#else
 			.environment = OEGetEnv(),
+#endif
 			.logger.func = slog_func,
 #ifdef OE_VULKAN
 			.vulkan.stream_staging_buffer_size = 64*1024*1024
@@ -1842,7 +1854,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
  * Cimgui Setup
  * */
 
-#ifndef OE_VULKAN
+#if !defined(OE_VULKAN) && !defined(OE_METAL)
 	igCreateContext(NULL);
 	globalRenderer->imgui.ioptr = igGetIO();
 	ImGuiIO *iotmp = globalRenderer->imgui.ioptr;
@@ -1853,6 +1865,12 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	if(!globalRenderer->legacy)
 		globalRenderer->igStat = (int)ImGui_ImplOpenGL3_Init("#version 410");
 	else globalRenderer->igStat = (int)ImGui_ImplOpenGL3_Init("#version 330");
+#elif defined(OE_METAL)
+	igCreateContext(NULL);
+	globalRenderer->imgui.ioptr = igGetIO();
+	ImGuiIO *iotmp = globalRenderer->imgui.ioptr;
+	ImGui_ImplSDL2_InitForMetal(globalRenderer->window->window);
+	globalRenderer->igStat = 0;
 #else
 	simgui_desc_t desc = {.logger.func = slog_func};
 	simgui_setup(&desc);
@@ -1872,7 +1890,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.usage.color_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.label = "render_target"
 	});
 
@@ -1880,14 +1898,14 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.usage.color_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.label = "post_target"
 	});
 	globalRenderer->postTargetPong = sg_make_image(&(sg_image_desc){
 		.usage.color_attachment = true,
 		.width = globalRenderer->window->width,
 		.height = globalRenderer->window->height,
-		.pixel_format = SG_PIXELFORMAT_RGBA32F,
+		.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.label = "post_target_p"
 	});
 	globalRenderer->depthDummy = sg_make_image(&(sg_image_desc){
@@ -1902,7 +1920,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.usage.color_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "depth_image"
 	});
@@ -1910,7 +1928,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.usage.color_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "normal_image"
 	});
@@ -1918,7 +1936,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.usage.color_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "position_image"
 	});
@@ -1926,7 +1944,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.usage.color_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "noise_image"
 	});
@@ -1934,7 +1952,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.usage.color_attachment = true,
     	.width = globalRenderer->window->width, 
     	.height = globalRenderer->window->height, 
-    	.pixel_format = SG_PIXELFORMAT_RGBA32F,
+    	.pixel_format = SG_PIXELFORMAT_RGBA16F,
 		.sample_count = 1,
 		.label = "previous_frame"
 	});
@@ -2094,7 +2112,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 
 
 	OEInitCamera(&globalRenderer->cam, camType,
-			(vec3){15.0f, 15.0f, 15.0f}, (vec3){0.0f, 0.0f, 0.0f}, (vec2){225.0f, -35.0f});
+			(vec3){15.0f, 15.0f, 15.0f}, (vec3){0.0f, 0.0f, 0.0f}, (vec2){225.0f, -35.0f}, 3.0f);
 	globalRenderer->camType = camType;
 
 	/*
@@ -2110,18 +2128,18 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	OEUIInit(&globalRenderer->oeuiData, __FILE__);
 }
 
-void OEEnableShadowCast(vec3 pos, vec3 target, vec2 angle) {
+void OEEnableShadowCast(vec3 pos, vec3 target, vec2 angle, float scale) {
 	globalRenderer->shadowMapping = 1;
-	OEInitCamera(&globalRenderer->shadowCam, ISOMETRIC, pos, target, angle);
+	OEInitCamera(&globalRenderer->shadowCam, ISOMETRIC, pos, target, angle, scale);
 }
 
 void OEDisableShadowCast() {
 	globalRenderer->shadowMapping = 1;
 }
 
-void OEInitCamera(Camera *cam, enum CamType camType, vec3 pos, vec3 target, vec2 angle) {
-	cam->oScale = 3.0f;
-	float oScale = cam->oScale;
+void OEInitCamera(Camera *cam, enum CamType camType, vec3 pos, vec3 target, vec2 angle, float scale) {
+	cam->oScale = scale;
+	float oScale = scale;
 
 	mat4x4_identity(cam->model);
 	mat4x4_identity(cam->view);
@@ -2162,7 +2180,7 @@ void OEInitCamera(Camera *cam, enum CamType camType, vec3 pos, vec3 target, vec2
 			               cam->position,
 			               cam->target,
 			               cam->up);
-#ifndef OE_VULKAN
+#if !defined(OE_VULKAN) && !defined(OE_METAL)
 			mat4x4_ortho(cam->proj, 
 			             -oScale * aspect, oScale * aspect, 
 			             -oScale, oScale, 
@@ -2231,7 +2249,7 @@ _OE_HOT void OEUpdateViewMat() {
 	} else if(globalRenderer->camType==ISOMETRIC) {
 		float aspect = (float)globalRenderer->window->width / (float)globalRenderer->window->height;
 		float oScale = globalRenderer->cam.oScale;
-#ifndef OE_VULKAN
+#if !defined(OE_VULKAN) && !defined(OE_METAL)
 		mat4x4_ortho(globalRenderer->cam.proj, 
 				-oScale * aspect, oScale * aspect, 
 				-oScale, oScale, 0.1f, 100.0f);
@@ -2497,6 +2515,10 @@ _OE_PURE float OEGetTick() {
 	return globalRenderer->tick;
 }
 
+void _OESetWindow(SDL_Window *window) {
+	globalRenderer->window->window = window;
+}
+
 _OE_PURE SDL_Window *OEGetWindow() {
 	return globalRenderer->window->window;
 }
@@ -2677,7 +2699,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	sg_pass_action pass_action = (sg_pass_action) {
        	.colors[0] = {
            	.load_action = SG_LOADACTION_CLEAR,
-       		.clear_value = {0.0f,0.0f,0.0f,0.0f}
+       		.clear_value = {0.0f,1.0f,0.0f,1.0f}
         },
 		.depth = {
 			.load_action = SG_LOADACTION_CLEAR,
@@ -2817,8 +2839,13 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	}
 
 	/*On-Screen main pass*/
+#if defined(OE_METAL)
+	sg_begin_pass(&(sg_pass){ .action = pass_action,
+			.swapchain = OEGetSwapChainMetal()});
+#else
 	sg_begin_pass(&(sg_pass){ .action = pass_action,
 			.swapchain = OEGetSwapChain()});
+#endif
 
 	sg_apply_pipeline(globalRenderer->renderTargetPipe);
 	sg_apply_bindings(&(sg_bindings){
@@ -2828,7 +2855,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	});
 	sg_draw(0,6,1);
 
-#ifndef OE_VULKAN /*sdtx doesn't work on Vulkan yet?*/
+#if !defined(OE_VULKAN) && !defined(OE_METAL) /*sdtx doesn't work on Vulkan yet?*/
 	if(globalRenderer->debug&&!globalRenderer->legacy&&!globalRenderer->disablesdtx) {
 		sdtx_canvas(globalRenderer->window->width * 0.5f, 
 				globalRenderer->window->height * 0.5f);
@@ -2868,8 +2895,11 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 
 	sg_commit();
 
-#ifndef OE_VULKAN
+#if !defined(OE_VULKAN) && !defined(OE_METAL)
 	SDL_GL_SwapWindow(globalRenderer->window->window);
+	if(globalRenderer->window->cursor!=NULL)
+		SDL_SetCursor(globalRenderer->window->cursor);
+#elif defined(OE_METAL)
 	if(globalRenderer->window->cursor!=NULL)
 		SDL_SetCursor(globalRenderer->window->cursor);
 #else 

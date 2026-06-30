@@ -9,8 +9,11 @@
 #	define OE_VULKAN 1
 #	include <vulkan/vulkan.h>
 #endif
+#ifdef _OE_METAL
+#	define OE_METAL 1
+#endif
 #undef GL_VERSION_4_2 /*Sokol "bug", it checks 4.2 instead of 4.1. Which is not noticable on OSX for 4.1, but on Linux or anything else it will crash*/
-#if defined(__APPLE__) && defined(__x86_64__)
+#if defined(__APPLE__) && defined(__x86_64__) && defined(SOKOL_GLCORE)
 #undef __APPLE__ /*On intel macs from like 2015 they don't have texbuf support, I guess sokol does not know this so it breaks*/
 #include <sokol/sokol_gfx.h>
 #define __APPLE__
@@ -673,9 +676,17 @@ sg_pipeline_desc OEGetInstancingPipe(sg_shader shader, char *label);
  * */
 sg_pipeline_desc OEGetQuadPipeline(sg_shader shader, char *label);
 /**
+ * @brief Get the Sokol Metal Backend environment.
+ * */
+_OE_COLD sg_environment OEGetEnvMetal();
+/**
  * @brief Get the Sokol/OpenGL environment.
  * */
 _OE_PURE _OE_COLD sg_environment OEGetEnv();
+/**
+ * @brief Get the OSX Metal sg_swapchain.
+ * */
+_OE_COLD sg_swapchain OEGetSwapChainMetal();
 /**
  * @brief Get the Sokol/OpenGL swapchain.
  * */
@@ -721,6 +732,13 @@ _OE_COLD void OEGetGLVersion(int *_OE_RESTRICT maj, int *_OE_RESTRICT min);
  * */
 _OE_COLD void OEGLFallbackInit();
 /**
+ * @brief Fixes the current Metal buffer resolution to the OE buffers.
+ *
+ * @param width The width of the screen.
+ * @param height The height of the screen.
+ * */
+void OEAdjustResolutionMetal(int width, int height);
+/**
  * @brief Set the render resolution.
  *
  * @param w The width in pixels.
@@ -738,6 +756,10 @@ _OE_COLD void OEForceGraphicsSetting(int flag);
  * */
 unsigned int OEIsVulkan();
 /**
+ * @brief Initialize the OE Metal renderer backend. This gets called in OEInitRenderer.
+ * */
+void OEInitMetalRenderer(int width, int height, char *title);
+/**
  * @brief This initializes the OE renderer (Sokol, SDL2, OpenGL), camera, and other renderer Objects.
  *
  * @param width The width in pixels for the window.
@@ -750,9 +772,10 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
  * @brief Initializes and enables OE shadow mapping into the shadow map buffer.
  *
  * @param pos The camera position
- * @param target the position at which the camera is looking.
+ * @param target The position at which the camera is looking.
+ * @param scale The orthographic scale.
  * */
-void OEEnableShadowCast(vec3 pos, vec3 target, vec2 angle);
+void OEEnableShadowCast(vec3 pos, vec3 target, vec2 angle, float scale);
 /**
  * @brief Disable shadow mapping.
  * */
@@ -764,8 +787,9 @@ void OEDisableShadowCast();
  * @param camType The type of camera projection you want (PERSPECTIVE, ISOMETRIC).
  * @param pos The camera's 3D position.
  * @param target The position at which the camera is looking.
+ * @param scale The orthographic scale / perspective FOV.
  * */
-void OEInitCamera(Camera *cam, enum CamType camType, vec3 pos, vec3 target, vec2 angle);
+void OEInitCamera(Camera *cam, enum CamType camType, vec3 pos, vec3 target, vec2 angle, float scale);
 /**
  * @brief Move the camera Forward, Backward, Up, Down, Left, and Right.
  *
@@ -894,6 +918,10 @@ _OE_PURE unsigned int OEGetFrameSwap();
  * @brief This gets the current tick, not tick speed.
  * */
 _OE_PURE float OEGetTick();
+/**
+ * @brief manually set the window.
+ * */
+void _OESetWindow(SDL_Window *window);
 /**
  * @brief Get the pointer to the OE SDL window.
  * */
@@ -1233,6 +1261,7 @@ _OE_PRIVATE void OEClearInstanceBatchData() {
 	}
 }
 
+
 #ifdef _OE_VULKAN
 _OE_PRIVATE VKAPI_ATTR VkBool32 VKAPI_CALL OEVKDebugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT level,
@@ -1241,7 +1270,18 @@ _OE_PRIVATE VKAPI_ATTR VkBool32 VKAPI_CALL OEVKDebugCallback(
 	WLOG(VK_DEBUG, callbackData->pMessage);
 	return VK_FALSE;
 }
+/*This is from sokol_app.h*/
+_OE_PRIVATE uint32_t OEVKGetMinImageCount(const VkSurfaceCapabilitiesKHR *surfCaps) {
+	WASSERT(surfCaps!=NULL, "Invalid OEVK surface capabilities!");
+	const uint32_t reqCount = 3;
+	uint32_t minCount = surfCaps->minImageCount;
+	if(minCount<reqCount) minCount = reqCount;
+	return minCount;
+}
+#endif
 
+
+#if defined(_OE_VULKAN) || defined(_OE_METAL)
 _OE_PRIVATE void mat4x4_ortho_vulkan(mat4x4 M, float left, float right, 
 		float bottom, float top, float near, float far) {
     mat4x4_identity(M);
@@ -1255,16 +1295,6 @@ _OE_PRIVATE void mat4x4_ortho_vulkan(mat4x4 M, float left, float right,
     M[3][1] = (top + bottom) / tb;
     M[3][2] = -near / fn;
 }
-
-/*This is from sokol_app.h*/
-_OE_PRIVATE uint32_t OEVKGetMinImageCount(const VkSurfaceCapabilitiesKHR *surfCaps) {
-	WASSERT(surfCaps!=NULL, "Invalid OEVK surface capabilities!");
-	const uint32_t reqCount = 3;
-	uint32_t minCount = surfCaps->minImageCount;
-	if(minCount<reqCount) minCount = reqCount;
-	return minCount;
-}
-
 #endif
 
 #ifdef __cplusplus

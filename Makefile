@@ -1,4 +1,4 @@
-CC= gcc
+CC= cc
 ARCHTUNES= -march=x86-64-v2 -mtune=generic
 ARMARCHTUNES= -march=armv8.5-a -mtune=apple-m1
 CFLAGS= -g -O3 -D_OE_INC -Iinclude -Iinclude/SDL/include -Iinclude/assimp/include -funroll-loops -fomit-frame-pointer 
@@ -27,6 +27,9 @@ CIMGUI_CXXFLAGS = -std=c++11 -O2 -fno-exceptions -fno-rtti -Wall \
 				  -Iinclude/cimgui -Iinclude/cimgui/imgui/backends
 CIMGUI_LOC = lib/libcimgui.a
 
+SRCS := $(wildcard src/*.c)
+OBJS := $(SRCS:.c=.o)
+
 ifeq ($(UNAME_S),Linux)
 	#SHDC_MACRO= --defines _OE_VULKAN
 	#BACKEND= -DSOKOL_VULKAN -D_OE_VULKAN
@@ -51,8 +54,8 @@ ifeq ($(UNAME_S),FreeBSD)
 	CIMGUI_LOC = lib/bsd/libcimgui.a
 endif
 ifeq ($(UNAME_S),Darwin)
-	BACKEND= -DSOKOL_GLCORE
 	ifeq ($(UNAME_M),x86_64)
+		BACKEND= -DSOKOL_GLCORE
 		LIB= lib/mac/intel/libOE.a
 		CFLAGS += $(ARCHTUNES) -mmacosx-version-min=11.0
 		CIMGUI_CXXFLAGS += $(ARCHTUNES) -mmacosx-version-min=11.0
@@ -60,8 +63,14 @@ ifeq ($(UNAME_S),Darwin)
 		CIMGUI_LDFLAGS += -Llib/mac/intel -ldl -lSDL2 -framework Cocoa -framework OpenGL
 		CIMGUI_LOC = lib/mac/intel/libcimgui.a
 	else
+		SHDC_MACRO= --defines _OE_VULKAN
+		BACKEND= -DSOKOL_METAL -D_OE_METAL
+		#BACKEND= -DSOKOL_GLCORE
 		LIB= lib/mac/libOE.a
-		CFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0
+		CFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0 -x objective-c
+		SRCS_METAL = $(wildcard src/*.m)
+		OBJS += $(SRCS_METAL:.m=.o)
+		SRCS += $(SRCS_METAL)
 		CIMGUI_CXXFLAGS += $(ARMARCHTUNES) -mmacosx-version-min=11.0
 		SHDC= sokol-tools-bin/bin/osx/sokol-shdc 
 		CIMGUI_LDFLAGS += -Llib/mac -ldl -lSDL2 -framework Cocoa -framework OpenGL 
@@ -86,9 +95,6 @@ ifeq ($(OS),Windows_NT)
 	BACKEND= -DSOKOL_GLCORE
 endif
 
-SRCS := $(wildcard src/*.c)
-OBJS := $(SRCS:.c=.o)
-
 # Check for OpenXR (Windows)
 OPENXRINC= C:/msys64/mingw64/include/openxr
 OPENXRLIB= C:/msys64/mingw64/lib
@@ -102,7 +108,7 @@ endif
 
 AR_ARGS= rcs $(LIB) $(COMMON_O)
 
-SHADER_ARGS= --format sokol --slang glsl410:spirv_vk $(SHDC_MACRO) 
+SHADER_ARGS= --format sokol --slang glsl410:spirv_vk:metal_macos $(SHDC_MACRO) 
 
 TEST_SRC= test
 
@@ -124,9 +130,13 @@ cimgui: $(CIMGUI_LOC)
 %.o: %.c
 	$(CC) $(CFLAGS) $(BACKEND) -c $< -o $@
 
+%.o: %.m
+	$(CC) $(CFLAGS) $(BACKEND) -c $< -o $@
+
 lib: $(LIB)
 
 $(LIB): $(OBJS)
+	echo "$(OBJS)"
 	$(AR) rcs $@ $^
 
 test:
