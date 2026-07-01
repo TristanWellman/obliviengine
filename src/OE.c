@@ -1672,7 +1672,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 	extNames[extCount++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 	extNames[extCount++] = VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME;
 
-	/*VkDebugUtilsMessengerCreateInfoEXT debugInfo = {
+	VkDebugUtilsMessengerCreateInfoEXT debugInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 		.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
@@ -1684,7 +1684,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.pUserData = NULL
 	};
 
-	const char *validationLayers[] = {"VK_LAYER_MESA_device_select"};*/
+	const char *validationLayers[] = {"VK_LAYER_MESA_device_select"};
 
 	globalRenderer->window->VK->appInfo = (VkApplicationInfo){
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -1699,23 +1699,23 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.pApplicationInfo = &globalRenderer->window->VK->appInfo,
 		.enabledExtensionCount = extCount,
 		.ppEnabledExtensionNames = extNames,
-		.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
-		/*.enabledLayerCount = 1,
+		.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR,
+		.enabledLayerCount = 1,
 		.ppEnabledLayerNames = validationLayers,
-		.pNext = &debugInfo*/
+		.pNext = &debugInfo
 	};
 
 	WASSERT(vkCreateInstance(&globalRenderer->window->VK->createInfo,
 				NULL, &globalRenderer->window->VK->instance)==VK_SUCCESS, 
 			"Failed to init Vulkan instance!");
 
-	/*PFN_vkCreateDebugUtilsMessengerEXT debugMessenger =
+	PFN_vkCreateDebugUtilsMessengerEXT debugMessenger =
 		(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(globalRenderer->window->VK->instance,
 				"vkCreateDebugUtilsMessengerEXT");
 	if(debugMessenger) {
 		debugMessenger(globalRenderer->window->VK->instance,
 				&debugInfo, NULL, &globalRenderer->window->VK->debugMessenger);
-	}*/
+	}
 
 	SDL_Vulkan_CreateSurface(globalRenderer->window->window,
 			globalRenderer->window->VK->instance, &globalRenderer->window->VK->images.surface);
@@ -1819,6 +1819,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 
 #elif defined(OE_METAL)
 
+	globalRenderer->isVulkan = 1;
 	OEInitMetalRenderer(width, height, title);
 
 #endif
@@ -2104,7 +2105,7 @@ _OE_COLD void OEInitRenderer(int width, int height, char *title, enum CamType ca
 		.height = 1,
 		.pixel_format = SG_PIXELFORMAT_RGBA8,
 		.data.mip_levels[0] = SG_RANGE(white),
-    	.label = "defTexture"
+    		.label = "defTexture"
 	};
 
 	globalRenderer->defTexture = sg_make_view(&(sg_view_desc){
@@ -2699,7 +2700,7 @@ _OE_HOT void OERenderFrame(RENDFUNC drawCall, RENDFUNC cimgui, RENDFUNC OEUI) {
 	sg_pass_action pass_action = (sg_pass_action) {
        	.colors[0] = {
            	.load_action = SG_LOADACTION_CLEAR,
-       		.clear_value = {0.0f,1.0f,0.0f,1.0f}
+       		.clear_value = {0.0f,0.0f,0.0f,1.0f}
         },
 		.depth = {
 			.load_action = SG_LOADACTION_CLEAR,

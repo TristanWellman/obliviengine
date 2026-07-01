@@ -46,12 +46,12 @@ _OE_COLD sg_environment OEGetEnvMetal() {
 	};
 } 
 
-void OEInitMetalRenderer(int width, int height, char *title) {
+void OEInitMetalRenderer(int w, int h, char *title) {
 	metalRenderer = calloc(1, sizeof(OEMetalRenderer));
 	 _OESetWindow(SDL_CreateWindow(
 			title,
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-			width, height,
+			w, h,
 			SDL_WINDOW_METAL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE));
 	SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK, "1");
 
@@ -62,21 +62,25 @@ void OEInitMetalRenderer(int width, int height, char *title) {
     metalRenderer->layer.magnificationFilter = kCAFilterNearest;
     metalRenderer->layer.framebufferOnly = true;	
 	metalRenderer->layer.pixelFormat = MTLPixelFormatRGBA16Float;
+	CGColorSpaceRef srgbSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+	metalRenderer->layer.colorspace = srgbSpace;
+	CGColorSpaceRelease(srgbSpace);
+
 	MTLTextureDescriptor *depthDescriptor = [MTLTextureDescriptor 
 		texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
-		width:width
-    	height:height
+		width:w
+    	height:h
         mipmapped:NO];
     depthDescriptor.storageMode = MTLStorageModePrivate;
     depthDescriptor.usage = MTLTextureUsageRenderTarget;
     metalRenderer->depthTexture = [metalRenderer->device newTextureWithDescriptor:depthDescriptor];
 }
 
-void OEAdjustResolutionMetal(int width, int height) {
+void OEAdjustResolutionMetal(int w, int h) {
 	MTLTextureDescriptor *depthDescriptor = [MTLTextureDescriptor 
 		texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
-		width:width
-    	height:height
+		width:w
+    	height:h
         mipmapped:NO];
     depthDescriptor.storageMode = MTLStorageModePrivate;
     depthDescriptor.usage = MTLTextureUsageRenderTarget;

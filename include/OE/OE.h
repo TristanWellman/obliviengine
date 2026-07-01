@@ -737,7 +737,7 @@ _OE_COLD void OEGLFallbackInit();
  * @param width The width of the screen.
  * @param height The height of the screen.
  * */
-void OEAdjustResolutionMetal(int width, int height);
+void OEAdjustResolutionMetal(int w, int h);
 /**
  * @brief Set the render resolution.
  *
@@ -758,7 +758,7 @@ unsigned int OEIsVulkan();
 /**
  * @brief Initialize the OE Metal renderer backend. This gets called in OEInitRenderer.
  * */
-void OEInitMetalRenderer(int width, int height, char *title);
+void OEInitMetalRenderer(int w, int h, char *title);
 /**
  * @brief This initializes the OE renderer (Sokol, SDL2, OpenGL), camera, and other renderer Objects.
  *

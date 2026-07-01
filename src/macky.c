@@ -77,8 +77,8 @@ mky_data *mky_init(char *filename) {
 
 void mky_close(mky_data *data) {
 	if(ptr&&data&&ptr==data) {
-		if(data->file) fclose(data->file);
-		if(data->filebuf) free(data->filebuf);
+		if(data->file) {fclose(data->file);data->file = NULL;}
+		if(data->filebuf) {free(data->filebuf); data->filebuf = NULL;}
 	}
 }
 
@@ -138,6 +138,7 @@ char *findData (char *section, char *itemName) {
 	int sec=0;
 	int datasec=0;
 	int item=0;
+	if(!mb->filebuf) return NULL;
 	for(i=0;i<mb->fsize;i++) {
 		/* check comments */
 		if(comment==1) {
